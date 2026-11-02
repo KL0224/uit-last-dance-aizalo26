@@ -1,0 +1,9 @@
+# Environment 
+.env 
+.venv
+
+# Large datasets
+data/raw
+
+# Ide agent 
+tasks
