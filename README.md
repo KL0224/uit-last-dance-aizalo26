@@ -133,8 +133,9 @@ Nếu máy cá nhân hoặc server GPU chưa có `uv`, cài đặt nhanh bằng 
 
 ## 5. Quy Chuẩn Đóng Góp & Làm Việc Nhóm
 
-Toàn bộ quy trình tạo nhánh, viết commit message, kiểm thử qua CI và triển khai huấn luyện trên các server GPU thuê đều tuân theo chuẩn đã được thống nhất tại:
-👉 **[Quy trình Quản lý Nhánh (Git Workflow) & CI/CD](docs/GIT_WORKFLOW.md)**
+Toàn bộ quy trình cộng tác, kiến trúc mã nguồn và kiểm thử đều được quy định chặt chẽ tại:
+* 👉 **[Quy trình Quản lý Nhánh (Git Workflow) & CI/CD](docs/GIT_WORKFLOW.md)**: Chiến lược phân nhánh, CI/CD trên GitHub Actions và hướng dẫn kéo code lên server GPU thuê.
+* 👉 **[Quy Chuẩn Lập Trình (Coding Conventions & Rules)](docs/CODING_CONVENTIONS.md)**: Chuẩn OOP, kế thừa Abstract Base Class, quy tắc đặt tên, type hints, cấu trúc thư mục mở rộng và ánh xạ theo Baseline B0 (Text-to-SQL).
 
 ---
 
