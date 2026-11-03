@@ -1,7 +1,19 @@
 [project]
 name = "uit-last-dance-aizalo26"
 version = "0.1.0"
-description = "Add your description here"
+description = "Zalo AI Challenge 2026 - Track 2: DataMate Agentic AI"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "duckdb>=1.0.0",
+    "sqlglot>=25.0.0",
+    "pydantic>=2.0.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "pyarrow>=15.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
