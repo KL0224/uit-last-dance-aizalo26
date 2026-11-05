@@ -1,7 +1,11 @@
 [project]
 name = "uit-last-dance-aizalo26"
 version = "0.1.0"
-description = "Add your description here"
+description = "Zalo AI Challenge 2026 - Track 2 DataMate"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
