@@ -7,16 +7,16 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from datamate.contracts import (
+from datamate.b0.b02.contracts import (
     BusinessRule,
     ColumnMetadata,
     JoinEdge,
     RuleCatalog,
     TableMetadata,
 )
-from datamate.rule_compiler import BusinessRuleCompiler
-from datamate.rule_resolver import RuleResolver
-from datamate.schema_catalog import SchemaCatalogBuilder
+from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
+from datamate.b0.b02.rule_resolver import RuleResolver
+from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
 
 
 class KeyEvidenceTests(unittest.TestCase):

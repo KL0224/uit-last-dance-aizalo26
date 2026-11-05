@@ -6,7 +6,7 @@ import sqlite3
 import unittest
 from dataclasses import replace
 
-from datamate.contracts import (
+from datamate.b0.b02.contracts import (
     ColumnMetadata,
     ContractBuilder,
     JoinEdge,
@@ -14,9 +14,9 @@ from datamate.contracts import (
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.rule_compiler import BusinessRuleCompiler
-from datamate.schema_catalog import SchemaCatalogBuilder
+from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
+from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
 
 
 class CompositeJoinTests(unittest.TestCase):
