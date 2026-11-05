@@ -41,4 +41,5 @@ class BusinessContextService:
             metadata.data_profiling,
             metadata.business_metadata,
             metadata.answerability_constraints,
+            metadata.normalized_data_handle,
         )

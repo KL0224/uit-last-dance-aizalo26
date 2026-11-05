@@ -105,12 +105,16 @@ class BusinessContext:
     business_metadata: dict[str, Any] | None = None
     answerability_constraints: dict[str, Any] | None = None
 
+    normalized_data_handle: dict[str, Any] | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable contract with explicit contract version."""
         payload = asdict(self)
         # Internal samples used for inference must never be copied into the downstream contract.
         for table in payload["schema_catalog"]["tables"]:
             table.pop("profile_rows", None)
+        if self.normalized_data_handle is None:
+            payload.pop("normalized_data_handle", None)
         return payload
 
 
@@ -125,6 +129,7 @@ class ContractBuilder:
         data_profiling: dict[str, Any] | None = None,
         business_metadata: dict[str, Any] | None = None,
         answerability_constraints: dict[str, Any] | None = None,
+        normalized_data_handle: dict[str, Any] | None = None,
     ) -> BusinessContext:
         """Build a business-scoped context and validate its internal references."""
         if not business_id.strip():
@@ -205,11 +210,12 @@ class ContractBuilder:
                             f"structured rule {rule.rule_id} references missing or ambiguous field {field_name!r}"
                         )
         return BusinessContext(
-            contract_version=CONTRACT_VERSION,
+            contract_version="1.1" if normalized_data_handle else CONTRACT_VERSION,
             business_id=business_id,
             schema_catalog=schema_catalog,
             rule_catalog=rule_catalog,
             data_profiling=data_profiling,
             business_metadata=business_metadata,
             answerability_constraints=answerability_constraints,
+            normalized_data_handle=normalized_data_handle,
         )

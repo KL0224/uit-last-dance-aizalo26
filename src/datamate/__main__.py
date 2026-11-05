@@ -15,6 +15,8 @@ from datamate.schema_catalog import SchemaCatalogBuilder
 
 def main(argv: list[str] | None = None) -> int:
     """Read metadata, build the contract, and write JSON to stdout."""
+    if (argv if argv is not None else sys.argv[1:])[:1] == ["prepare"]:
+        return prepare_main((argv if argv is not None else sys.argv[1:])[1:])
     parser = argparse.ArgumentParser(
         description="Prepare B01/B02 Business Context JSON"
     )
@@ -42,6 +44,42 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"DataMate metadata error: {exc}\n")
         return 1
     sys.stdout.write(payload + "\n")
+    return 0
+
+
+def prepare_main(argv: list[str]) -> int:
+    from datamate.ingestion import PreparationConfig, prepare_business
+
+    parser = argparse.ArgumentParser(
+        description="Prepare raw business files into DuckDB and context JSON"
+    )
+    parser.add_argument("--business-dir", required=True)
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--rulebook")
+    parser.add_argument("--calendar")
+    parser.add_argument(
+        "--config", help="JSON PreparationConfig, including source_overrides"
+    )
+    args = parser.parse_args(argv)
+    try:
+        from pathlib import Path
+
+        config = (
+            PreparationConfig(**json.loads(Path(args.config).read_text()))
+            if args.config
+            else None
+        )
+        result = prepare_business(
+            args.business_dir,
+            args.output_dir,
+            rulebook=args.rulebook,
+            calendar=args.calendar,
+            config=config,
+        )
+        print(json.dumps(result.to_dict(), ensure_ascii=False))
+    except (OSError, TypeError, ValueError) as exc:
+        sys.stderr.write(f"DataMate preparation error: {exc}\n")
+        return 1
     return 0
 
 

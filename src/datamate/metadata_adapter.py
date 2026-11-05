@@ -22,6 +22,7 @@ class FoundationMetadata:
     data_profiling: dict[str, Any] | None = None
     business_metadata: dict[str, Any] | None = None
     answerability_constraints: dict[str, Any] | None = None
+    normalized_data_handle: dict[str, Any] | None = None
 
 
 class BaseMetadataProvider(ABC):
@@ -56,11 +57,12 @@ class JSONMetadataProvider(BaseMetadataProvider):
                 "data_profiling",
                 "business_metadata",
                 "answerability_constraints",
+                "normalized_data_handle",
             },
             "metadata",
         )
-        if obj.get("metadata_version") != "1.0":
-            raise ValueError("metadata_version must be '1.0'")
+        if obj.get("metadata_version") not in {"1.0", "1.1"}:
+            raise ValueError("metadata_version must be '1.0' or '1.1'")
         if (
             not isinstance(obj.get("business_id"), str)
             or obj["business_id"] != business_id
@@ -69,6 +71,17 @@ class JSONMetadataProvider(BaseMetadataProvider):
             raise ValueError(
                 "producer metadata business_id does not match requested business"
             )
+        handle = obj.get("normalized_data_handle")
+        if handle is not None:
+            if obj["metadata_version"] != "1.1" or not isinstance(handle, dict):
+                raise ValueError("normalized_data_handle requires metadata 1.1")
+            if handle != {
+                "engine": "duckdb",
+                "sql_dialect": "duckdb",
+                "database": "data.duckdb",
+                "schema": "main",
+            }:
+                raise ValueError("unsupported normalized_data_handle")
         tables = tuple(_table(value) for value in _list(obj.get("tables"), "tables"))
         relationships = tuple(
             _relationship(value)
@@ -101,6 +114,7 @@ class JSONMetadataProvider(BaseMetadataProvider):
             obj.get("data_profiling"),
             obj.get("business_metadata"),
             obj.get("answerability_constraints"),
+            handle,
         )
 
 
