@@ -1,0 +1,19 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zaic-llm"
+version = "0.1.0"
+description = "Local LLM interface with an offline vLLM backend"
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+# Install only the extra needed for the machine's role. Importing llm itself
+# needs neither Hugging Face Hub nor the GPU inference stack.
+[project.optional-dependencies]
+download = ["huggingface-hub>=0.34,<2"]
+inference = ["vllm>=0.17,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/llm"]
