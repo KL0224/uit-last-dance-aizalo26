@@ -9,8 +9,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from datamate.contracts import BusinessRule, RuleCatalog, SchemaCatalog
-from datamate.rule_resolver import PRECEDENCE
+from .contracts import BusinessRule, RuleCatalog, SchemaCatalog
+from .rule_resolver import PRECEDENCE
 
 _SCOPE_PRECEDENCE = PRECEDENCE | {"unknown": 0}
 _FIELD_TOKEN = re.compile(r"`([^`]+)`")

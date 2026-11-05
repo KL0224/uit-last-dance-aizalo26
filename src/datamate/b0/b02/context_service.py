@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from datamate.contracts import BusinessContext, ContractBuilder
-from datamate.metadata_adapter import BaseMetadataProvider
-from datamate.rule_compiler import BusinessRuleCompiler
-from datamate.schema_catalog import SchemaCatalogBuilder
+from datamate.b0.b01.metadata_adapter import BaseMetadataProvider
+from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+
+from .contracts import BusinessContext, ContractBuilder
+from .rule_compiler import BusinessRuleCompiler
 
 
 class BusinessContextService:
@@ -42,3 +43,4 @@ class BusinessContextService:
             metadata.business_metadata,
             metadata.answerability_constraints,
         )
+

@@ -1,5 +1,5 @@
-"""DataMate semantic metadata components."""
+"""DataMate semantic metadata and baseline package."""
 
-from datamate.contracts import BusinessContext, ContractBuilder
+from datamate import b0
 
-__all__ = ["BusinessContext", "ContractBuilder"]
+__all__ = ["b0"]

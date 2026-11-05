@@ -1,77 +1,25 @@
-"""Versioned data contracts shared by semantic metadata and downstream agents."""
+"""Data contracts for B0.2 Context & Business Rules (DataMate 2026)."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from typing import Any
+
+from datamate.b0.b01.contracts import (
+    ColumnMetadata,
+    JoinEdge,
+    KeyCandidate,
+    SchemaCatalog,
+    TableMetadata,
+)
 
 CONTRACT_VERSION = "1.0"
 
 
 @dataclass(frozen=True)
-class ColumnMetadata:
-    name: str
-    data_type: str = "unknown"
-    nullable: bool | None = None
-    null_ratio: float | None = None
-    cardinality: int | None = None
-    provenance: str | None = None
-
-
-@dataclass(frozen=True)
-class TableMetadata:
-    name: str
-    columns: tuple[ColumnMetadata, ...]
-    row_count: int | None = None
-    grain: str | None = None
-    primary_key_candidates: tuple[str, ...] = ()
-    provenance: str | None = None
-    # Rows may be supplied by a trusted Data Foundation profiler for key checks.
-    profile_rows: tuple[dict[str, Any], ...] = field(default=(), repr=False)
-    profile_is_complete: bool = False
-    composite_key_candidates: tuple[tuple[str, ...], ...] = ()
-    grain_evidence: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
-class KeyCandidate:
-    table: str
-    columns: tuple[str, ...]
-    key_type: str
-    status: str
-    confidence: float
-    evidence: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class JoinEdge:
-    left_table: str
-    left_column: str
-    right_table: str
-    right_column: str
-    cardinality: str
-    status: str
-    confidence: float
-    evidence: tuple[str, ...]
-    fanout_warning: bool = False
-    additional_key_pairs: tuple[tuple[str, str], ...] = ()
-
-    @property
-    def key_pairs(self) -> tuple[tuple[str, str], ...]:
-        """Ordered column pairs; the first pair preserves the single-key API."""
-        return ((self.left_column, self.right_column),) + self.additional_key_pairs
-
-
-@dataclass(frozen=True)
-class SchemaCatalog:
-    tables: tuple[TableMetadata, ...]
-    key_candidates: tuple[KeyCandidate, ...] = ()
-    join_graph: tuple[JoinEdge, ...] = ()
-    warnings: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True)
 class BusinessRule:
+    """Business rule specification with provenance, scope, expression, and validation state."""
+
     rule_id: str
     text: str
     source: str
@@ -90,6 +38,8 @@ class BusinessRule:
 
 @dataclass(frozen=True)
 class RuleCatalog:
+    """Catalog of extracted or parsed business rules."""
+
     rules: tuple[BusinessRule, ...]
     warnings: tuple[str, ...] = ()
     business_id: str | None = None
@@ -97,6 +47,8 @@ class RuleCatalog:
 
 @dataclass(frozen=True)
 class BusinessContext:
+    """Complete Business Context contract packaging Schema Catalog and Rule Catalog."""
+
     contract_version: str
     business_id: str
     schema_catalog: SchemaCatalog
@@ -213,3 +165,19 @@ class ContractBuilder:
             business_metadata=business_metadata,
             answerability_constraints=answerability_constraints,
         )
+
+
+__all__ = [
+    "CONTRACT_VERSION",
+    "BusinessRule",
+    "RuleCatalog",
+    "BusinessContext",
+    "ContractBuilder",
+    # re-export B01 schema contracts for unified access
+    "ColumnMetadata",
+    "TableMetadata",
+    "KeyCandidate",
+    "JoinEdge",
+    "SchemaCatalog",
+]
+

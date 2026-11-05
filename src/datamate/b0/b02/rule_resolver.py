@@ -5,7 +5,7 @@ from __future__ import annotations
 import unicodedata
 from dataclasses import dataclass
 
-from datamate.contracts import BusinessRule, RuleCatalog
+from .contracts import BusinessRule, RuleCatalog
 
 PRECEDENCE = {
     "question_override": 400,

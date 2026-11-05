@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from datamate.contracts import JoinEdge, SchemaCatalog
+from .contracts import JoinEdge, SchemaCatalog
 
 
 class JoinGraphNavigator:

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, overload
 
-from datamate.contracts import ColumnMetadata, JoinEdge, TableMetadata
+from .contracts import ColumnMetadata, JoinEdge, TableMetadata
 
 
 @dataclass(frozen=True)

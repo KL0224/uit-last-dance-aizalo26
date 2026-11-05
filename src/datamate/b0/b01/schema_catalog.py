@@ -6,7 +6,7 @@ from dataclasses import replace
 from itertools import combinations, islice
 from typing import Any
 
-from datamate.contracts import JoinEdge, KeyCandidate, SchemaCatalog, TableMetadata
+from .contracts import JoinEdge, KeyCandidate, SchemaCatalog, TableMetadata
 
 
 class SchemaCatalogBuilder:

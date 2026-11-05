@@ -10,8 +10,8 @@ import unicodedata
 from dataclasses import replace
 from typing import Any
 
-from datamate.contracts import BusinessRule, SchemaCatalog
-from datamate.rule_compiler import BusinessRuleCompiler
+from .contracts import BusinessRule, SchemaCatalog
+from .rule_compiler import BusinessRuleCompiler
 
 # These are split-default business clauses, not business-specific schema mappings.
 _APPROVED_TEXT = {

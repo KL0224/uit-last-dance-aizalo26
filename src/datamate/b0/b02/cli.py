@@ -6,11 +6,11 @@ import argparse
 import json
 import sys
 
-from datamate.context_service import BusinessContextService
-from datamate.contracts import ContractBuilder
-from datamate.metadata_adapter import JSONMetadataProvider
-from datamate.rule_compiler import BusinessRuleCompiler
-from datamate.schema_catalog import SchemaCatalogBuilder
+from datamate.b0.b01.metadata_adapter import JSONMetadataProvider
+from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.b0.b02.context_service import BusinessContextService
+from datamate.b0.b02.contracts import ContractBuilder
+from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,3 +47,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
