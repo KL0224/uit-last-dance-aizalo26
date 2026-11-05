@@ -143,3 +143,26 @@ Toàn bộ quy trình cộng tác, kiến trúc mã nguồn và kiểm thử đ�
 
 * **Phiên bản hiện tại:** `README v1.0` (Khởi tạo tài liệu cơ bản, thiết lập thông tin đội thi và cấu hình môi trường chuẩn).
 * Tài liệu sẽ liên tục được cập nhật theo từng giai đoạn của cuộc thi (EDA, xây dựng baseline, thiết kế mô hình ensemble, tối ưu hóa điểm số và nộp bài).
+
+## 7. B01/B02 — Semantic Knowledge
+
+Các module hiện có tại `src/datamate/`: Schema Catalog & Join Graph (B01), Business Rule Compiler/Resolver (B02), Data Contract và adapter nhận metadata JSON từ Data Foundation. Xem [Data Contract và hướng dẫn tích hợp](docs/DATA_CONTRACT.md) để biết interface, điều kiện validation và các giới hạn hiện tại.
+
+Bản tổng kết tiếng Việt: [B01/B02 — Những gì đã làm, input và output](docs/B01_B02_IMPLEMENTATION.md).
+
+Chạy ví dụ synthetic độc lập với dữ liệu cuộc thi:
+
+```bash
+PYTHONPATH=src python3 -m datamate \
+  --metadata examples/foundation_metadata.json \
+  --business-id example_shop \
+  --document examples/README.md
+```
+
+Chạy tests, bao gồm kiểm tra metadata trên CSV/SQLite train khi dữ liệu có sẵn:
+
+```bash
+DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
+
+Nếu không có dataset, bỏ biến `DATAMATE_TRAIN_DIR` để chạy unit tests; các tests dữ liệu thật sẽ được skip. Các reader trong tests chỉ tạo metadata fixture, không thay thế ingestion production của team. Chưa có pipeline Text-to-SQL end-to-end hoặc benchmark PA.

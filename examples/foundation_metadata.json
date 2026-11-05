@@ -1,0 +1,46 @@
+{
+  "metadata_version": "1.0",
+  "business_id": "example_shop",
+  "tables": [
+    {
+      "name": "orders",
+      "columns": [{"name": "id", "data_type": "INTEGER"}],
+      "row_count": 2,
+      "grain": "one order",
+      "provenance": "synthetic example; not competition data",
+      "profile_is_complete": true,
+      "profile_rows": [{"id": 1}, {"id": 2}]
+    },
+    {
+      "name": "sales",
+      "columns": [
+        {"name": "order_id", "data_type": "INTEGER"},
+        {"name": "line_no", "data_type": "INTEGER"},
+        {"name": "amount", "data_type": "INTEGER"},
+        {"name": "qty", "data_type": "INTEGER"},
+        {"name": "cost", "data_type": "INTEGER"}
+      ],
+      "row_count": 3,
+      "grain": "one product line of an order",
+      "provenance": "synthetic example; not competition data",
+      "composite_key_candidates": [["order_id", "line_no"]],
+      "profile_is_complete": true,
+      "profile_rows": [
+        {"order_id": 1, "line_no": 1, "amount": 100, "qty": 2, "cost": 30},
+        {"order_id": 1, "line_no": 2, "amount": 180, "qty": 3, "cost": 40},
+        {"order_id": 2, "line_no": 1, "amount": 50, "qty": 1, "cost": 20}
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "left_table": "sales",
+      "left_column": "order_id",
+      "right_table": "orders",
+      "right_column": "id",
+      "cardinality": "many_to_one",
+      "evidence": ["examples/README.md: sales.order_id references orders.id"]
+    }
+  ],
+  "data_profiling": {"orders": {"row_count": 2}, "sales": {"row_count": 3}}
+}
