@@ -1,8 +1,8 @@
 """Tests for B0.5 Typed Output Formatter."""
 
 import pytest
-from datamate.b05.formatter import format_answer, normalize_match_key
-from datamate.b05.errors import FormattingError
+from datamate.b0.b05.formatter import format_answer, normalize_match_key
+from datamate.b0.b05.errors import FormattingError
 
 
 def test_normalize_match_key():

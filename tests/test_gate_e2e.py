@@ -3,11 +3,11 @@
 import json
 from pathlib import Path
 import pytest
-from datamate.b05.adapters import adapt_gate_request
-from datamate.b05.cli import run_pipeline
-from datamate.b05.contracts import AnswerType, Decision, GateAction
-from datamate.b05.errors import ContractError, ErrorCode
-from datamate.b05.gate import evaluate_gate
+from datamate.b0.b05.adapters import adapt_gate_request
+from datamate.b0.b05.cli import run_pipeline
+from datamate.b0.b05.contracts import AnswerType, Decision, GateAction
+from datamate.b0.b05.errors import ContractError, ErrorCode
+from datamate.b0.b05.gate import evaluate_gate
 
 
 FIXTURES_FILE = Path(__file__).parent / "fixtures" / "b05_cases.jsonl"

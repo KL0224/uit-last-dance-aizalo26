@@ -1,9 +1,9 @@
 """Tests for B0.5 Determinism (Rerun gives same output)."""
 
 from pathlib import Path
-from datamate.b05.adapters import adapt_gate_request
-from datamate.b05.gate import evaluate_gate
-from datamate.b05.writer import SubmissionWriter
+from datamate.b0.b05.adapters import adapt_gate_request
+from datamate.b0.b05.gate import evaluate_gate
+from datamate.b0.b05.writer import SubmissionWriter
 
 
 def test_gate_determinism(tmp_path: Path):
