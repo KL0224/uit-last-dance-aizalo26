@@ -166,3 +166,16 @@ DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src python3 -m unittest discover -s tes
 ```
 
 Nếu không có dataset, bỏ biến `DATAMATE_TRAIN_DIR` để chạy unit tests; các tests dữ liệu thật sẽ được skip. Các reader trong tests chỉ tạo metadata fixture, không thay thế ingestion production của team. Chưa có pipeline Text-to-SQL end-to-end hoặc benchmark PA.
+
+# ZAIC 2026 — Local LLM layer
+
+Interface Python dùng chung cho model local, backend đầu tiên là offline vLLM.
+Checkpoint mẫu: `Qwen/Qwen3.5-9B`. Model chỉ được load vào GPU khi gọi `load()`.
+
+- Cấu hình: [configs/qwen3_5_9b.toml](configs/qwen3_5_9b.toml)
+- Tải weights: [scripts/download_model.py](scripts/download_model.py)
+- Ví dụ generate/chat/batch: [examples/basic_usage.py](examples/basic_usage.py)
+- Hướng dẫn và báo cáo kỹ thuật: [docs/model_layer_report.md](docs/model_layer_report.md)
+
+Chưa chạy cài đặt, tải weights, inference hoặc test. Xem báo cáo trước khi
+chủ động chạy các lệnh trên server GPU.

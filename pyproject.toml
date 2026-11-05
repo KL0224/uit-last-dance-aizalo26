@@ -1,3 +1,7 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
 [project]
 name = "uit-last-dance-aizalo26"
 version = "0.1.0"
@@ -5,6 +9,13 @@ description = "Zalo AI Challenge 2026 - Track 2 DataMate"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[project.optional-dependencies]
+download = ["huggingface-hub>=0.34,<2"]
+inference = ["vllm>=0.17,<1"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/datamate"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
