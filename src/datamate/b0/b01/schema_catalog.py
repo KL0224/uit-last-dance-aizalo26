@@ -12,6 +12,9 @@ from .contracts import JoinEdge, KeyCandidate, SchemaCatalog, TableMetadata
 class SchemaCatalogBuilder:
     """Build candidate keys and joins from Data Foundation table metadata."""
 
+    def __init__(self, profile_provider=None) -> None:
+        self.profile_provider = profile_provider
+
     def build(
         self, tables: list[TableMetadata], declared_edges: list[JoinEdge] | None = None
     ) -> SchemaCatalog:
@@ -23,7 +26,11 @@ class SchemaCatalogBuilder:
         warnings: list[str] = []
         enriched_tables: list[TableMetadata] = []
         for table in tables:
-            candidates = _infer_keys(table, warnings)
+            candidates = (
+                self._sql_keys(table)
+                if self.profile_provider
+                else _infer_keys(table, warnings)
+            )
             key_candidates.extend(candidates)
             proven = [key for key in candidates if key.status == "candidate"]
             if table.grain:
@@ -87,6 +94,9 @@ class SchemaCatalogBuilder:
                     f"declared relationship references unknown column: {edge.left_table}.{edge.left_column}/{edge.right_table}.{edge.right_column}"
                 )
                 continue
+            if self.profile_provider:
+                edges.append(self.profile_provider.check_join(edge))
+                continue
             left = table_by_name[edge.left_table]
             right = table_by_name[edge.right_table]
             status, confidence, observed_cardinality, checks = _check_declared_edge(
@@ -111,6 +121,15 @@ class SchemaCatalogBuilder:
             for right in tables[left_index + 1 :]:
                 for left_col in left.columns:
                     for right_col in right.columns:
+                        if self.profile_provider and not (
+                            left_col.name == right_col.name
+                            and (
+                                left_col.name.startswith("ma_")
+                                or left_col.name.endswith("_id")
+                                or left_col.name in {"id", "sku", "code"}
+                            )
+                        ):
+                            continue
                         left_values = value_profiles[(left.name, left_col.name)]
                         right_values = value_profiles[(right.name, right_col.name)]
                         if not left_values or not right_values:
@@ -196,9 +215,52 @@ class SchemaCatalogBuilder:
                         for item in edges
                     ):
                         edges.append(inferred)
+        if self.profile_provider:
+            declared_signatures = {
+                (e.left_table, e.right_table, e.key_pairs) for e in declared_edges or []
+            }
+            edges = [
+                e
+                if (e.left_table, e.right_table, e.key_pairs) in declared_signatures
+                else self.profile_provider.check_join(replace(e, evidence=()))
+                for e in edges
+            ]
         return SchemaCatalog(
             tuple(tables), tuple(key_candidates), tuple(edges), tuple(warnings)
         )
+
+    def _sql_keys(self, table: TableMetadata) -> list[KeyCandidate]:
+        columns = {c.name: c for c in table.columns}
+        declared = {(c,) for c in table.primary_key_candidates} | set(
+            table.composite_key_candidates
+        )
+        eligible = [
+            c.name
+            for c in table.columns
+            if c.null_ratio == 0 and (c.cardinality or 0) > 1
+        ]
+        keys = [(c,) for c in eligible if columns[c].cardinality == table.row_count]
+        keys += [
+            pair
+            for pair in islice(combinations(eligible, 2), 256)
+            if (columns[pair[0]].cardinality or 0) * (columns[pair[1]].cardinality or 0)
+            >= (table.row_count or 0)
+        ]
+        keys += sorted(declared - set(keys))
+        found = []
+        proven = []
+        for key in keys:
+            if not set(key).issubset(columns):
+                continue
+            if key not in declared and any(set(k).issubset(key) for k in proven):
+                continue
+            result = self.profile_provider.check_key(table, key)
+            if result.status == "candidate":
+                proven.append(key)
+                found.append(result)
+            elif key in declared:
+                found.append(result)
+        return found
 
 
 def _hashable(value: Any) -> Any:

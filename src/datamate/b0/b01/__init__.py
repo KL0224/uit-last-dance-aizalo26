@@ -14,6 +14,13 @@ from .metadata_adapter import (
     JSONMetadataProvider,
 )
 from .schema_catalog import SchemaCatalogBuilder
+from . import ingestion
+from .ingestion import (
+    PreparationConfig,
+    PreparationError,
+    PreparedBusinessArtifacts,
+    prepare_business,
+)
 
 __all__ = [
     "ColumnMetadata",
@@ -27,5 +34,12 @@ __all__ = [
     "FoundationMetadata",
     "JSONMetadataProvider",
     "SchemaCatalogBuilder",
+    "PreparationConfig",
+    "PreparationError",
+    "PreparedBusinessArtifacts",
+    "prepare_business",
+    "ingestion",
 ]
+
+
 
