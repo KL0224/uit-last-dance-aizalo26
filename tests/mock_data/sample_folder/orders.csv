@@ -1,0 +1,4 @@
+order_id,customer_name,total_amount,status
+ORD_1,Nguyen Van A,150000,Delivered
+ORD_2,Tran Thi B,250000,Processing
+ORD_3,Le Van C,90000,Cancelled
