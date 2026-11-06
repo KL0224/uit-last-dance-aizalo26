@@ -1,387 +1,144 @@
-# DataMate B01/B02 — Những gì đã làm, input và output
+# B01/B02 — từ file dataset đến Business Context
 
-**Cập nhật:** 04/11/2026. **Contract hiện tại:** `1.0`.
+Cập nhật 05/11/2026. Luồng dataset dùng contract **1.1**; luồng metadata JSON **1.0** vẫn được giữ để tương thích.
 
-Tài liệu này mô tả implementation đang có trong repository để team review và tích hợp. B01/B02 đã có code, adapter metadata JSON, service điều phối, CLI và tests. Toàn bộ Master Plan chưa hoàn thành: producer Data Foundation production và pipeline Text-to-SQL end-to-end chưa được nối vào các module này.
-
-## 1. Hệ thống hiện làm được gì?
-
-Nhận schema/profile do Data Foundation cung cấp cùng rulebook/README, xây metadata về bảng, khóa, quan hệ và quy tắc nghiệp vụ, rồi xuất **Business Context JSON**. Downstream có thể dùng metadata này để chọn bảng, lập kế hoạch join và lấy luật phù hợp.
-
-| Thành phần | Phần đã triển khai |
-|---|---|
-| Metadata adapter | Nhận metadata JSON version `1.0`; kiểm tra business scope, cấu trúc, kiểu dữ liệu metadata và tham chiếu quan hệ |
-| B01 — Schema Catalog | Catalog bảng/cột/type/provenance; kiểm tra candidate key đơn và khóa ghép; giữ grain khai báo hoặc suy ra grain cấu trúc có evidence |
-| B01 — Join Graph | Candidate joins từ profile; xác minh quan hệ khai báo; kiểm tra tuple khóa ghép, cardinality, coverage và cảnh báo fanout |
-| Join consumer API | Tìm đường join đã xác minh; biên dịch điều kiện equijoin đầy đủ mọi thành phần khóa |
-| B02 — Rule Catalog | Đọc Markdown rulebook/README; lưu nội dung, ID, nguồn, scope, industry, topic và mức ưu tiên |
-| B02 — Rule Resolver | Lọc theo business/ngành/câu hỏi rồi chọn mức ưu tiên; chặn topic có rule thắng invalid hoặc mâu thuẫn |
-| B02 — Rule Compiler | Validate DSL có cấu trúc; sinh SQL fragment và bound parameters; từ chối thực thi rule chưa validated |
-| B02 — Formula binding | Binding có điều kiện cho ba công thức đã đối chiếu với rulebook: `revenue`, `gross_profit`, `sold_qty_base` |
-| Contract và service | Ghép B01/B02 thành Business Context, giữ metadata chưa có ở trạng thái `null`, loại dòng profile nội bộ khỏi JSON đầu ra |
-| CLI và ví dụ | Chạy bằng `python3 -m datamate`; có ví dụ synthetic độc lập với dataset cuộc thi |
-
-## 2. Luồng input → xử lý → output
-
-```mermaid
-flowchart LR
-    A[Metadata JSON từ Data Foundation] --> B[JSONMetadataProvider]
-    B --> C[B01: Schema Catalog và Join Graph]
-    D[Rulebook và README Markdown] --> E[B02: Rule Catalog]
-    C --> E
-    C --> F[ContractBuilder]
-    E --> F
-    B --> F
-    F --> G[Business Context JSON]
-    G --> H[Planner hoặc Text-to-SQL: tích hợp tiếp]
-```
-
-`BusinessContextService.prepare()` chạy luồng chuẩn bị context trên. Các API `RuleResolver`, `RuleTemplateBinder`, `compile_rule()` và join consumer được gọi riêng khi downstream cần. Service/CLI hiện chưa tự chọn ngành, tạo question override hay binding công thức.
-
-## 3. Input của luồng chính
-
-### 3.1. Metadata JSON từ Data Foundation
-
-Đây là **metadata đầu vào của producer**, khác với Business Context JSON đầu ra.
-
-| Trường | Bắt buộc | Ý nghĩa |
-|---|---|---|
-| `metadata_version` | Có | Hiện nhận chuỗi `"1.0"` |
-| `business_id` | Có | Phải khớp business được yêu cầu |
-| `tables` | Có | Mảng metadata của các bảng đã được producer khám phá/chuẩn hóa |
-| `relationships` | Không | Quan hệ khai báo, mặc định `[]`; không nhận trường `status` từ producer |
-| `data_profiling` | Không | Object profiling do Data Foundation cung cấp, hoặc `null` |
-| `business_metadata` | Không | Object metadata nghiệp vụ do module sở hữu cung cấp, hoặc `null` |
-| `answerability_constraints` | Không | Object ràng buộc coverage/khả năng trả lời, hoặc `null` |
-
-Mỗi phần tử `tables` nhận:
-
-| Trường | Ý nghĩa |
-|---|---|
-| `name`, `columns` | Tên bảng và mảng cột; mỗi cột cần `name` |
-| `columns[].data_type` | Kiểu vật lý do producer cung cấp; mặc định `unknown`, adapter không tự cast dữ liệu |
-| `columns[].nullable`, `null_ratio`, `cardinality`, `provenance` | Metadata tùy chọn; chưa biết thì để thiếu hoặc `null` |
-| `row_count` | Số dòng toàn bảng nếu có |
-| `grain`, `grain_evidence`, `provenance` | Ý nghĩa mỗi dòng và nguồn bằng chứng nếu đã biết |
-| `primary_key_candidates` | Các candidate key đơn cột đã được upstream đề xuất |
-| `composite_key_candidates` | Mảng các nhóm cột khóa ghép đã được đề xuất |
-| `profile_rows` | Các dòng do producer cung cấp cho kiểm tra khóa/join; có thể là sample |
-| `profile_is_complete` | Khai báo profile đầy đủ; nếu có rows và row_count thì số lượng phải khớp |
-
-Không đánh dấu sample là profile đầy đủ. Thiếu bảng/cột trong metadata chưa đủ để kết luận câu hỏi không trả lời được. B01/B02 không đọc lại dữ liệu thô để thay thế công việc normalization của Data Foundation.
-
-### 3.2. Ví dụ input tối thiểu chạy được
-
-Ví dụ synthetic sau chỉ có một bảng và không truyền tài liệu nghiệp vụ:
-
-```json
-{
-  "metadata_version": "1.0",
-  "business_id": "demo_shop",
-  "tables": [
-    {
-      "name": "orders",
-      "columns": [{"name": "id", "data_type": "INTEGER"}],
-      "row_count": 2,
-      "grain": "one order",
-      "provenance": "synthetic fixture",
-      "profile_rows": [{"id": 1}, {"id": 2}],
-      "profile_is_complete": true
-    }
-  ]
-}
-```
-
-Một ví dụ đầy đủ hơn, có hai bảng và quan hệ khai báo, nằm tại [examples/foundation_metadata.json](../examples/foundation_metadata.json).
-
-### 3.3. Rulebook và README
-
-Input thứ hai là danh sách đường dẫn Markdown, ví dụ rulebook của split đang chạy và README đúng business. CLI dùng `--document` lặp lại cho từng file.
-
-- Không truyền tài liệu: rule catalog rỗng.
-- Truyền file không tồn tại: catalog ghi warning; hệ thống không tự tạo nội dung thay thế.
-- README của business khác được nhận diện qua thư mục `biz_<số>`: bỏ qua và ghi warning.
-- Quy tắc được đọc chủ yếu thành record `descriptive`; việc đọc thành công chưa có nghĩa công thức đã được hiểu hoặc biên dịch.
-
-## 4. Output của luồng chính: Business Context JSON
-
-Output có cấu trúc:
-
-| Trường | Nguồn và nội dung |
-|---|---|
-| `contract_version` | Version của Business Context; hiện `"1.0"` |
-| `business_id` | Business sở hữu context |
-| `schema_catalog.tables` | Bảng/cột, metadata và grain evidence |
-| `schema_catalog.key_candidates` | Candidate keys kèm status/confidence/evidence |
-| `schema_catalog.join_graph` | Các cạnh join kèm khóa, cardinality, status, evidence và fanout warning |
-| `schema_catalog.warnings` | Vấn đề chưa xác minh hoặc metadata chưa đủ |
-| `rule_catalog` | Rules, warnings và business scope |
-| `data_profiling`, `business_metadata`, `answerability_constraints` | Chuyển tiếp từ producer; chưa có thì `null` |
-
-`profile_rows` được dùng nội bộ và bị loại khi gọi `BusinessContext.to_dict()`. Những thống kê khác không được tự tạo để lấp chỗ trống.
-
-### Output thực tế cho input tối thiểu ở mục 3.2
-
-JSON sau lấy từ các module hiện tại, với danh sách tài liệu rỗng. Cách xuống dòng được rút gọn để dễ đọc; không lược bỏ trường:
-
-```json
-{
-  "contract_version": "1.0",
-  "business_id": "demo_shop",
-  "schema_catalog": {
-    "tables": [
-      {
-        "name": "orders",
-        "columns": [
-          {
-            "name": "id",
-            "data_type": "INTEGER",
-            "nullable": null,
-            "null_ratio": null,
-            "cardinality": null,
-            "provenance": null
-          }
-        ],
-        "row_count": 2,
-        "grain": "one order",
-        "primary_key_candidates": [],
-        "provenance": "synthetic fixture",
-        "profile_is_complete": true,
-        "composite_key_candidates": [],
-        "grain_evidence": ["upstream grain declaration; source=synthetic fixture"]
-      }
-    ],
-    "key_candidates": [
-      {
-        "table": "orders",
-        "columns": ["id"],
-        "key_type": "primary",
-        "status": "candidate",
-        "confidence": 1.0,
-        "evidence": ["complete profile verifies non-null uniqueness of ('id',)"]
-      }
-    ],
-    "join_graph": [],
-    "warnings": []
-  },
-  "rule_catalog": {"rules": [], "warnings": [], "business_id": "demo_shop"},
-  "data_profiling": null,
-  "business_metadata": null,
-  "answerability_constraints": null
-}
-```
-
-`confidence` là điểm heuristic/evidence do module gán, chưa phải xác suất đúng đã calibration. `status: candidate` của khóa không có nghĩa đã tạo constraint PRIMARY KEY trong database.
-
-## 5. Input/output của B01
-
-| API | Input | Output |
-|---|---|---|
-| `SchemaCatalogBuilder.build()` | Danh sách `TableMetadata`, danh sách `JoinEdge` khai báo tùy chọn | `SchemaCatalog` |
-| `JoinGraphNavigator.find_path()` | Catalog, tên bảng đầu và bảng đích | Tuple cạnh `validated`; `None` nếu chưa có đường đã xác minh |
-| `JoinPredicateCompiler.compile()` | Cạnh `validated` thuộc catalog và catalog đó | Chuỗi điều kiện equijoin SQL |
-
-Các khả năng đã có:
-
-- Kiểm tra uniqueness và NULL cho khóa đơn/khóa ghép; sample chỉ cung cấp bằng chứng chưa đầy đủ.
-- Tự tìm khóa đơn và tối đa 256 cặp cột mỗi bảng; khóa rộng hơn có thể được upstream khai báo.
-- Giữ grain được upstream mô tả. Khi chỉ có khóa rõ ràng, có thể suy ra grain cấu trúc như `row keyed by (order_id, line_no)`, chưa suy ra ý nghĩa nghiệp vụ.
-- Join từ trùng tên/overlap giá trị luôn là giả thuyết `uncertain`.
-- Quan hệ khai báo có source evidence và profile đầy đủ hai đầu mới được kiểm tra structural coverage/cardinality để đánh dấu `validated`, `invalid` hoặc `uncertain`.
-- Một-nhiều/nhiều-một vẫn cảnh báo fanout dù join đã validated. Planner phải tổng hợp đúng grain trước khi cộng metric.
-
-### Biểu diễn join khóa ghép
-
-Ví dụ input khai báo trong `relationships`:
-
-```json
-{
-  "left_table": "allocations",
-  "left_column": "order_ref",
-  "right_table": "lines",
-  "right_column": "order_id",
-  "additional_key_pairs": [["line_ref", "line_no"]],
-  "cardinality": "many_to_one",
-  "evidence": ["README: allocation tham chiếu mã đơn và số thứ tự dòng"]
-}
-```
-
-Khi cạnh này đã validated và hai bảng/cột tồn tại trong catalog, output của join predicate compiler là:
-
-```sql
-"allocations"."order_ref" = "lines"."order_id" AND "allocations"."line_ref" = "lines"."line_no"
-```
-
-Consumer phải dùng cả cặp đầu và `additional_key_pairs`. Property Python `edge.key_pairs` trả toàn bộ cặp khóa; property này không phải trường JSON riêng. Không có đường join validated chỉ có nghĩa metadata chưa đủ, không đồng nghĩa `unanswerable`.
-
-## 6. Input/output của B02
-
-### 6.1. Đọc tài liệu → Rule Catalog
-
-`BusinessRuleCompiler.ingest_documents(paths, business_id, schema)` nhận Markdown và schema tùy chọn, trả `RuleCatalog`.
-
-Mỗi `BusinessRule` có các trường chính:
-
-| Nhóm | Trường |
-|---|---|
-| Nội dung và định danh | `rule_id`, `text`, `topic` |
-| Nguồn và phạm vi | `source`, `scope`, `precedence`, `industry`, `question_id` |
-| Liên kết schema và công thức | `required_fields`, `expression` |
-| Trạng thái kiểm tra | `status`, `validation_messages` |
-| Điều kiện binding | `requirements`, `binding_evidence` |
-
-ID được tạo deterministic từ nguồn/phạm vi/nội dung. Source lưu vị trí file và dòng. Industry lấy từ heading của rulebook; topic của hàng Markdown lấy từ nhãn đầu hàng. Rule văn bản thông thường được giữ ở trạng thái `descriptive`; field được nhắc đến trong văn bản chưa được xem là một công thức đã validate.
-
-### 6.2. Chọn rule theo request
-
-Input của `RuleResolver.resolve()`:
-
-- `catalog`: Rule Catalog của business.
-- `business_id`: bắt buộc.
-- `industry`: tùy chọn; nếu thiếu thì rule theo ngành không được chọn.
-- `question_id`: tùy chọn; question override chỉ áp dụng đúng ID.
-
-Output là `ResolvedRules` với `rules`, `blocked_topics`, `warnings`.
-
-Precedence đang áp dụng: `question_override (400) > business (300) > industry (200) > split_default (100)`. Chỉ các rule có cùng topic mới cạnh tranh. Khác cách diễn đạt không được tự xem là cùng một metric. Khi rule thắng invalid hoặc các rule cao nhất mâu thuẫn, topic bị chặn; không âm thầm rơi xuống luật thấp hơn.
-
-### 6.3. DSL có cấu trúc → SQL fragment và parameters
-
-Input ví dụ cho `compile_expression()`:
-
-```json
-{
-  "op": "and",
-  "items": [
-    {"op": "eq", "field": "status", "value": "Hoàn thành"},
-    {"op": "gte", "field": "amount", "value": 100}
-  ]
-}
-```
-
-Với schema có hai cột trên và không có tên cột mơ hồ, output Python tương đương:
+B01 hiện nhận trực tiếp file **CSV, XLSX, SQLite** trong thư mục business. Phần Data Foundation là tên tầng khám phá/đọc/chuẩn hóa/profiling trong kiến trúc của dự án, không phải một đầu vào JSON bắt buộc do ban tổ chức hoặc teammate cung cấp.
 
 ```text
-sql_fragment = ("status" = ? AND "amount" >= ?)
-parameters = ("Hoàn thành", 100)
+business/*.csv, *.xlsx, *.sqlite + README + rulebook + calendar
+    → discovery/manifest → raw → normalization → DuckDB main
+    → SQL profiling → B01 schema/keys/joins → B02 document rules
+    → database + Business Context JSON
 ```
 
-Các giá trị nằm trong `parameters`, không ghép trực tiếp vào SQL. API trả fragment, chưa tạo full query. Nếu nhiều bảng có cột cùng tên thì dùng `table.column`.
-
-DSL đã hỗ trợ so sánh, `in`, kiểm tra NULL, logic, `field`, `literal`, cộng/trừ/nhân/chia, `sum`, `count_distinct`, `count_rows`. Không nhận raw SQL hay nested aggregates; giới hạn độ sâu 32. Chia cho 0 trả NULL; SUM trên tập rỗng giữ NULL; việc làm tròn theo format cuộc thi thuộc downstream.
-
-`compile_expression()` kiểm tra cú pháp DSL và field. Để thực thi một business rule đã lưu trong catalog, dùng `compile_rule()`: API này còn yêu cầu `status == validated` và có expression.
-
-### 6.4. Binding ba công thức đã đối chiếu rulebook
-
-`RuleTemplateBinder.bind()` nhận rule đã được resolver chọn, tên template, ánh xạ role → field, schema và evidence cho các điều kiện nghiệp vụ.
-
-| Template | Role bắt buộc | Công thức được phát ra |
-|---|---|---|
-| `revenue` | `line_amount` | Tổng thành tiền dòng sau giảm giá dòng |
-| `gross_profit` | `line_amount`, `quantity`, `unit_cost` | Tổng `line_amount - quantity × unit_cost` |
-| `sold_qty_base` | `base_quantity` | Tổng lượng bán quy về đơn vị cơ bản |
-
-Binder đối chiếu nguyên đoạn luật đã review, có chuẩn hóa NFC/khoảng trắng. Chỉ trùng tên topic không đủ để áp template. Đoạn luật thay đổi ở split/câu hỏi khác phải được review trước.
-
-Output là một `BusinessRule` đã gắn `expression`, `required_fields`, `requirements`, `binding_evidence` và status. Thiếu evidence thì output là `invalid`, không được `compile_rule()` thực thi.
-
-Ví dụ điều kiện cần evidence: đã bỏ đơn hủy/trả cả đơn kể cả trả một phần, lọc theo ngày đặt đúng kỳ, không nhân dòng, dùng thành tiền đúng định nghĩa, giá vốn tại thời điểm bán và cùng đơn vị bán. `binder.requirements(template)` trả danh sách đầy đủ. Evidence là assertion có trace từ upstream; binder không tự kiểm chứng rằng SQL upstream đã thực hiện đúng các điều kiện đó.
-
-## 7. Chạy và sử dụng trong Python
-
-### CLI
-
-Từ root repository:
+## Chạy chương trình
 
 ```bash
-PYTHONPATH=src python3 -m datamate \
-  --metadata examples/foundation_metadata.json \
-  --business-id example_shop \
-  --document examples/README.md
+uv sync --frozen
+PYTHONPATH=src uv run --frozen python -m datamate prepare \
+  --business-dir data/train/data/biz_123 \
+  --rulebook data/train/rulebook.md \
+  --calendar data/train/calendar.csv \
+  --output-dir data/cache
 ```
 
-CLI đọc file và ghi JSON ra stdout. Metadata lỗi được ghi ra stderr, exit code `1`; lỗi tham số CLI dùng cơ chế argparse. CLI không tự ghi output/cache vào repository. Metadata synthetic trong ví dụ là dữ liệu demo.
-
-### Service trong Python
+CLI in một object JSON mô tả đường dẫn bundle, `status`, `cache_hit`, `quality_summary`. API Python tương ứng:
 
 ```python
-from datamate.context_service import BusinessContextService
-from datamate.contracts import ContractBuilder
-from datamate.metadata_adapter import JSONMetadataProvider
-from datamate.rule_compiler import BusinessRuleCompiler
-from datamate.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion import PreparationConfig, prepare_business
 
-service = BusinessContextService(
-    provider=JSONMetadataProvider("examples/foundation_metadata.json"),
-    schema_builder=SchemaCatalogBuilder(),
-    rule_compiler=BusinessRuleCompiler(),
-    contract_builder=ContractBuilder(),
+artifacts = prepare_business(
+    'data/train/data/biz_123', 'data/cache',
+    rulebook='data/train/rulebook.md', calendar='data/train/calendar.csv',
+    config=PreparationConfig(memory_limit='512MB', batch_size=10_000),
 )
-context = service.prepare("example_shop", ["examples/README.md"])
-payload = context.to_dict()
+# artifacts.bundle_dir / 'data.duckdb'
+# artifacts.bundle_dir / 'business_context.json'
 ```
 
-Team có thể kế thừa `BaseMetadataProvider.load(business_id)` để trả `FoundationMetadata` trực tiếp từ Data Foundation mà không phải đổi logic B01/B02. `to_dict()` trả cấu trúc Python; CLI dùng `json.dumps()` để chuyển các tuple thành JSON arrays.
+## Bundle và schema
 
-## 8. Kết nối với Text-to-SQL
+```text
+<output>/<business_id>/<cache_key>/
+  data.duckdb
+  source_manifest.json
+  foundation_metadata.json
+  business_context.json
+  normalization_report.json
+```
 
-Theo thiết kế trong [input_output_text2sql.md](../khoi_docs/input_output_text2sql.md), downstream nhận Data Contract, câu hỏi tiếng Việt và `as_of_date`. Business Context hiện tại là phần metadata để tích hợp vào đầu vào đó; cần thống nhất mapping với owner Text-to-SQL.
-
-**Output hiện tại của CLI là Business Context, chưa phải SQL trả lời câu hỏi.** Các JSON sau thuộc tầng khác:
-
-- Response Text-to-SQL dự kiến: `status`, `answer_type`, `sql`, `tables_used`, `assumptions`, `reason`.
-- Record nộp bài: `id`, `type`, `answer` và các trường tùy type.
-
-Question parsing, giải thời gian theo `as_of_date`, sinh full query, thực thi query, quyết định unanswerable/abstain và định dạng đáp án chưa được service này triển khai. `question_id` trong resolver chỉ dùng để giới hạn override, không có nghĩa đã có question parser.
-
-## 9. File đã có và kết quả kiểm chứng
-
-| File | Trách nhiệm |
+| Artifact/schema | Nội dung |
 |---|---|
-| [contracts.py](../src/datamate/contracts.py) | Các DTO và ContractBuilder |
-| [metadata_adapter.py](../src/datamate/metadata_adapter.py) | FoundationMetadata, provider ABC và adapter JSON |
-| [schema_catalog.py](../src/datamate/schema_catalog.py) | Khóa, grain và kiểm tra quan hệ B01 |
-| [join_graph.py](../src/datamate/join_graph.py) | Đường join validated và join predicates |
-| [rule_compiler.py](../src/datamate/rule_compiler.py) | Ingestion, structured rules, validation và SQL fragments |
-| [rule_resolver.py](../src/datamate/rule_resolver.py) | Scope, precedence và blocked topics |
-| [rule_templates.py](../src/datamate/rule_templates.py) | Binding công thức đã review |
-| [context_service.py](../src/datamate/context_service.py) | Điều phối qua dependency injection |
-| [__main__.py](../src/datamate/__main__.py) | CLI |
-| [tests/](../tests/) | Unit tests, SQL execution tests và real-data smoke tests |
-| [DATA_CONTRACT.md](DATA_CONTRACT.md) | Chi tiết contract bằng tiếng Anh |
+| DuckDB `raw.s_<hash>` | Giá trị nguồn đã decode, số dòng vật lý và cache công thức; tham chiếu lại file gốc trong manifest |
+| DuckDB `main.<logical_name>_<hash>` | Dữ liệu chuẩn hóa đầy đủ, typed; có `__dm_row_id` phục vụ lineage, không phải khóa nghiệp vụ |
+| `meta.source_mapping`, `meta.column_mapping` | Tên nguồn, sheet, header row, tên cột gốc → tên SQL |
+| `meta.lineage` | `table_name`, `row_id`, `source_id`, `source_row`, `deduplicated`; kể cả dòng xuất trùng được gộp |
+| `meta.quality_issues` | `source_id`, `source_row`, `column_name`, `code`, `rule`; tra raw để xem giá trị gây lỗi |
+| `source_manifest.json` | Hash, trạng thái mọi file, sheet/table, vùng header, bảng đích; tài liệu/câu hỏi/đáp án có lý do excluded |
+| `foundation_metadata.json` | Metadata **do chương trình sinh**: bảng/cột, thống kê đầy đủ, tối đa 5 mẫu deterministic mỗi bảng, source mapping |
+| `business_context.json` | Contract downstream: catalog B01, luật B02, profiling, metadata nguồn và database handle |
+| `normalization_report.json` | Số dòng raw/business/đầu ra/dedup/footer, số issues theo loại, thời gian build, trạng thái |
 
-Kết quả kiểm chứng gần nhất của phần triển khai trước khi viết tài liệu này:
+Tên SQL được chuẩn hóa và thêm hash ổn định theo family/schema. File đánh số và sheet tháng chỉ hợp nhất khi cùng family và cùng header. Sheet nghiệp vụ khác giữ riêng. Teammate luôn lấy **tên chính xác từ catalog**, không suy tên từ tên file.
 
-- **45 tests pass** khi bật các test dataset.
-- Smoke test metadata từ CSV của `biz_111`, `biz_127` và SQLite của `biz_123`: B01 → B02 → JSON Contract.
-- Các reader CSV/SQLite nằm trong tests; SQLite dùng read-only. Chúng không phải loader production.
-- Binding đối chiếu rulebook thật được kiểm thử số học trên fixture SQLite trong bộ nhớ; không phải điểm PA trên câu hỏi train.
-- Ingestion/resolution tài liệu đã được kiểm tra trên 30 business.
-- Ruff lint toàn repo và format các file triển khai đã pass. Không có dependency runtime mới trong `pyproject.toml`; tests dùng standard library, Ruff được chạy qua `uvx`.
+## Hành vi chuẩn hóa
 
-Lệnh tái lập:
+- CSV streaming: UTF-8/BOM, fallback CP1258, delimiter thông dụng hoặc override.
+- XLSX: openpyxl read-only, header nhóm + header chi tiết, header lặp, vùng bảng tách bằng dòng trống. Header không xác định phải khai báo cấu hình. Công thức chỉ lấy cached value; thiếu cache thành NULL có issue, công thức vẫn nằm ở raw.
+- SQLite: `mode=ro&immutable=1`, `query_only`, fetch theo batch; không tải extension hoặc tạo journal/SHM. Nguồn có WAL chưa checkpoint phải xuất snapshot trước; chương trình báo lỗi thay vì bỏ qua WAL. FK ghép khai báo được kiểm chứng bằng cả tuple.
+- ID/tên/điện thoại giữ text và dấu; số 0 đầu của text được giữ. Không thể khôi phục số 0 đã mất trong nguồn numeric chỉ từ giá trị số.
+- Tiền/số lượng dùng Decimal và DuckDB DECIMAL theo scale quan sát; giá trị quá precision giữ VARCHAR. Hỗ trợ thêm dạng `2tr760`, `398,8604tr`; số lượng có suffix như `2 xe 4m3` chỉ lấy số lượng 2, giữ dấu vết đơn vị ở raw và không tự nhân hệ số. Không làm tròn; đơn vị suffix số lượng không tạo bảo đảm đã quy về đơn vị cơ bản.
+- Ngày: ISO, dd/mm/yyyy, ngày tiếng Việt, Excel epoch, năm sheet khi thiếu năm; không lấy năm từ đồng hồ máy.
+- Parse failure thành NULL **có quality issue + raw reference**, không thành 0. Trạng thái chưa nhận diện giữ nguyên và có issue; trạng thái nhận diện dùng `completed/cancelled/returned/delivering`.
+- Forward-fill/dedup chỉ bật khi tài liệu có đủ các quy ước xuất nhóm/đơn đã nhận diện, bảng có một mã đơn và có dòng hàng/số lượng. Không áp dụng dedup cho sổ sự kiện; không fill số lượng/giá/tên hàng. Các phép biến đổi được ghi trong quality issues và lineage.
+- Footer có nhãn tổng/ghi chú rõ ở cột ngày, không có identity đơn/hàng, được giữ trong raw và ghi `non_data_footer`; không đưa vào bảng giao dịch để tránh cộng trùng tổng. Trường hợp mơ hồ giữ dữ liệu kèm issue.
+- Không lọc đơn hủy/trả, ngày tương lai; không tự quy đổi đơn vị, tính doanh thu/lợi nhuận hoặc khẳng định dữ liệu đủ trả lời câu hỏi.
+
+## Cấu hình ngoại lệ có nguồn
+
+`--config path/to/config.json` nhận JSON tương ứng `PreparationConfig`. `source_overrides` dùng đường dẫn tương đối file, hoặc `file.xlsx#Tên sheet`. Override và hash cấu hình được lưu trong manifest.
+
+```json
+{
+  "memory_limit": "512MB",
+  "threads": 2,
+  "batch_size": 10000,
+  "source_overrides": {
+    "data.csv": {"encoding": "cp1258", "delimiter": ";"},
+    "book.xlsx#Sheet1": {
+      "header_row": 2,
+      "logical_table": "sales",
+      "roles": {"Mã đơn": "identifier", "Giá bán": "money"}
+    }
+  }
+}
+```
+
+Roles: `identifier`, `text`, `status`, `date`, `money`, `quantity`, `boolean`, `unknown`. Header_row là chỉ số 1-based. Cần cấu hình khi cấu trúc ngoài các quy ước đã nhận diện; không hardcode theo business_id.
+
+## Profiling, keys và joins
+
+DuckDB tính COUNT, NULL, DISTINCT, khoảng ngày trên **toàn bảng**, thay vì coi 5 mẫu là toàn bộ dữ liệu. `DuckDBProfileProvider` kiểm tra uniqueness và tuple FK bằng SQL. Key là candidate cấu trúc; không khẳng định business grain. Cạnh từ overlap luôn uncertain; FK có evidence chỉ validated khi coverage/cardinality đạt. Phạm vi ngày chỉ là observed coverage.
+
+Các guarantee như `valid_revenue_orders`, `quantity_in_base_unit`, `sales_line_grain` tiếp tục do B02/downstream thu thập evidence; ingestion không tự đánh dấu đã thỏa.
+
+## Cache và lỗi
+
+Cache gồm hash nguồn, README/rulebook/calendar, parser/code, dependency và config. Cache hit kiểm tra artifact hash, không parse lại bảng; vẫn hash file để nhận diện thay đổi. Build trong `.build-*`, hoàn tất mới rename atomically thành cache key. API ném `PreparationError` khi thất bại. Lỗi giữ thư mục `failed-*` có manifest/report, CLI trả exit 1; không phát hành ready. Không chỉnh dữ liệu nguồn. DuckDB memory limit mặc định 512MB, không phải giới hạn RSS toàn tiến trình Python; file spool và spill nằm trong bundle tạm.
+
+## Docker offline
 
 ```bash
-# Unit tests; các test dataset được skip nếu không bật biến bên dưới.
-PYTHONPATH=src python3 -m unittest discover -s tests -v
-
-# Có dataset train, chạy cả smoke tests.
-DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src python3 -m unittest discover -s tests -v
+docker build -t datamate-prepare:local .
+mkdir -p data/docker-cache
+docker run --rm --network none \
+  --user "$(id -u):$(id -g)" \
+  --mount "type=bind,src=$PWD/data/train,dst=/input,readonly" \
+  --mount "type=bind,src=$PWD/data/docker-cache,dst=/output" \
+  datamate-prepare:local prepare \
+  --business-dir /input/data/biz_123 --rulebook /input/rulebook.md \
+  --calendar /input/calendar.csv --output-dir /output
 ```
 
-## 10. Những việc còn lại trong Master Plan
+Image dùng uv.lock; build cần tải dependency, runtime không cần mạng. DuckDB là database file, không có database server.
 
-| Phần còn lại | Tình trạng/phạm vi cần nối tiếp |
-|---|---|
-| Producer Data Foundation production | Cần cung cấp metadata đúng schema, normalization và evidence; adapter JSON/ABC đã sẵn sàng |
-| Ingestion XLSX và messy data | Chưa có reader/normalizer production trong phạm vi implementation này |
-| Suy luận ngữ nghĩa grain | Mới giữ grain upstream hoặc suy ra identity theo khóa; chưa tự hiểu toàn bộ README |
-| Business Rule Compiler tổng quát | Phần lớn rules còn descriptive; chưa tự trích và biên dịch mọi công thức từ văn bản |
-| Luật công nợ/thời gian/quy đổi đầy đủ | Chưa có thư viện executable đầy đủ cho các nhóm nghiệp vụ này |
-| Metadata Registry/Capabilities | Chuyển tiếp dữ liệu có sẵn; chưa tự xây metric registry hoặc coverage matrix hoàn chỉnh |
-| Text-to-SQL và execution | Chưa có full query generation/executor được tích hợp vào service |
-| Cache/version lifecycle | Chưa có cache theo file hash, parser version và rule version |
-| Evaluation đầy đủ | Chưa có benchmark PA, full-train regression về đáp án hay benchmark runtime/bộ nhớ cho toàn bộ inference |
+## Kiểm thử và benchmark
 
-Điểm bàn giao hiện tại là một semantic layer chạy được qua metadata provider, có input/output tường minh và kiểm chứng structural/numeric. Để trả lời câu hỏi cuộc thi, team cần nối producer dữ liệu, planner/executor và output gate theo kiến trúc chung.
+```bash
+DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src uv run --frozen python -m unittest discover -s tests -v
+uvx ruff check src tests scripts
+PYTHONPATH=src uv run --frozen python scripts/benchmark_preparation.py \
+  --train-dir data/train --output-dir data/regression-cache \
+  --report data/preparation-benchmark.json --jobs 4
+```
+
+Script benchmark chạy mỗi business trong subprocess, ghi cold/warm wall time, peak RSS Linux và hash nguồn trước/sau. Dùng output directory mới để đo cold thực sự; kiểm tra `cache_hit=false` cho lượt cold. Nếu chạy nhiều jobs, wall time chịu ảnh hưởng contention. Đây là preparation benchmark, chưa phải PA/inference benchmark. Kết quả lần chạy thực tế nằm trong [báo cáo regression](B01_PREPARATION_VALIDATION.md).
+
+Kiểm tra chéo bundle đã publish với SQL trên toàn bộ database:
+
+```bash
+PYTHONPATH=src uv run --frozen python scripts/audit_prepared_bundles.py \
+  data/preparation-benchmark.json
+```
+
+Audit đối chiếu tên/type cột, row count, NULL/DISTINCT, lineage, dedup, số issues và giới hạn mẫu JSON; yêu cầu cold không cache hit và warm có cache hit. File có lỗi discovery/read không được phát hành bundle ready. Source thay đổi trong lúc build cũng làm build thất bại.

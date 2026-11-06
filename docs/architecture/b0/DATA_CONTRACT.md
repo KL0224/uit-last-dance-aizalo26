@@ -1,12 +1,24 @@
 # DataMate Semantic Data Contract
 
-The repository had no executable Data Contract before the B01/B02 implementation. `src/datamate/contracts.py` now defines contract version `1.0` using standard-library dataclasses; `BusinessContext.to_dict()` produces JSON-serializable output.
+`src/datamate/contracts.py` defines two compatible paths: legacy metadata input produces contract `1.0`; raw dataset preparation produces contract `1.1`. Both use `BusinessContext.to_dict()`. See [preparation and artifacts](B01_B02_IMPLEMENTATION.md).
+
+## Contract 1.1 dataset path
+
+B01 receives CSV/XLSX/SQLite + README/rulebook/calendar, prepares DuckDB, then emits metadata. `foundation_metadata.json` is a generated artifact, not a prerequisite. The 1.1 extension is:
+
+```json
+{"normalized_data_handle":{"engine":"duckdb","sql_dialect":"duckdb","database":"data.duckdb","schema":"main"}}
+```
+
+Resolve `database` relative to the bundle containing the context JSON. Catalog identifiers exactly match normalized `main` tables; technical `__dm_row_id` is excluded from semantic keys/catalog. Source and column names are in `business_metadata.schema_mapping`; detailed lineage/issues are in DuckDB `meta`. Decimals in JSON samples are exact strings, dates are ISO strings. Profiles are full-table SQL statistics; at most five deterministic sample rows per table. Date ranges indicate observations, never business completeness.
+
+Metadata 1.1 may be loaded by JSONMetadataProvider, but JSON samples alone cannot reproduce SQL-level verification. Use `prepare_business`/DuckDBProfileProvider for full verification. B02 guarantees are not automatically satisfied by ingestion. Unknown/invalid rules and uncertain joins retain their existing interpretation.
 
 ## Ownership
 
 - B01 supplies physical table/column metadata, key candidates, candidate join edges, evidence, confidence and fanout warnings.
 - B02 supplies source rules verbatim, stable rule IDs, scope, precedence, field references and validation state. Only explicitly structured expressions in the supported DSL can be compiled.
-- Data Foundation owns source discovery, reading, normalization and profiling. It may supply `TableMetadata.profile_rows` to B01 and profiling/business metadata to `ContractBuilder`.
+- The Data Foundation subsystem inside B01 owns discovery, reading, normalization and SQL profiling. Legacy producers may still supply metadata 1.0 through JSONMetadataProvider.
 - Capability/answerability, question grounding and Text-to-SQL remain separate consumers. Missing fields remain missing; the builder does not infer capability or answerability.
 
 Precedence values are `question_override=400`, `business=300`, `industry=200`, `split_default=100`, and `unknown=0`. Business scope is an explicit business README exception between a question override and shared industry/split rules.
@@ -62,13 +74,13 @@ applicable = RuleResolver().resolve(rules, "biz_123", industry="Nhà thuốc")
 
 ## Verification
 
-Unit tests use only the standard library:
+Install dependencies with `uv sync --frozen`; tests use unittest plus DuckDB/openpyxl for file integration:
 
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
 
-Opt-in real-data tests build metadata fixtures from CSV businesses `biz_111`, `biz_127` and SQLite business `biz_123`, then run B01, B02, scope resolution and JSON contract validation. SQLite connections use `mode=ro` and `query_only`. These readers live only in tests and do not define the production Data Foundation API. XLSX ingestion and question-level Text-to-SQL execution remain outside these tests.
+Opt-in real-data tests build metadata fixtures from CSV businesses `biz_111`, `biz_127` and SQLite business `biz_123`, then run B01, B02, scope resolution and JSON contract validation. SQLite connections use `mode=ro` and `query_only`. These readers live only in tests and do not define the production Data Foundation API. Additional ingestion tests exercise CSV/XLSX/SQLite fixtures, raw/main/meta, cache and atomic failure handling. Question-level Text-to-SQL execution remains out of scope.
 
 ```bash
 DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src python3 -m unittest discover -s tests -v
@@ -101,11 +113,11 @@ bound = binder.bind(
 sql_fragment, parameters = compiler.compile_rule(bound, schema_catalog)
 ```
 
-Production CSV/XLSX/SQLite loading, automatic free-text rule extraction and the team's Text-to-SQL integration remain separate work. Real-data tests exercise metadata contracts on CSV/SQLite and bind actual rulebook clauses to an in-memory numeric fixture; they do not constitute a full question-answer PA benchmark.
+Production CSV/XLSX/SQLite preparation is implemented in `datamate.ingestion`. Automatic free-text-to-executable rule translation and the team's Text-to-SQL integration remain separate work. File integration and full-train preparation regression do not constitute a question-answer PA benchmark.
 
 ## Runnable producer adapter and service
 
-`BaseMetadataProvider.load(business_id)` is the boundary for the team's Data Foundation. `JSONMetadataProvider` is the first adapter; it accepts a JSON envelope with `metadata_version: "1.0"`, `business_id`, `tables`, optional `relationships`, and the optional objects `data_profiling`, `business_metadata`, `answerability_constraints`. `examples/foundation_metadata.json` is a complete synthetic example. Tables use the DTO field names above, with arrays instead of tuples. Relationships omit `status`: upstream cannot force validation. Unknown fields, versions, wrong business scope, malformed profiles and unknown relationship references fail explicitly.
+`BaseMetadataProvider.load(business_id)` is the boundary for the team's Data Foundation. `JSONMetadataProvider` retains legacy input and also reads generated 1.1 metadata; it accepts a JSON envelope with `metadata_version: "1.0"` or `"1.1"`, `business_id`, `tables`, optional `relationships`, and the optional objects `data_profiling`, `business_metadata`, `answerability_constraints`. `examples/foundation_metadata.json` is a complete synthetic example. Tables use the DTO field names above, with arrays instead of tuples. Relationships omit `status`: upstream cannot force validation. Unknown fields, versions, wrong business scope, malformed profiles and unknown relationship references fail explicitly.
 
 `BusinessContextService` receives the provider, schema builder, rule compiler and contract builder through its constructor. `prepare(business_id, documents)` composes B01/B02 and returns the contract. Missing documents remain warnings; no answerability decision is invented. A future in-process provider can implement the same ABC without changing B01/B02. This producer envelope is distinct from the serialized Business Context output.
 
@@ -117,3 +129,19 @@ PYTHONPATH=src python3 -m datamate \
 ```
 
 `--document` can be repeated for the active rulebook and business README. The CLI emits JSON on stdout, reports input errors on stderr with exit code 1, and does not write caches or change source files.
+
+## Read-only database handoff
+
+```python
+import json
+from pathlib import Path
+import duckdb
+
+bundle = Path('/path/to/business/cache_key')
+context = json.loads((bundle / 'business_context.json').read_text())
+handle = context['normalized_data_handle']
+connection = duckdb.connect(str(bundle / handle['database']), read_only=True)
+# Generate DuckDB SQL using schema_catalog identifiers; executor owns query limits.
+```
+
+Ingestion leaves cancelled/returned/future records in the store. Canonical known order statuses are `completed`, `cancelled`, `returned`, `delivering`; unrecognized source statuses stay unchanged with a quality issue. Read `normalization_report.json` and inspect `meta.quality_issues`/`raw` before relying on affected measures. Parse failures are NULL, never zero. Read-only connections do not replace executor resource/query limits. Rule binding still requires explicit semantic evidence.

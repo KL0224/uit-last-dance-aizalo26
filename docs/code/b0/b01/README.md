@@ -28,6 +28,8 @@ Mỗi tài liệu phân tích cặn kẽ:
 | `metadata_adapter.py` | [`metadata_adapter.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b01/metadata_adapter.md) | Bộ chuyển đổi tiếp nhận metadata JSON từ Data Foundation (version 1.0). |
 | `schema_catalog.py` | [`schema_catalog.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b01/schema_catalog.md) | Trình xây dựng Catalog, phân tích tính duy nhất của khóa chính và grain dòng. |
 | `join_graph.py` | [`join_graph.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b01/join_graph.md) | Xây dựng đồ thị quan hệ bảng, tìm đường join BFS và sinh biểu thức SQL equijoin. |
+| `ingestion/` | [`B01_B02_HANDOFF.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/architecture/b0/B01_B02_HANDOFF.md) | Động cơ đọc và chuẩn hóa dataset thô (CSV/XLSX/SQLite) vào DuckDB bundle và tính profiling. |
+
 
 ---
 
