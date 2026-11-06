@@ -29,6 +29,10 @@ from datamate.b0.b02 import (
 
 
 def test_b01_exports() -> None:
+    from datamate.b0.b01 import prepare_business, PreparationConfig
+    assert callable(prepare_business)
+    assert PreparationConfig is not None
+
     col = ColumnMetadata(name="id", data_type="INTEGER")
     table = TableMetadata(name="users", columns=(col,))
     builder = SchemaCatalogBuilder()
