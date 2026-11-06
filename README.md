@@ -143,3 +143,39 @@ Toàn bộ quy trình cộng tác, kiến trúc mã nguồn và kiểm thử đ�
 
 * **Phiên bản hiện tại:** `README v1.0` (Khởi tạo tài liệu cơ bản, thiết lập thông tin đội thi và cấu hình môi trường chuẩn).
 * Tài liệu sẽ liên tục được cập nhật theo từng giai đoạn của cuộc thi (EDA, xây dựng baseline, thiết kế mô hình ensemble, tối ưu hóa điểm số và nộp bài).
+
+## 7. B01/B02 — Semantic Knowledge
+
+Các module tại `src/datamate/`: B01 đọc CSV/XLSX/SQLite, chuẩn hóa, tạo DuckDB và Schema Catalog/Join Graph; B02 đọc luật nghiệp vụ; service xuất Business Context JSON contract 1.1. Adapter metadata 1.0 vẫn tương thích. Xem [Data Contract và hướng dẫn tích hợp](docs/DATA_CONTRACT.md) để biết interface, điều kiện validation và các giới hạn hiện tại.
+
+Bản tổng kết tiếng Việt: [B01/B02 — Những gì đã làm, input và output](docs/B01_B02_IMPLEMENTATION.md).
+
+Chuẩn bị trực tiếp từ dataset (cài dependency bằng `uv sync --frozen`):
+
+```bash
+PYTHONPATH=src uv run --frozen python -m datamate prepare \
+  --business-dir data/train/data/biz_123 \
+  --rulebook data/train/rulebook.md --calendar data/train/calendar.csv \
+  --output-dir data/cache
+```
+
+Output: bundle gồm `data.duckdb`, manifest, foundation metadata, Business Context và normalization report. Xem [input/output và Docker offline](docs/B01_B02_IMPLEMENTATION.md).
+
+Chạy ví dụ metadata 1.0 độc lập với dữ liệu cuộc thi:
+
+```bash
+PYTHONPATH=src uv run --frozen python -m datamate \
+  --metadata examples/foundation_metadata.json \
+  --business-id example_shop \
+  --document examples/README.md
+```
+
+Chạy tests, bao gồm kiểm tra metadata trên CSV/SQLite train khi dữ liệu có sẵn:
+
+```bash
+DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src uv run --frozen python -m unittest discover -s tests -v
+```
+
+Nếu không có dataset, bỏ biến `DATAMATE_TRAIN_DIR` để chạy unit tests; các tests dữ liệu thật sẽ được skip. Tests ingestion tạo file thật trong thư mục tạm; benchmark 30 business chạy bằng `scripts/benchmark_preparation.py`. Chưa có pipeline Text-to-SQL end-to-end hoặc benchmark PA.
+
+Tài liệu bàn giao ngắn cho teammate: [B01/B02 input/output](docs/B01_B02_HANDOFF.md).
