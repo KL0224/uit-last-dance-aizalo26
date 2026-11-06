@@ -1,5 +1,7 @@
 """Các kiểu dữ liệu chung; không phụ thuộc PyTorch, CUDA hoặc vLLM."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -84,7 +86,7 @@ class ModelConfig:
 
 @dataclass(frozen=True)
 class GenerationResult:
-    """Kết quả độc lập backend, không để lộ RequestOutput của vLLM.
+    """Kết quả sinh text thô từ model độc lập backend.
 
     text là completion nguyên bản. Với thinking bật, nó có thể chứa cả
     thinking markers/content; tầng model không tự parse hay xóa phần này.
@@ -94,3 +96,47 @@ class GenerationResult:
     input_tokens: int
     output_tokens: int
     finish_reason: str | None
+
+
+@dataclass(frozen=True)
+class Text2SQLResult:
+    """Đặc tả kết quả Text-to-SQL logic theo đúng chuẩn input_output_text2sql.md.
+
+    Cung cấp cầu nối giữa mô hình LLM (B0.3) với Tầng thực thi (B0.4) và Cổng kiểm duyệt (B0.5).
+    """
+
+    status: Literal["answerable", "unanswerable"]
+    answer_type: str | None = None
+    sql: str | None = None
+    tables_used: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status not in {"answerable", "unanswerable"}:
+            raise ValueError(f"Unsupported status: {self.status}")
+        if isinstance(self.tables_used, list):
+            object.__setattr__(self, "tables_used", tuple(self.tables_used))
+        if isinstance(self.assumptions, list):
+            object.__setattr__(self, "assumptions", tuple(self.assumptions))
+
+    def to_b05_generation_result(self) -> Any:
+        """Chuyển đổi sang GenerationResult của B0.5 Basic Output Gate."""
+        from datamate.b0.b05.contracts import AnswerSemantics, GenerationResult as B05GenerationResult
+
+        if self.status == "unanswerable":
+            return B05GenerationResult(
+                answer_type="unanswerable",
+                sql="",
+                tables_used=list(self.tables_used),
+                assumptions=list(self.assumptions),
+                answer_semantics=AnswerSemantics(),
+            )
+
+        return B05GenerationResult(
+            answer_type=self.answer_type or "generic",
+            sql=self.sql or "",
+            tables_used=list(self.tables_used),
+            assumptions=list(self.assumptions),
+            answer_semantics=AnswerSemantics(),
+        )

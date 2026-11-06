@@ -15,3 +15,7 @@ class ModelLoadError(LLMError):
 
 class InferenceError(LLMError):
     """Inference thất bại; exception gốc được giữ qua exception chaining."""
+
+
+class Text2SQLParseError(LLMError):
+    """Lỗi khi không thể parse hoặc trích xuất JSON/SQL hợp lệ từ output của model."""
