@@ -8,9 +8,19 @@ version = "0.1.0"
 description = "Zalo AI Challenge 2026 - Track 2 DataMate"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "duckdb>=1.0.0",
+    "sqlglot>=25.0.0",
+    "pydantic>=2.0.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "pyarrow>=15.0.0",
+]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+]
 download = ["huggingface-hub>=0.34,<2"]
 inference = ["vllm>=0.17,<1"]
 
@@ -18,5 +28,5 @@ inference = ["vllm>=0.17,<1"]
 packages = ["src/datamate"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]

@@ -16,6 +16,7 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+.pytest_cache/
 
 # Large Datasets & Cache
 data/raw/
@@ -37,3 +38,12 @@ submissions/
 # Agent Tasks & Internal Cache
 tasks/
 agent_code
+
+# Databases & Cache artifacts
+*.duckdb
+*.duckdb.wal
+
+# Large datasets
+data/raw
+*.zip
+*.tar.gz
