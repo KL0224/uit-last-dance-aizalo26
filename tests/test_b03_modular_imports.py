@@ -89,3 +89,4 @@ def test_vllm_model_offline_lifecycle() -> None:
     # Trying to load non-existent model raises ModelLoadError
     with pytest.raises(ModelLoadError):
         model.load()
+
