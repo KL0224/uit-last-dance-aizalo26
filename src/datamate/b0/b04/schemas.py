@@ -75,6 +75,7 @@ class ExecutionResponse(BaseModel):
     error_type: Optional[str] = None                    # SyntaxError, CatalogError, BinderError, TimeoutError, SecurityViolation...
     error_message: Optional[str] = None                 # Thông báo lỗi tinh gọn để truyền vào LLM ở bước One bounded retry
     execution_time_ms: float = 0.0                      # Thời gian thực thi (mili-giây)
+    truncated: bool = False                             # True nếu kết quả vượt max_rows và đã bị cắt
 
     def to_b05_execution_result(self) -> Any:
         """Chuyển đổi sang ExecutionResult của B0.5 Basic Output Gate."""
@@ -91,6 +92,7 @@ class ExecutionResponse(BaseModel):
                 columns=cols,
                 rows=row_matrix,
                 row_count=self.row_count,
+                truncated=self.truncated,
                 elapsed_ms=self.execution_time_ms,
             )
         else:
@@ -137,6 +139,9 @@ def normalize_value(val: Any) -> Any:
         except (ValueError, TypeError):
             pass
 
+    if isinstance(val, bool):
+        return val
+
     if isinstance(val, (float, int)):
         if math.isnan(val) or math.isinf(val):
             return None
@@ -149,10 +154,12 @@ def normalize_value(val: Any) -> Any:
                 return None
             return scalar
 
-    if isinstance(val, (datetime.datetime, datetime.date)):
+    if isinstance(val, (datetime.datetime, datetime.date, datetime.time)):
         return val.isoformat()
 
     if isinstance(val, decimal.Decimal):
+        if not val.is_finite():
+            return None
         if val % 1 == 0:
             return int(val)
         return float(val)

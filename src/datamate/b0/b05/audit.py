@@ -33,19 +33,32 @@ class AuditLogger:
         error_code: Optional[str] = None,
         execution_ms: Optional[float] = None,
         row_count: Optional[int] = None,
+        thinking: Optional[str] = None,
+        assumptions: Optional[List[str]] = None,
+        error_message: Optional[str] = None,
+        llm_generation_ms: Optional[float] = None,
     ) -> None:
-        """Record attempt trace in history."""
+        """Record attempt trace in history (including LLM thinking and assumptions)."""
         if question_id not in self._history:
             self._history[question_id] = []
 
-        self._history[question_id].append({
+        entry: Dict[str, Any] = {
             "attempt": attempt,
             "sql": sql,
             "execution_status": execution_status,
             "error_code": error_code,
             "execution_ms": execution_ms,
             "result_row_count": row_count,
-        })
+        }
+        if llm_generation_ms is not None:
+            entry["llm_generation_ms"] = llm_generation_ms
+        if thinking is not None:
+            entry["thinking"] = thinking
+        if assumptions is not None:
+            entry["assumptions"] = list(assumptions)
+        if error_message is not None:
+            entry["error_message"] = error_message
+        self._history[question_id].append(entry)
 
     def write_log(
         self,

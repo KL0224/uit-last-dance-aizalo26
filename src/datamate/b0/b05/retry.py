@@ -25,7 +25,14 @@ def classify_error(
                 safe_feedback="Security violation: only read-only SELECT queries are allowed.",
             )
 
-        if "binder" in text or "not found" in err_msg or "unknown table" in err_msg or "column" in err_msg:
+        if (
+            "binder" in text
+            or "catalog" in text
+            or "does not exist" in err_msg
+            or "not found" in err_msg
+            or "unknown table" in err_msg
+            or "column" in err_msg
+        ):
             return ErrorClassification(
                 code=ErrorCode.SCHEMA_ERROR,
                 retryable=True,
@@ -33,7 +40,12 @@ def classify_error(
                 safe_feedback="Reinspect exact available column and table names from schema.",
             )
 
-        if "parser" in text or "syntax" in text or "syntax error" in err_msg:
+        if (
+            "parser" in text
+            or "syntax" in text
+            or "emptyquery" in err_type
+            or "query is empty" in err_msg
+        ):
             return ErrorClassification(
                 code=ErrorCode.SQL_SYNTAX,
                 retryable=True,
@@ -41,7 +53,14 @@ def classify_error(
                 safe_feedback="Fix SQL syntax error to match valid dialect.",
             )
 
-        if "cast" in text or "type mismatch" in text or "conversion" in text:
+        if (
+            "cast" in text
+            or "type mismatch" in text
+            or "conversion" in text
+            or "dataerror" in err_type
+            or "out of range" in text
+            or "invalid input" in text
+        ):
             return ErrorClassification(
                 code=ErrorCode.SQL_TYPE_ERROR,
                 retryable=True,

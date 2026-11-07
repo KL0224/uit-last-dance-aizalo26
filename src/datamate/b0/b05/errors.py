@@ -10,6 +10,9 @@ class ErrorCode:
     VALID_RESULT_AFTER_RETRY = "VALID_RESULT_AFTER_RETRY"
     CONFIRMED_MISSING_EVIDENCE = "CONFIRMED_MISSING_EVIDENCE"
 
+    # Generation errors (LLM failure / parse failure)
+    GENERATION_INVALID = "GENERATION_INVALID"
+
     # Retryable errors (attempt 0 -> retry 1)
     SQL_SYNTAX = "SQL_SYNTAX"
     SCHEMA_ERROR = "SCHEMA_ERROR"

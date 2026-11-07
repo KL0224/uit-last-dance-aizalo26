@@ -61,7 +61,35 @@ ALLOWED_ROOT_NODES = (
     exp.Union,
     exp.Intersect,
     exp.Except,
+    exp.Subquery,
 )
+
+SYNTAX_FRAGMENT_NODES = (
+    exp.Alias,
+    exp.Column,
+    exp.Identifier,
+    exp.Anonymous,
+    exp.Literal,
+)
+
+# Leading words of statements that must never reach DuckDB even if sqlglot cannot parse them.
+NON_QUERY_LEADING_WORDS = {
+    "truncate", "export", "call", "set", "reset", "use", "vacuum", "checkpoint",
+    "begin", "commit", "rollback", "grant", "revoke", "merge", "replace",
+    "import", "show", "describe", "summarize", "explain", "force", "comment",
+}
+
+_MASK_PATTERN = re.compile(
+    r"'(?:''|[^'])*'"      # string literal
+    r'|"(?:""|[^"])*"'      # quoted identifier
+    r"|--[^\n]*"           # line comment
+    r"|/\*[\s\S]*?\*/",     # block comment
+)
+
+
+def _mask_literals_and_comments(sql: str) -> str:
+    """Blank out literals, quoted identifiers and comments so keyword scans see code only."""
+    return _MASK_PATTERN.sub(" ", sql)
 
 
 def extract_clean_sql(raw_sql: str) -> str:
@@ -74,6 +102,10 @@ def extract_clean_sql(raw_sql: str) -> str:
         raise EmptyQueryError("SQL query is empty.")
 
     text = raw_sql.strip()
+
+    text = re.sub(r"<think>[\s\S]*?</think>", "", text, flags=re.IGNORECASE).strip()
+    if not text:
+        raise EmptyQueryError("SQL query is empty.")
 
     # Match ```sql ... ``` or ``` ... ```
     pattern = r"```(?:sql)?\s*([\s\S]*?)\s*```"
@@ -102,7 +134,7 @@ def validate_read_only_sql(sql: str) -> str:
     """
     cleaned_sql = extract_clean_sql(sql)
 
-    fast_check = cleaned_sql.lower()
+    fast_check = _mask_literals_and_comments(cleaned_sql).lower()
 
     # Fast-path check for forbidden file functions
     for forbidden_func in FORBIDDEN_FUNCTIONS:
@@ -117,7 +149,14 @@ def validate_read_only_sql(sql: str) -> str:
     try:
         parsed_statements = sqlglot.parse(cleaned_sql, read="duckdb")
     except ParseError:
-        # If sqlglot cannot parse, let DuckDB's native parser generate precise line/column hints
+        # If sqlglot cannot parse, let DuckDB's native parser generate precise line/column hints,
+        # but never forward multiple statements or administrative commands unchecked.
+        code = fast_check.strip().rstrip(";").strip()
+        if ";" in code:
+            raise SecurityViolation("Multiple SQL statements detected. Only single queries are allowed.")
+        first_word = re.match(r"[a-z_]+", code)
+        if first_word and first_word.group(0) in NON_QUERY_LEADING_WORDS:
+            raise SecurityViolation(f"Only SELECT queries are allowed, got '{first_word.group(0)}'.")
         return cleaned_sql
 
     valid_stmts = [s for s in parsed_statements if s is not None]
@@ -131,6 +170,13 @@ def validate_read_only_sql(sql: str) -> str:
         )
 
     stmt = valid_stmts[0]
+
+    # Expression fragments (typos such as "SELEC * FORM t" parse as an Alias) are not
+    # statements; DuckDB rejects them with a precise syntax error for the retry loop.
+    if not isinstance(stmt, ALLOWED_ROOT_NODES + SYNTAX_FRAGMENT_NODES):
+        raise SecurityViolation(
+            f"Only SELECT queries are allowed, got '{type(stmt).__name__}'."
+        )
 
     # Check for forbidden AST nodes anywhere in the tree
     for node in stmt.walk():

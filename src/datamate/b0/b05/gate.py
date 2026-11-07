@@ -110,6 +110,48 @@ def evaluate_gate(request: GateRequest) -> GateOutcome:
         )
 
     except FormattingError as f_err:
+        # Cứu vãn kiểu dữ liệu an toàn nếu model gán nhầm nhãn (ví dụ nhầm 'number' với 'date' hoặc 'string'):
+        cand = val_res.normalized_candidate
+        if cand is not None:
+            cand_str = str(cand).strip()
+            import re
+            # 1. Cứu vãn ngày tháng nếu chuỗi có định dạng ISO date (YYYY-MM-DD hoặc YYYY-MM):
+            if re.match(r"^\d{4}-\d{2}(-\d{2})?$", cand_str):
+                try:
+                    formatted_answer = format_answer(AnswerType.DATE, cand, semantics_dict)
+                    return GateOutcome(
+                        action=GateAction.FINAL,
+                        question_id=question_id,
+                        decision=Decision.ANSWER,
+                        final_answer=FinalAnswer(id=question_id, type=AnswerType.DATE, answer=formatted_answer),
+                        reason_code=ErrorCode.VALID_RESULT,
+                        validation={"passed": True, "errors": [], "warnings": val_res.warnings},
+                        retry_count=request.attempt,
+                        repair_request=None,
+                    )
+                except Exception:
+                    pass
+
+            # 2. Cứu vãn chuỗi ký tự nếu target_type ban đầu là number nhưng candidate là text hợp lệ (chứa chữ cái, không phải NaN/Inf):
+            if target_type == AnswerType.NUMBER and isinstance(cand, str) and cand_str:
+                if cand_str.lower() not in ("nan", "inf", "-inf", "null", "none"):
+                    import unicodedata
+                    if any(unicodedata.category(c)[0] == "L" for c in cand_str):
+                        try:
+                            formatted_answer = format_answer(AnswerType.STRING, cand, semantics_dict)
+                            return GateOutcome(
+                                action=GateAction.FINAL,
+                                question_id=question_id,
+                                decision=Decision.ANSWER,
+                                final_answer=FinalAnswer(id=question_id, type=AnswerType.STRING, answer=formatted_answer),
+                                reason_code=ErrorCode.VALID_RESULT,
+                                validation={"passed": True, "errors": [], "warnings": val_res.warnings},
+                                retry_count=request.attempt,
+                                repair_request=None,
+                            )
+                        except Exception:
+                            pass
+
         classification = classify_error(None, f_err.code or ErrorCode.OUTPUT_TYPE_ERROR)
         repair = decide_retry(request, classification)
 

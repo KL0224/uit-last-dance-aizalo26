@@ -31,8 +31,18 @@ def _load_directory_into_duckdb(con: duckdb.DuckDBPyConnection, dir_path: str) -
     supported_extensions = {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".xlsx", ".xls"}
     loaded_any = False
 
-    for root, _, files in os.walk(dir_path):
-        for file_name in files:
+    def unique_name(base: str) -> str:
+        name, counter = base, 1
+        while name.lower() in used_names:
+            counter += 1
+            name = f"{base}_{counter}"
+        used_names.add(name.lower())
+        return name
+
+    used_names: set[str] = set()
+    for root, dirs, files in os.walk(dir_path):
+        dirs.sort()
+        for file_name in sorted(files):
             ext = os.path.splitext(file_name)[1].lower()
             if ext not in supported_extensions:
                 continue
@@ -40,27 +50,33 @@ def _load_directory_into_duckdb(con: duckdb.DuckDBPyConnection, dir_path: str) -
             file_path = os.path.join(root, file_name)
             # Create a clean, SQL-safe table name
             stem = os.path.splitext(file_name)[0]
-            table_name = re.sub(r"[^a-zA-Z0-9_]", "_", stem)
-            if not table_name:
-                table_name = f"tbl_{len(con.execute('SHOW TABLES').fetchall())}"
+            base_name = re.sub(r"[^a-zA-Z0-9_]", "_", stem) or f"tbl_{len(used_names)}"
 
             try:
+                if ext in (".xlsx", ".xls"):
+                    if pd is None:
+                        continue
+                    sheets = pd.read_excel(file_path, sheet_name=None)
+                    for sheet_name, df in sheets.items():
+                        suffix = re.sub(r"[^a-zA-Z0-9_]", "_", str(sheet_name))
+                        candidate = base_name if len(sheets) == 1 else f"{base_name}_{suffix}"
+                        table_name = unique_name(candidate)
+                        tmp_id = f"_tmp_{table_name}"
+                        con.register(tmp_id, df)
+                        con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM "{tmp_id}"')
+                        con.unregister(tmp_id)
+                        loaded_any = True
+                    continue
+                table_name = unique_name(base_name)
                 if ext == ".parquet":
                     con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_parquet(?)', [file_path])
                 elif ext in (".csv", ".tsv"):
                     con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_csv(?, header=true, auto_detect=true)', [file_path])
                 elif ext in (".json", ".jsonl"):
                     con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM read_json(?, auto_detect=true)', [file_path])
-                elif ext in (".xlsx", ".xls"):
-                    if pd is not None:
-                        df = pd.read_excel(file_path)
-                        tmp_id = f"_tmp_{table_name}"
-                        con.register(tmp_id, df)
-                        con.execute(f'CREATE TABLE "{table_name}" AS SELECT * FROM "{tmp_id}"')
-                        con.unregister(tmp_id)
                 loaded_any = True
             except Exception as e:
-                logger.warning("Failed to load file '%s' into table '%s': %s", file_path, table_name, e)
+                logger.warning("Failed to load file '%s' into table '%s': %s", file_path, base_name, e)
 
     if not loaded_any:
         logger.info("No supported tabular data files found in directory '%s'.", dir_path)
@@ -93,8 +109,13 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
         elif os.path.isfile(request.db_path):
             con = duckdb.connect(database=request.db_path, read_only=True)
         elif os.path.isdir(request.db_path):
-            con = duckdb.connect(database=":memory:")
-            _load_directory_into_duckdb(con, request.db_path)
+            bundle_db = os.path.join(request.db_path, "data.duckdb")
+            if os.path.isfile(bundle_db):
+                # Prepared B0.1 bundle: query the normalized store directly.
+                con = duckdb.connect(database=bundle_db, read_only=True)
+            else:
+                con = duckdb.connect(database=":memory:")
+                _load_directory_into_duckdb(con, request.db_path)
         else:
             raise FileNotFoundError(f"Database path '{request.db_path}' does not exist.")
 
@@ -127,7 +148,14 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
         try:
             cursor = con.execute(cleaned_sql)
             columns = [desc[0] for desc in cursor.description] if cursor.description else []
-            raw_rows = cursor.fetchmany(request.max_rows)
+            raw_rows = cursor.fetchmany(request.max_rows + 1)
+            truncated = len(raw_rows) > request.max_rows
+            raw_rows = raw_rows[: request.max_rows]
+            # Hide B0.1 internal lineage columns (e.g. __dm_row_id) leaked by SELECT *.
+            visible = [i for i, name in enumerate(columns) if not name.startswith("__dm_")]
+            if visible and len(visible) < len(columns):
+                columns = [columns[i] for i in visible]
+                raw_rows = [tuple(row[i] for i in visible) for row in raw_rows]
         except Exception as exec_err:
             if timed_out[0]:
                 raise QueryTimeoutError(
@@ -156,6 +184,7 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
             error_type=None,
             error_message=None,
             execution_time_ms=execution_time_ms,
+            truncated=truncated,
         )
 
     except Exception as exc:

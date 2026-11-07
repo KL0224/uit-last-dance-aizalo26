@@ -45,6 +45,10 @@ class SubmissionWriter:
         error_code: Optional[str] = None,
         execution_ms: Optional[float] = None,
         row_count: Optional[int] = None,
+        thinking: Optional[str] = None,
+        assumptions: Optional[ Any] = None,
+        error_message: Optional[str] = None,
+        llm_generation_ms: Optional[float] = None,
     ) -> None:
         """Record an attempt trace into audit logger history."""
         self.audit_logger.record_attempt(
@@ -55,6 +59,10 @@ class SubmissionWriter:
             error_code=error_code,
             execution_ms=execution_ms,
             row_count=row_count,
+            thinking=thinking,
+            assumptions=list(assumptions) if assumptions is not None else None,
+            error_message=error_message,
+            llm_generation_ms=llm_generation_ms,
         )
 
     def write_final(

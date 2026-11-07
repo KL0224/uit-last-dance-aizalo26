@@ -95,6 +95,8 @@ def format_percent(value: Any, semantics: Dict[str, Any]) -> int | float:
 
 def format_string(value: Any) -> str:
     """Format string: NFC, trimmed, preserving casing and Vietnamese diacritics."""
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value.isoformat()[:10]
     if not isinstance(value, str):
         raise FormattingError(f"Expected string, got {type(value).__name__}", code=ErrorCode.OUTPUT_TYPE_ERROR)
     s = unicodedata.normalize("NFC", value).strip()
@@ -109,6 +111,13 @@ def format_date(value: Any, semantics: Dict[str, Any]) -> str:
         return value.isoformat()[:10]
 
     s = str(value).strip()
+    # ISO timestamps produced by the executor (B0.4): keep only the calendar date.
+    if re.match(r"^\d{4}-\d{2}-\d{2}[T ]\d", s):
+        try:
+            return datetime.datetime.fromisoformat(s).date().isoformat()
+        except ValueError as exc:
+            raise FormattingError(f"Invalid timestamp '{s}': {exc}", code=ErrorCode.OUTPUT_TYPE_ERROR)
+
     # Check YYYY-MM-DD
     if re.match(r"^\d{4}-\d{2}-\d{2}$", s):
         try:
@@ -134,6 +143,21 @@ def format_boolean(value: Any) -> bool:
     return value
 
 
+def _json_scalar(item: Any) -> Any:
+    """Convert Decimal/date/time cells to JSON-safe primitives."""
+    if isinstance(item, bool):
+        return item
+    if isinstance(item, Decimal):
+        if not item.is_finite():
+            raise FormattingError("Non-finite decimal element", code=ErrorCode.OUTPUT_TYPE_ERROR)
+        return int(item) if item % 1 == 0 else float(item)
+    if isinstance(item, (datetime.datetime, datetime.date, datetime.time)):
+        return item.isoformat()
+    if isinstance(item, str):
+        return unicodedata.normalize("NFC", item).strip()
+    return item
+
+
 def format_list(value: Any, semantics: Dict[str, Any]) -> List[Any]:
     """Format list: ordered, preserving query order, validating elements."""
     if not isinstance(value, (list, tuple)):
@@ -152,10 +176,7 @@ def format_list(value: Any, semantics: Dict[str, Any]) -> List[Any]:
             raise FormattingError("List contains null element", code=ErrorCode.NULL_RESULT)
         if isinstance(item, float) and (math.isnan(item) or math.isinf(item)):
             raise FormattingError("List contains NaN/Inf element", code=ErrorCode.OUTPUT_TYPE_ERROR)
-        if isinstance(item, str):
-            formatted_items.append(unicodedata.normalize("NFC", item).strip())
-        else:
-            formatted_items.append(item)
+        formatted_items.append(_json_scalar(item))
     return formatted_items
 
 
@@ -190,10 +211,7 @@ def format_table(value: Any, semantics: Dict[str, Any]) -> Dict[str, Any]:
                 raise FormattingError(f"Table row {r_idx} contains NULL cell", code=ErrorCode.NULL_RESULT)
             if isinstance(cell, float) and (math.isnan(cell) or math.isinf(cell)):
                 raise FormattingError(f"Table row {r_idx} contains NaN/Inf cell", code=ErrorCode.OUTPUT_TYPE_ERROR)
-            if isinstance(cell, str):
-                clean_row.append(unicodedata.normalize("NFC", cell).strip())
-            else:
-                clean_row.append(cell)
+            clean_row.append(_json_scalar(cell))
         clean_rows.append(clean_row)
 
     return {"columns": columns, "rows": clean_rows}
