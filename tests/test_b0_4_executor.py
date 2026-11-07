@@ -362,3 +362,121 @@ def test_14_from_b03_adapter():
     assert res.row_count == 1
 
 
+def test_15_sanitizer_multi_markdown_and_trailing_comments():
+    """
+    Scenario 15: LLM outputs multiple markdown blocks (first is explanation/example, last is final SQL),
+    trailing comments after semicolon, literals containing 'update', and blocks duckdb_* system functions.
+    """
+    raw_llm_output = """
+    Here is an example draft:
+    ```sql
+    SELECT wrong_col FROM nowhere
+    ```
+    And here is the final SQL query:
+    ```sql
+    SELECT customer_id, customer_name
+    FROM customers
+    WHERE city = 'Ha Noi' AND customer_name != 'update'; -- filter active
+    ```
+    """
+    cleaned = extract_clean_sql(raw_llm_output)
+    assert "wrong_col" not in cleaned
+    assert "WHERE city = 'Ha Noi'" in cleaned
+    assert not cleaned.endswith(";")
+
+    req = ExecutionRequest(
+        question_id="q_test_15",
+        db_path=MOCK_DB_PATH,
+        sql_query=raw_llm_output,
+        retry_count=0,
+    )
+    res = execute_query(req)
+    assert res.is_valid is True
+    assert res.route == "yes"
+    assert res.row_count == 1
+
+    # System functions starting with duckdb_ must be blocked
+    with pytest.raises(SecurityViolation):
+        validate_read_only_sql("SELECT * FROM duckdb_settings()")
+
+
+def test_16_schema_enrichment_on_binder_and_catalog_error():
+    """
+    Scenario 16: When CatalogError or BinderError occurs, error_message includes
+    '[Gợi ý Schema thực tế trong DB]:' with real table and column names.
+    """
+    req = ExecutionRequest(
+        question_id="q_test_16",
+        db_path=MOCK_DB_PATH,
+        sql_query="SELECT cot_khong_ton_tai FROM customers",
+        retry_count=0,
+        max_retries=1,
+    )
+    res = execute_query(req)
+    assert res.is_valid is False
+    assert res.route == "recoverable"
+    assert res.error_type in ("BinderError", "CatalogError")
+    assert "[Gợi ý Schema thực tế trong DB]:" in res.error_message
+    assert '"customers"' in res.error_message
+    assert '"customer_id"' in res.error_message
+
+
+def test_17_all_null_aggregate_recoverable_on_initial_attempt():
+    """
+    Scenario 17: When a number/percent aggregation returns 1 row with all NULL values
+    on the initial attempt (retry_count=0), route to 'recoverable' with EmptyResultWarning.
+    On retry (retry_count=1), let the result pass through.
+    """
+    null_agg_sql = "SELECT SUM(total_spent) AS total FROM customers WHERE city = 'Thanh Pho Khong Ton Tai'"
+
+    req_initial = ExecutionRequest(
+        question_id="q_test_17_init",
+        db_path=MOCK_DB_PATH,
+        sql_query=null_agg_sql,
+        answer_type="number",
+        retry_count=0,
+        max_retries=1,
+    )
+    res_initial = execute_query(req_initial)
+    assert res_initial.is_valid is False
+    assert res_initial.route == "recoverable"
+    assert res_initial.error_type == "EmptyResultWarning"
+    assert "all NULL values" in res_initial.error_message
+
+    req_retry = ExecutionRequest(
+        question_id="q_test_17_retry",
+        db_path=MOCK_DB_PATH,
+        sql_query=null_agg_sql,
+        answer_type="number",
+        retry_count=1,
+        max_retries=1,
+    )
+    res_retry = execute_query(req_retry)
+    assert res_retry.is_valid is True
+    assert res_retry.route == "yes"
+    assert res_retry.rows == [{"total": None}]
+
+
+def test_18_directory_caching_and_temp_directory_sandbox():
+    """
+    Scenario 18: Repeated queries on a directory without data.duckdb use the cached .duckdb
+    in /tmp (or system temp dir) and execute cleanly under sandbox constraints.
+    """
+    from datamate.b0.b04.engine import _get_or_build_cached_dir_db
+
+    cached_path = _get_or_build_cached_dir_db(MOCK_FOLDER_PATH)
+    assert cached_path is not None
+    assert os.path.isfile(cached_path)
+
+    req = ExecutionRequest(
+        question_id="q_test_18",
+        db_path=MOCK_FOLDER_PATH,
+        sql_query="SELECT COUNT(*) AS cnt FROM orders",
+        answer_type="number",
+    )
+    res = execute_query(req)
+    assert res.is_valid is True
+    assert res.rows == [{"cnt": 3}]
+
+
+

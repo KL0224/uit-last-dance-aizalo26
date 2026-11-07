@@ -14,6 +14,7 @@ RECOVERABLE_ERROR_TYPES = {
     "TimeoutError",
     "SecurityViolation",
     "EmptyQueryError",
+    "EmptyResultWarning",
 }
 
 
@@ -115,4 +116,28 @@ def determine_route(
         return "recoverable"
 
     return "abstain"
+
+
+def enrich_error_with_schema(con, error_type: str, base_msg: str) -> str:
+    """
+    Appends actual table and column names from the active DuckDB connection
+    when a schema-related error (CatalogError, BinderError, ConversionError) occurs,
+    helping the LLM self-correct within the single bounded retry.
+    """
+    if con is None or error_type not in ("CatalogError", "BinderError", "ConversionError"):
+        return base_msg
+    try:
+        tables = [r[0] for r in con.execute("SHOW TABLES").fetchall()]
+        if not tables:
+            return base_msg
+        hints = []
+        for tbl in tables[:6]:
+            cols = con.execute(f'DESCRIBE "{tbl}"').fetchall()
+            visible_cols = [c for c in cols if not str(c[0]).startswith("__dm_")]
+            col_list = ", ".join([f'"{c[0]}" ({c[1]})' for c in visible_cols[:25]])
+            hints.append(f'  * Bảng "{tbl}": {col_list}')
+        return base_msg + "\n[Gợi ý Schema thực tế trong DB]:\n" + "\n".join(hints)
+    except Exception:
+        return base_msg
+
 

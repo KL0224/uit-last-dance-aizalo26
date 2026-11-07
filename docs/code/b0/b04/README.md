@@ -28,6 +28,7 @@ Mỗi tài liệu phân tích cặn kẽ:
 | `sanitizer.py` | [`sanitizer.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/sanitizer.md) | Bộ phân tích cú pháp tĩnh AST bằng `sqlglot`, gỡ bỏ markdown code block, cấm DDL/DML, cấm đọc file tùy tiện và chặn Multi-statement injection. |
 | `error_handler.py` | [`error_handler.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/error_handler.md) | Phân loại ngoại lệ DuckDB/Python, quyết định điều hướng (`yes`, `recoverable`, `abstain`), và tinh gọn error message cho Bounded Retry. |
 | `engine.py` | [`engine.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/engine.md) | Trình thực thi truy vấn an toàn: kết nối file/memory/folder, thiết lập giới hạn RAM/threads, luồng timer ngắt timeout (`con.interrupt()`), và giới hạn `max_rows`. |
+| Kế hoạch nâng cấp B0.4 | [`improvement_execute_layer_plan.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/improvement_execute_layer_plan.md) | Kế hoạch nâng cấp tầng thực thi B0.4 (xử lý AST/regex, `temp_directory` Docker Read-Only, Schema Hint cho Bounded Retry, kiểm tra kết quả rỗng/NULL, cache thư mục) & quy trình đóng gói Docker + Modal.ai. |
 
 ---
 

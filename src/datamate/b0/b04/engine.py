@@ -1,6 +1,8 @@
+import hashlib
 import logging
 import os
 import re
+import tempfile
 import threading
 import time
 from typing import Optional
@@ -18,9 +20,15 @@ from .schemas import (
     normalize_value,
 )
 from .sanitizer import extract_clean_sql, validate_read_only_sql
-from .error_handler import classify_error, determine_route, format_error_message
+from .error_handler import (
+    classify_error,
+    determine_route,
+    enrich_error_with_schema,
+    format_error_message,
+)
 
 logger = logging.getLogger(__name__)
+_DIR_CACHE_LOCK = threading.Lock()
 
 
 def _load_directory_into_duckdb(con: duckdb.DuckDBPyConnection, dir_path: str) -> None:
@@ -82,15 +90,60 @@ def _load_directory_into_duckdb(con: duckdb.DuckDBPyConnection, dir_path: str) -
         logger.info("No supported tabular data files found in directory '%s'.", dir_path)
 
 
+def _get_or_build_cached_dir_db(dir_path: str) -> Optional[str]:
+    """
+    Caches a directory of raw tabular files (CSV/Parquet/Excel/JSON) into a temporary
+    .duckdb file under /tmp (or system temp dir) keyed by directory path and file mtimes.
+    Returns the cached .duckdb file path, or None if caching is unavailable.
+    """
+    supported_extensions = {".parquet", ".csv", ".tsv", ".json", ".jsonl", ".xlsx", ".xls"}
+    sig_parts = [os.path.abspath(dir_path)]
+    for root, dirs, files in os.walk(dir_path):
+        dirs.sort()
+        for fname in sorted(files):
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in supported_extensions:
+                continue
+            fpath = os.path.join(root, fname)
+            try:
+                st = os.stat(fpath)
+                sig_parts.append(f"{fpath}:{st.st_mtime_ns}:{st.st_size}")
+            except OSError:
+                sig_parts.append(fpath)
+
+    digest = hashlib.sha256("|".join(sig_parts).encode("utf-8")).hexdigest()[:16]
+    cache_root = "/tmp/duckdb_dir_cache" if os.path.isdir("/tmp") else os.path.join(tempfile.gettempdir(), "duckdb_dir_cache")
+    try:
+        os.makedirs(cache_root, exist_ok=True)
+        cached_db_path = os.path.join(cache_root, f"b04_dir_{digest}.duckdb")
+        with _DIR_CACHE_LOCK:
+            if not os.path.isfile(cached_db_path):
+                tmp_build_path = f"{cached_db_path}.building.{os.getpid()}"
+                if os.path.exists(tmp_build_path):
+                    os.remove(tmp_build_path)
+                build_con = duckdb.connect(database=tmp_build_path)
+                try:
+                    _load_directory_into_duckdb(build_con, dir_path)
+                finally:
+                    build_con.close()
+                os.replace(tmp_build_path, cached_db_path)
+        return cached_db_path
+    except Exception as cache_err:
+        logger.debug("Directory DB caching skipped for '%s': %s", dir_path, cache_err)
+        return None
+
+
 def execute_query(request: ExecutionRequest) -> ExecutionResponse:
     """
     Executes an SQL query in a sandboxed, read-only DuckDB environment.
     Guarantees:
     - Pre-execution static AST security check (read-only queries only)
-    - Sandbox resource limits (memory, threads, disabled external file access)
+    - Sandbox resource limits (temp_directory, memory, threads, disabled external file access)
     - Hard timeout enforcement via con.interrupt()
     - Memory safety with max_rows row-limit
     - Deterministic routing ('yes', 'recoverable', 'abstain')
+    - Schema hints attached on CatalogError/BinderError/ConversionError
+    - Result validation for single-row all-NULL numeric/percent aggregations on initial attempt
     - JSON-safe primitive data output
     """
     start_time = time.perf_counter()
@@ -114,16 +167,30 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
                 # Prepared B0.1 bundle: query the normalized store directly.
                 con = duckdb.connect(database=bundle_db, read_only=True)
             else:
-                con = duckdb.connect(database=":memory:")
-                _load_directory_into_duckdb(con, request.db_path)
+                cached_db = _get_or_build_cached_dir_db(request.db_path)
+                if cached_db and os.path.isfile(cached_db):
+                    con = duckdb.connect(database=cached_db, read_only=True)
+                else:
+                    con = duckdb.connect(database=":memory:")
+                    _load_directory_into_duckdb(con, request.db_path)
         else:
             raise FileNotFoundError(f"Database path '{request.db_path}' does not exist.")
 
         # Step 3: Configure sandbox constraints
-        # Set conservative limits to prevent runaway resource consumption
+        spill_dir = os.getenv("B04_DUCKDB_TEMP_DIR", "/tmp/duckdb_spill")
+        try:
+            os.makedirs(spill_dir, exist_ok=True)
+        except Exception:
+            spill_dir = os.path.join(tempfile.gettempdir(), "duckdb_spill")
+            os.makedirs(spill_dir, exist_ok=True)
+        spill_dir_sql = spill_dir.replace("\\", "/")
+        max_mem = os.getenv("B04_DUCKDB_MAX_MEMORY", "4GB")
+        threads = int(os.getenv("B04_DUCKDB_THREADS", "4"))
+
         for config_sql in [
-            "SET max_memory = '2GB'",
-            "SET threads = 2",
+            f"SET temp_directory = '{spill_dir_sql}'",
+            f"SET max_memory = '{max_mem}'",
+            f"SET threads = {threads}",
             "SET enable_external_access = false",
             "SET lock_configuration = true",
         ]:
@@ -173,6 +240,32 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
                 row_dict[col_name] = normalize_value(val)
             rows.append(row_dict)
 
+        # Step 7: Result validation for all-NULL aggregate result on initial attempt
+        is_all_null_agg = (
+            len(rows) == 1
+            and len(rows[0]) > 0
+            and all(v is None for v in rows[0].values())
+            and request.answer_type in ("number", "percent")
+        )
+
+        if request.retry_count < request.max_retries and is_all_null_agg:
+            return ExecutionResponse(
+                question_id=request.question_id,
+                is_valid=False,
+                route="recoverable",
+                cleaned_sql=cleaned_sql,
+                columns=columns,
+                rows=rows,
+                row_count=len(rows),
+                error_type="EmptyResultWarning",
+                error_message=(
+                    "Query returned a single row with all NULL values. "
+                    "Please check your WHERE filter values (e.g., exact Vietnamese text matching or date format)."
+                ),
+                execution_time_ms=execution_time_ms,
+                truncated=truncated,
+            )
+
         return ExecutionResponse(
             question_id=request.question_id,
             is_valid=True,
@@ -205,6 +298,7 @@ def execute_query(request: ExecutionRequest) -> ExecutionResponse:
             max_retries=request.max_retries,
         )
         error_message = format_error_message(exc, error_type, timeout_sec=request.timeout_sec)
+        error_message = enrich_error_with_schema(con, error_type, error_message)
 
         return ExecutionResponse(
             question_id=request.question_id,

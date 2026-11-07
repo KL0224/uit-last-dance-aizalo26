@@ -12,7 +12,12 @@ from .schemas import (
     normalize_value,
 )
 from .sanitizer import extract_clean_sql, validate_read_only_sql
-from .error_handler import classify_error, determine_route, format_error_message
+from .error_handler import (
+    classify_error,
+    determine_route,
+    enrich_error_with_schema,
+    format_error_message,
+)
 from .engine import execute_query
 
 __all__ = [
@@ -26,6 +31,7 @@ __all__ = [
     "validate_read_only_sql",
     "classify_error",
     "determine_route",
+    "enrich_error_with_schema",
     "format_error_message",
     "execute_query",
 ]
