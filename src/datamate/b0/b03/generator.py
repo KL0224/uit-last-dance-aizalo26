@@ -27,11 +27,12 @@ class Text2SQLGenerator:
         as_of_date: str,
         *,
         options: GenerationOptions | None = None,
+        industry: str | None = None,
     ) -> Text2SQLResult:
         """Sinh câu truy vấn SQL từ câu hỏi và BusinessContext."""
-        messages = build_text2sql_messages(context, question, as_of_date)
+        messages = build_text2sql_messages(context, question, as_of_date, industry)
         gen_result = self.model.chat(messages, options=options)
-        return parse_text2sql_response(gen_result.text)
+        return parse_text2sql_response(gen_result.text, question=question)
 
     def repair(
         self,
@@ -42,6 +43,7 @@ class Text2SQLGenerator:
         error_message: str,
         *,
         options: GenerationOptions | None = None,
+        industry: str | None = None,
     ) -> Text2SQLResult:
         """Thực hiện 1 lần Bounded Retry sửa lại câu SQL khi bước thực thi gặp lỗi."""
         messages = build_repair_messages(
@@ -50,7 +52,64 @@ class Text2SQLGenerator:
             as_of_date=as_of_date,
             previous_sql=previous_sql,
             error_message=error_message,
+            industry=industry,
         )
         gen_result = self.model.chat(messages, options=options)
-        return parse_text2sql_response(gen_result.text)
+        return parse_text2sql_response(gen_result.text, question=question)
+
+    def generate_batch(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        options: GenerationOptions | None = None,
+    ) -> list[Any]:
+        """Sinh Text2SQL cho một danh sách các câu hỏi theo batch trên GPU."""
+        if not items:
+            return []
+        messages_batch = [
+            build_text2sql_messages(
+                it["context"],
+                it["question"],
+                it["as_of_date"],
+                it.get("industry"),
+            )
+            for it in items
+        ]
+        gen_results = self.model.chat_batch(messages_batch, options=options)
+        parsed: list[Any] = []
+        for it, gr in zip(items, gen_results):
+            try:
+                parsed.append(parse_text2sql_response(gr.text, question=it.get("question")))
+            except Exception as parse_err:
+                parsed.append(parse_err)
+        return parsed
+
+    def repair_batch(
+        self,
+        items: list[dict[str, Any]],
+        *,
+        options: GenerationOptions | None = None,
+    ) -> list[Any]:
+        """Sửa Text2SQL cho danh sách các câu hỏi cần retry theo batch trên GPU."""
+        if not items:
+            return []
+        messages_batch = [
+            build_repair_messages(
+                context=it["context"],
+                question=it["question"],
+                as_of_date=it["as_of_date"],
+                previous_sql=it["previous_sql"],
+                error_message=it["error_message"],
+                industry=it.get("industry"),
+            )
+            for it in items
+        ]
+        gen_results = self.model.chat_batch(messages_batch, options=options)
+        parsed: list[Any] = []
+        for it, gr in zip(items, gen_results):
+            try:
+                parsed.append(parse_text2sql_response(gr.text, question=it.get("question")))
+            except Exception as parse_err:
+                parsed.append(parse_err)
+        return parsed
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -67,7 +68,7 @@ class ModelConfig:
 
     model_path: Path
     dtype: str = "bfloat16"
-    max_model_len: int = 8192
+    max_model_len: int = 16384
     gpu_memory_utilization: float = 0.9
     tensor_parallel_size: int = 1
     max_num_seqs: int = 4
@@ -111,6 +112,10 @@ class Text2SQLResult:
     tables_used: tuple[str, ...] = ()
     assumptions: tuple[str, ...] = ()
     reason: str | None = None
+    answer_semantics: dict[str, Any] | None = None
+    missing_fields: tuple[str, ...] = ()
+    thinking: str | None = None
+    raw_response: str | None = None
 
     def __post_init__(self) -> None:
         if self.status not in {"answerable", "unanswerable"}:
@@ -119,6 +124,8 @@ class Text2SQLResult:
             object.__setattr__(self, "tables_used", tuple(self.tables_used))
         if isinstance(self.assumptions, list):
             object.__setattr__(self, "assumptions", tuple(self.assumptions))
+        if isinstance(self.missing_fields, list):
+            object.__setattr__(self, "missing_fields", tuple(self.missing_fields))
 
     def to_b05_generation_result(self) -> Any:
         """Chuyển đổi sang GenerationResult của B0.5 Basic Output Gate."""
@@ -133,10 +140,57 @@ class Text2SQLResult:
                 answer_semantics=AnswerSemantics(),
             )
 
+        from .parser import normalize_answer_type
+
+        answer_type = normalize_answer_type(self.answer_type, self.sql)
+        semantics = dict(self.answer_semantics or {})
+        if answer_type == "number" and not semantics.get("numeric_kind"):
+            kind = _infer_numeric_kind(self.sql or "")
+            if kind:
+                semantics["numeric_kind"] = kind
+        allowed = {
+            "numeric_kind",
+            "percent_unit",
+            "list_ordered",
+            "time_role",
+            "empty_set_policy",
+        }
         return B05GenerationResult(
-            answer_type=self.answer_type or "generic",
+            answer_type=answer_type,
             sql=self.sql or "",
             tables_used=list(self.tables_used),
             assumptions=list(self.assumptions),
-            answer_semantics=AnswerSemantics(),
+            answer_semantics=AnswerSemantics(
+                **{k: v for k, v in semantics.items() if k in allowed}
+            ),
         )
+
+    def to_b05_evidence_proof(self, context: Any = None) -> Any:
+        """Build B0.5 evidence; verified only against the supplied schema catalog."""
+        from .evidence import build_evidence_proof
+
+        if self.status != "unanswerable":
+            from datamate.b0.b05.contracts import EvidenceProof
+
+            return EvidenceProof()
+        return build_evidence_proof(context, self.reason, self.missing_fields)
+
+
+_MONEY_PARTS = frozenset(
+    "tien gia doanh_thu thu chi_phi phi lai no chiet khau amount cost price revenue profit".split()
+)
+
+
+def _infer_numeric_kind(sql: str) -> str | None:
+    """Infer B0.5 numeric_kind from the first projected expression; None when unsure."""
+    match = re.match(r"\s*SELECT\s+(?:DISTINCT\s+)?(.+?)\s+FROM\b", sql, re.IGNORECASE | re.DOTALL)
+    projection = (match.group(1) if match else sql).lower()
+    if re.match(r"\s*count\s*\(", projection):
+        return "count"
+    aggregate = re.match(r"\s*(avg|sum)\s*\((.*)\)", projection, re.DOTALL)
+    if not aggregate:
+        return None
+    parts = set(re.split(r"[^a-z]+", aggregate.group(2)))
+    if not parts & _MONEY_PARTS:
+        return None
+    return "average_money_vnd" if aggregate.group(1) == "avg" else "money_vnd"

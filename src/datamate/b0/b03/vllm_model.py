@@ -1,7 +1,10 @@
 """Offline vLLM backend: Python trực tiếp load weights, không dùng HTTP API."""
 
 import json
+import os
 from typing import Any
+
+os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 
 from .base import BaseLLM
 from .errors import InferenceError, ModelLoadError, ModelNotLoadedError
@@ -145,18 +148,35 @@ class VLLMModel(BaseLLM):
             raise ValueError("messages must be a nonempty list of ChatMessage")
         if any(not isinstance(message, ChatMessage) for message in messages):
             raise TypeError("Every message must be a ChatMessage")
-        params = self._sampling_params(options)
-        payload = [{"role": m.role, "content": m.content} for m in messages]
-        try:
-            # Engine áp dụng chat template gốc; không tự nối role markers.
-            # enable_thinking trong config chỉ tác động chat(), không tác
-            # động raw prompt của generate()/generate_batch().
-            outputs = self._engine.chat(
-                payload,
-                sampling_params=params,
-                chat_template_kwargs=dict(self.config.chat_template_kwargs),
-                use_tqdm=False,
-            )
-            return self._convert_outputs(outputs, expected=1)[0]
-        except Exception as exc:
-            raise InferenceError(f"Chat generation failed: {exc}") from exc
+        return self.chat_batch([messages], options=options)[0]
+
+    def chat_batch(
+        self, messages_batch: list[list[ChatMessage]], *, options: GenerationOptions | None = None
+    ) -> list[GenerationResult]:
+        """Sinh assistant replies cho một batch các hội thoại đồng thời trên vLLM."""
+        self._require_loaded()
+        if not messages_batch:
+            return []
+        payloads = [
+            [{"role": m.role, "content": m.content} for m in messages]
+            for messages in messages_batch
+        ]
+        tokenizer = self._engine.get_tokenizer()
+        template_kwargs = dict(self.config.chat_template_kwargs or {})
+        prompts: list[str] = []
+        for p in payloads:
+            try:
+                rendered = tokenizer.apply_chat_template(
+                    p,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                    **template_kwargs,
+                )
+            except Exception:
+                rendered = tokenizer.apply_chat_template(
+                    p,
+                    tokenize=False,
+                    add_generation_prompt=True,
+                )
+            prompts.append(rendered)
+        return self.generate_batch(prompts, options=options)

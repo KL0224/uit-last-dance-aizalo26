@@ -12,6 +12,7 @@ from .errors import (
     ModelNotLoadedError,
     Text2SQLParseError,
 )
+from .evidence import build_evidence_proof
 from .generator import Text2SQLGenerator
 from .parser import (
     extract_tables_from_sql,
@@ -50,6 +51,7 @@ __all__ = [
     "parse_text2sql_response",
     "extract_tables_from_sql",
     "infer_answer_type_from_sql",
+    "build_evidence_proof",
     # High-level Orchestration
     "Text2SQLGenerator",
     # Exceptions

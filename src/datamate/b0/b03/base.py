@@ -33,3 +33,9 @@ class BaseLLM(ABC):
         self, prompts: list[str], *, options: GenerationOptions | None = None
     ) -> list[GenerationResult]:
         """Sinh completion cho batch raw prompts; kết quả giữ thứ tự đầu vào."""
+
+    def chat_batch(
+        self, messages_batch: list[list[ChatMessage]], *, options: GenerationOptions | None = None
+    ) -> list[GenerationResult]:
+        """Sinh assistant replies cho một lô các hội thoại; mặc định gọi tuần tự nếu subclass không override."""
+        return [self.chat(messages, options=options) for messages in messages_batch]
