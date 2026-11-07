@@ -79,3 +79,4 @@ python3 /workspace/scripts/run_b0_pipeline.py \
 echo "=========================================================="
 echo "Hoàn thành pipeline! Kết quả đã ghi vào ${OUTPUT_DIR}/submission.jsonl"
 echo "=========================================================="
+

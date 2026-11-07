@@ -143,3 +143,4 @@ modal run scripts/modal_run_b0.py --split public_test --local-output-dir artifac
 ```
 
 Toàn bộ kết quả gồm `submission.jsonl`, `detailed_logs.jsonl` và `eval_report.json` sẽ tự động được tải về máy của bạn tại thư mục chỉ định.
+
