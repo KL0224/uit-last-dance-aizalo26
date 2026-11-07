@@ -27,7 +27,8 @@ Mỗi tài liệu phân tích cặn kẽ:
 | `schemas.py` | [`schemas.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/schemas.md) | Định nghĩa các DTO Pydantic (`ExecutionRequest`, `ExecutionResponse`), chuẩn hóa giá trị Python (`normalize_value`) và adapter kết nối B0.3/B0.5. |
 | `sanitizer.py` | [`sanitizer.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/sanitizer.md) | Bộ phân tích cú pháp tĩnh AST bằng `sqlglot`, gỡ bỏ markdown code block, cấm DDL/DML, cấm đọc file tùy tiện và chặn Multi-statement injection. |
 | `error_handler.py` | [`error_handler.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/error_handler.md) | Phân loại ngoại lệ DuckDB/Python, quyết định điều hướng (`yes`, `recoverable`, `abstain`), và tinh gọn error message cho Bounded Retry. |
-| `engine.py` | [`engine.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b04/engine.md) | Trình thực thi truy vấn an toàn: kết nối file/memory/folder, thiết lập giới hạn RAM/threads, luồng timer ngắt timeout (`con.interrupt()`), và giới hạn `max_rows`. |
+| `engine.py` | [`engine.md`](engine.md) | Trình thực thi truy vấn an toàn: kết nối file/memory/folder, thiết lập giới hạn RAM/threads, luồng timer ngắt timeout (`con.interrupt()`), và giới hạn `max_rows`. |
+| *Kế Hoạch Nâng Cấp* | [`improvement_execute_layer_plan.md`](improvement_execute_layer_plan.md) | Kế hoạch chi tiết nâng cấp tầng thực thi B0.4: chống chặn nhầm SQL, chống lỗi spill disk Docker, bổ sung schema vào error message cho Retry, và quy trình đóng gói Docker. |
 
 ---
 
