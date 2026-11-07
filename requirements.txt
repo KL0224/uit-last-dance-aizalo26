@@ -1,0 +1,23 @@
+# DataMate 2026 - Dependencies
+
+# 1. Cơ sở dữ liệu, Lược đồ & Xử lý dữ liệu (B0.1, B0.2, B0.4, B0.5)
+duckdb>=1.0.0
+sqlglot>=25.0.0
+pydantic>=2.0.0
+numpy>=2.0.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+pyarrow>=15.0.0
+
+# 2. Quản lý Model, API Client & Nền tảng Serverless GPU
+huggingface-hub>=0.34,<2
+openai>=1.0.0
+modal>=1.0.0
+
+# 3. GPU Inference Engine & PyTorch (Phục vụ chạy Qwen3.5-9B trên GPU)
+torch>=2.4.0
+vllm>=0.17,<1
+
+# 4. Kiểm thử
+pytest>=8.0.0
+

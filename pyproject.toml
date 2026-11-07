@@ -12,9 +12,13 @@ dependencies = [
     "duckdb>=1.0.0",
     "sqlglot>=25.0.0",
     "pydantic>=2.0.0",
+    "numpy>=2.0.0",
     "pandas>=2.0.0",
     "openpyxl>=3.1.0",
     "pyarrow>=15.0.0",
+    "huggingface-hub>=0.34,<2",
+    "openai>=1.0.0",
+    "modal>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -22,7 +26,16 @@ dev = [
     "pytest>=8.0.0",
 ]
 download = ["huggingface-hub>=0.34,<2"]
-inference = ["vllm>=0.17,<1"]
+inference = [
+    "torch>=2.4.0",
+    "vllm>=0.17,<1",
+    "openai>=1.0.0",
+]
+gpu = [
+    "torch>=2.4.0",
+    "vllm>=0.17,<1",
+]
+modal = ["modal>=1.0.0"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datamate"]

@@ -2,21 +2,21 @@
 [model]
 model_path = "../.models/Qwen3.5-9B"
 dtype = "bfloat16"
-max_model_len = 8192
+max_model_len = 32768
 gpu_memory_utilization = 0.9
 tensor_parallel_size = 1
-max_num_seqs = 4
+max_num_seqs = 16
 trust_remote_code = false
 
 # Đây là tùy chọn template Qwen; bỏ/đổi khi dùng họ model khác.
 [model.chat_template_kwargs]
-enable_thinking = false
+enable_thinking = true
 
 [generation]
-max_new_tokens = 1024
-temperature = 0.7
-top_p = 0.8
-top_k = 20
-repetition_penalty = 1.0
-presence_penalty = 1.5
+max_new_tokens = 8192
+temperature = 0.0
+top_p = 1.0
+top_k = -1
+repetition_penalty = 1.05
+presence_penalty = 0.0
 stop = []

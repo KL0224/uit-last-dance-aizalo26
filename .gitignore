@@ -24,6 +24,10 @@ data/cache/
 data/processed/
 *.duckdb
 *.parquet
+temp
+artifacts
+data/train
+data/public_test
 
 # Logs & Outputs
 logs/
