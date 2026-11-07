@@ -1,0 +1,60 @@
+# Environment & Secrets
+.env
+*.env
+.env.*
+.venv/
+env/
+venv/
+
+# Python Cache & Builds
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# Large Datasets & Cache
+data/raw/
+data/cache/
+data/processed/
+*.duckdb
+*.parquet
+temp
+artifacts
+data/train
+data/public_test
+
+
+
+data
+notebooks
+benchmark_outputs
+synthetic_data
+
+# Logs & Outputs
+logs/
+*.log
+submissions/
+
+# IDE & Editor
+.vscode/
+.idea/
+.DS_Store
+
+# Agent Tasks & Internal Cache
+tasks/
+agent_code
+
+# Databases & Cache artifacts
+*.duckdb
+*.duckdb.wal
+
+# Large datasets
+data/raw
+*.zip
+*.tar.gz
