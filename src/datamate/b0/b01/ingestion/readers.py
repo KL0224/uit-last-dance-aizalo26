@@ -163,6 +163,16 @@ def _headers(values: tuple[Any, ...]) -> tuple[str, ...]:
     )
 
 
+_AUTO_HEADER = re.compile(r"column_\d+")
+
+
+def _is_repeated_header(values: tuple[Any, ...], headers: tuple[str, ...]) -> bool:
+    """A data row equal to the header is a repeated header, unless the header contains synthetic names."""
+    if any(_AUTO_HEADER.fullmatch(name) for name in headers):
+        return False
+    return _headers(tuple(values)) == headers
+
+
 class BaseReader(ABC):
     @abstractmethod
     def discover(
@@ -237,7 +247,7 @@ class CSVReader(BaseReader):
                 number = reader.line_num
                 if not any(value.strip() for value in row):
                     continue
-                if _headers(tuple(row)) == source.headers:
+                if _is_repeated_header(tuple(row), source.headers):
                     continue
                 if len(row) > len(source.headers):
                     raise ValueError(
@@ -254,6 +264,7 @@ class XLSXReader(BaseReader):
     ) -> list[SourceTable]:
         workbook = load_workbook(path, read_only=True, data_only=True, keep_links=False)
         sources: list[SourceTable] = []
+        original = None  # formula workbook, opened lazily and at most once
         try:
             for sheet in workbook:
                 sheet.reset_dimensions()
@@ -267,21 +278,19 @@ class XLSXReader(BaseReader):
                 ):
                     # Empty cached prefix is not proof of an empty sheet: data may
                     # start later or consist of formulas without cached values.
-                    original = load_workbook(
-                        path, read_only=True, data_only=False, keep_links=False
-                    )
-                    try:
-                        original_sheet = original[sheet.title]
-                        original_sheet.reset_dimensions()
-                        if any(
-                            any(value is not None for value in row)
-                            for row in original_sheet.iter_rows(values_only=True)
-                        ):
-                            raise ValueError(
-                                f"nonempty XLSX sheet beyond header scan or missing cache: {relative}#{sheet.title}; configure header_row"
-                            )
-                    finally:
-                        original.close()
+                    if original is None:
+                        original = load_workbook(
+                            path, read_only=True, data_only=False, keep_links=False
+                        )
+                    original_sheet = original[sheet.title]
+                    original_sheet.reset_dimensions()
+                    if any(
+                        any(value is not None for value in row)
+                        for row in original_sheet.iter_rows(values_only=True)
+                    ):
+                        raise ValueError(
+                            f"nonempty XLSX sheet beyond header scan or missing cache: {relative}#{sheet.title}; configure header_row"
+                        )
                     continue
                 if "header_row" in options:
                     start = options["header_row"]
@@ -356,6 +365,8 @@ class XLSXReader(BaseReader):
                     )
         finally:
             workbook.close()
+            if original is not None:
+                original.close()
         return sources
 
     def rows(self, source: SourceTable) -> Iterator[SourceRow]:
@@ -383,7 +394,7 @@ class XLSXReader(BaseReader):
                     cell.data_type == "f" for cell in cells
                 ):
                     continue
-                if _headers(tuple(values)) == source.headers:
+                if _is_repeated_header(tuple(values), source.headers):
                     continue
                 if any(value is not None for value in values[len(source.headers) :]):
                     raise ValueError(

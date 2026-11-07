@@ -247,7 +247,11 @@ def parse_date(value: str, epoch: str, year: int | None) -> date | datetime | ti
         "%d/%m/%Y %H:%M:%S",
         "%d/%m/%Y %H:%M",
         "%d-%m-%Y %H:%M:%S",
+        "%d-%m-%Y %H:%M",
         "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y/%m/%d %H:%M:%S",
+        "%Y/%m/%d %H:%M",
     ):
         try:
             return datetime.strptime(text, fmt)
@@ -264,7 +268,7 @@ def parse_date(value: str, epoch: str, year: int | None) -> date | datetime | ti
         except ValueError:
             continue
     text = re.sub(r"(?i)^(\d{1,2})\s*thg\s*(\d{1,2})\s+(\d{4})$", r"\1/\2/\3", text)
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y"):
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y/%m/%d"):
         try:
             return datetime.strptime(text, fmt).date()
         except ValueError:

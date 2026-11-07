@@ -121,14 +121,36 @@ class SchemaCatalogBuilder:
             for right in tables[left_index + 1 :]:
                 for left_col in left.columns:
                     for right_col in right.columns:
-                        if self.profile_provider and not (
-                            left_col.name == right_col.name
-                            and (
-                                left_col.name.startswith("ma_")
-                                or left_col.name.endswith("_id")
-                                or left_col.name in {"id", "sku", "code"}
+                        if self.profile_provider:
+                            if not (
+                                left_col.name == right_col.name
+                                and (
+                                    left_col.name.startswith("ma_")
+                                    or left_col.name.endswith("_id")
+                                    or left_col.name in {"id", "sku", "code"}
+                                )
+                            ):
+                                continue
+                            # Bounded samples must not veto a join: propose the candidate and let
+                            # the full-table SQL profile below accept or reject it.
+                            proposed = JoinEdge(
+                                left_table=left.name,
+                                left_column=left_col.name,
+                                right_table=right.name,
+                                right_column=right_col.name,
+                                cardinality="unknown",
+                                status="uncertain",
+                                confidence=0.5,
+                                evidence=(
+                                    "key-like column names match; pending full-table SQL profile",
+                                ),
                             )
-                        ):
+                            if not any(
+                                (item.left_table, item.right_table, item.key_pairs)
+                                == (left.name, right.name, proposed.key_pairs)
+                                for item in edges
+                            ):
+                                edges.append(proposed)
                             continue
                         left_values = value_profiles[(left.name, left_col.name)]
                         right_values = value_profiles[(right.name, right_col.name)]
@@ -219,12 +241,16 @@ class SchemaCatalogBuilder:
             declared_signatures = {
                 (e.left_table, e.right_table, e.key_pairs) for e in declared_edges or []
             }
-            edges = [
-                e
-                if (e.left_table, e.right_table, e.key_pairs) in declared_signatures
-                else self.profile_provider.check_join(replace(e, evidence=()))
-                for e in edges
-            ]
+            checked: list[JoinEdge] = []
+            for e in edges:
+                if (e.left_table, e.right_table, e.key_pairs) in declared_signatures:
+                    checked.append(e)
+                    continue
+                verified = self.profile_provider.check_join(replace(e, evidence=()))
+                # Inferred candidates rejected by the full-table profile are not joins.
+                if verified.status != "invalid":
+                    checked.append(verified)
+            edges = checked
         return SchemaCatalog(
             tuple(tables), tuple(key_candidates), tuple(edges), tuple(warnings)
         )

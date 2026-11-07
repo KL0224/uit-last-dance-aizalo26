@@ -94,6 +94,15 @@ class DuckDBProfileProvider(BaseProfileProvider):
         evidence = edge.evidence + (
             f"exact SQL tuple coverage: left={overlap}/{ldistinct}, right={overlap}/{rdistinct}; observed={observed}",
         )
+        if not edge.evidence:
+            # Inferred candidate (no declared evidence): require real full-table overlap.
+            coverage = (
+                max(overlap / ldistinct, overlap / rdistinct)
+                if ldistinct and rdistinct
+                else 0.0
+            )
+            if coverage < 0.8:
+                return replace(edge, status="invalid", confidence=0.0, evidence=evidence)
         if not ldistinct or not rdistinct:
             return replace(edge, status="uncertain", confidence=0.2, evidence=evidence)
         if not edge.evidence:

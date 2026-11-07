@@ -259,9 +259,17 @@ def _linked_fields(text: str, schema: SchemaCatalog | None) -> list[str]:
     found: list[str] = []
     for table in schema.tables:
         for column in table.columns:
-            pattern = rf"(?<![\w]){re.escape(column.name.casefold())}(?![\w])"
-            if re.search(pattern, lowered):
-                found.append(column.name)
+            names = [column.name]
+            # ColumnMetadata.provenance carries the original header for prepared
+            # bundles (e.g. "Thành tiền" for thanh_tien); rulebooks cite that form.
+            original = (column.provenance or "").strip()
+            if 3 <= len(original) <= 60 and not re.search(r"[;/\\]", original):
+                names.append(original)
+            for name in names:
+                pattern = rf"(?<![\w]){re.escape(name.casefold())}(?![\w])"
+                if re.search(pattern, lowered):
+                    found.append(column.name)
+                    break
     return found
 
 
