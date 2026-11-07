@@ -232,6 +232,51 @@ def test_parse_text2sql_empty_raises_error():
         parse_text2sql_response("")
 
 
+def test_parse_text2sql_with_thinking_and_multiple_blocks():
+    """Verify parser extracts the final JSON contract even when preceded by thinking and draft SQLs."""
+    raw = """The user wants to find top 5 items.
+    1. Analyze the tables:
+    ```sql
+    SELECT * FROM line_items LIMIT 5;
+    ```
+    2. Final answer:
+    ```json
+    {
+      "status": "answerable",
+      "answer_type": "string",
+      "sql": "SELECT product_name FROM line_items ORDER BY qty DESC LIMIT 5",
+      "tables_used": ["line_items"],
+    }
+    ```
+    """
+    res = parse_text2sql_response(raw)
+    assert res.status == "answerable"
+    assert "LIMIT 5" in res.sql
+    assert res.answer_type == "list"  # Auto-corrected from string due to LIMIT 5
+    assert res.tables_used == ("line_items",)
+
+
+def test_parse_text2sql_with_prompt_prefixed_thinking():
+    """Verify parser handles output when prompt prefix contained <think> and model emits </think>."""
+    raw = """Analyzing debt conditions...
+    Filter COD orders and cancelled orders.
+    </think>
+    ```json
+    {
+      "status": "answerable",
+      "answer_type": "number",
+      "sql": "SELECT COUNT(*) FROM don_hang WHERE con_lai > 0",
+      "tables_used": ["don_hang"]
+    }
+    ```"""
+    res = parse_text2sql_response(raw)
+    assert res.status == "answerable"
+    assert res.answer_type == "number"
+    assert "don_hang" in res.tables_used
+    assert res.thinking is not None
+    assert "Analyzing debt" in res.thinking
+
+
 def test_extract_tables_from_sql():
     """Verify SQL table extraction regex."""
     sql = 'SELECT * FROM "orders" JOIN line_items ON orders.id = line_items.order_id WHERE x = 1'
