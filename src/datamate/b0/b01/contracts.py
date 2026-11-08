@@ -48,6 +48,36 @@ class KeyCandidate:
 
 
 @dataclass(frozen=True)
+class JoinStatistics:
+    """Observed full-table tuple statistics; never semantic proof."""
+
+    left_rows: int
+    right_rows: int
+    left_null_rows: int
+    right_null_rows: int
+    left_distinct: int
+    right_distinct: int
+    matched_distinct: int
+    left_coverage: float
+    right_coverage: float
+    observed_cardinality: str
+
+
+@dataclass(frozen=True)
+class RelationshipEvidence:
+    """Producer attestation bound to an exact business and relationship mapping."""
+
+    origin: str
+    business_id: str
+    source: str
+    source_sha256: str
+    statement: str
+    review_status: str
+    reviewed_by: str
+    relationship_sha256: str
+
+
+@dataclass(frozen=True)
 class JoinEdge:
     """Directed/undirected join edge between tables with single or composite key components."""
 
@@ -61,6 +91,8 @@ class JoinEdge:
     evidence: tuple[str, ...]
     fanout_warning: bool = False
     additional_key_pairs: tuple[tuple[str, str], ...] = ()
+    statistics: JoinStatistics | None = None
+    relationship_evidence: RelationshipEvidence | None = None
 
     @property
     def key_pairs(self) -> tuple[tuple[str, str], ...]:

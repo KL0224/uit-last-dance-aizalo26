@@ -3,13 +3,16 @@
 from .contracts import (
     ColumnMetadata,
     JoinEdge,
+    JoinStatistics,
     KeyCandidate,
+    RelationshipEvidence,
     SchemaCatalog,
     TableMetadata,
 )
-from .join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from .join_graph import JoinGraphNavigator, JoinPathResult, JoinPredicateCompiler
 from .metadata_adapter import (
     BaseMetadataProvider,
+    BusinessContextSchemaReader,
     FoundationMetadata,
     JSONMetadataProvider,
 )
@@ -27,12 +30,16 @@ __all__ = [
     "TableMetadata",
     "KeyCandidate",
     "JoinEdge",
+    "JoinStatistics",
+    "RelationshipEvidence",
     "SchemaCatalog",
     "JoinGraphNavigator",
+    "JoinPathResult",
     "JoinPredicateCompiler",
     "BaseMetadataProvider",
     "FoundationMetadata",
     "JSONMetadataProvider",
+    "BusinessContextSchemaReader",
     "SchemaCatalogBuilder",
     "PreparationConfig",
     "PreparationError",

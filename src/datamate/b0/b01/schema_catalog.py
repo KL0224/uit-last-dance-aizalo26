@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import replace
 from itertools import combinations, islice
 from typing import Any
 
 from .contracts import JoinEdge, KeyCandidate, SchemaCatalog, TableMetadata
+from .relationship_evidence import trusted_relationship
 
 
 class SchemaCatalogBuilder:
@@ -16,7 +19,11 @@ class SchemaCatalogBuilder:
         self.profile_provider = profile_provider
 
     def build(
-        self, tables: list[TableMetadata], declared_edges: list[JoinEdge] | None = None
+        self,
+        tables: list[TableMetadata],
+        declared_edges: list[JoinEdge] | None = None,
+        *,
+        business_id: str | None = None,
     ) -> SchemaCatalog:
         """Analyze supplied tables; no source data is loaded or modified here."""
         names = [table.name for table in tables]
@@ -66,7 +73,20 @@ class SchemaCatalogBuilder:
             for table in tables
             for column in table.columns
         }
-        for edge in declared_edges or []:
+        declarations = declared_edges or []
+        conflicts: set[tuple] = set()
+        shapes: dict[tuple, set[str]] = {}
+        for edge in declarations:
+            signature = _edge_signature(edge)
+            shape = edge.cardinality
+            if edge.left_table != signature[0]:
+                shape = {
+                    "one_to_many": "many_to_one",
+                    "many_to_one": "one_to_many",
+                }.get(shape, shape)
+            shapes.setdefault(signature, set()).add(shape)
+        conflicts = {sig for sig, values in shapes.items() if len(values) > 1}
+        for edge in declarations:
             if len({left for left, _ in edge.key_pairs}) != len(edge.key_pairs) or len(
                 {right for _, right in edge.key_pairs}
             ) != len(edge.key_pairs):
@@ -94,64 +114,56 @@ class SchemaCatalogBuilder:
                     f"declared relationship references unknown column: {edge.left_table}.{edge.left_column}/{edge.right_table}.{edge.right_column}"
                 )
                 continue
+            if _edge_signature(edge) in conflicts:
+                edges.append(
+                    replace(
+                        edge,
+                        status="invalid",
+                        confidence=0.0,
+                        fanout_warning=True,
+                        evidence=edge.evidence
+                        + ("conflicting cardinality declarations; review required",),
+                    )
+                )
+                continue
             if self.profile_provider:
-                edges.append(self.profile_provider.check_join(edge))
+                checked = self.profile_provider.check_join(edge)
+                if (
+                    business_id
+                    and not trusted_relationship(edge, business_id)
+                    and checked.status == "validated"
+                ):
+                    checked = replace(
+                        checked,
+                        status="uncertain",
+                        confidence=0.0,
+                        evidence=checked.evidence
+                        + ("wrong-scope relationship attestation",),
+                    )
+                edges.append(checked)
                 continue
             left = table_by_name[edge.left_table]
             right = table_by_name[edge.right_table]
             status, confidence, observed_cardinality, checks = _check_declared_edge(
-                edge, left, right
+                edge, left, right, business_id
             )
             edges.append(
-                JoinEdge(
-                    left_table=edge.left_table,
-                    left_column=edge.left_column,
-                    right_table=edge.right_table,
-                    right_column=edge.right_column,
+                replace(
+                    edge,
                     cardinality=observed_cardinality,
                     status=status,
                     confidence=confidence,
                     evidence=edge.evidence + checks,
                     fanout_warning=edge.fanout_warning
                     or observed_cardinality != "one_to_one",
-                    additional_key_pairs=edge.additional_key_pairs,
                 )
             )
+        if self.profile_provider:
+            return self._sql_join_candidates(tables, key_candidates, edges, warnings)
         for left_index, left in enumerate(tables):
             for right in tables[left_index + 1 :]:
                 for left_col in left.columns:
                     for right_col in right.columns:
-                        if self.profile_provider:
-                            if not (
-                                left_col.name == right_col.name
-                                and (
-                                    left_col.name.startswith("ma_")
-                                    or left_col.name.endswith("_id")
-                                    or left_col.name in {"id", "sku", "code"}
-                                )
-                            ):
-                                continue
-                            # Bounded samples must not veto a join: propose the candidate and let
-                            # the full-table SQL profile below accept or reject it.
-                            proposed = JoinEdge(
-                                left_table=left.name,
-                                left_column=left_col.name,
-                                right_table=right.name,
-                                right_column=right_col.name,
-                                cardinality="unknown",
-                                status="uncertain",
-                                confidence=0.5,
-                                evidence=(
-                                    "key-like column names match; pending full-table SQL profile",
-                                ),
-                            )
-                            if not any(
-                                (item.left_table, item.right_table, item.key_pairs)
-                                == (left.name, right.name, proposed.key_pairs)
-                                for item in edges
-                            ):
-                                edges.append(proposed)
-                            continue
                         left_values = value_profiles[(left.name, left_col.name)]
                         right_values = value_profiles[(right.name, right_col.name)]
                         if not left_values or not right_values:
@@ -237,23 +249,125 @@ class SchemaCatalogBuilder:
                         for item in edges
                     ):
                         edges.append(inferred)
-        if self.profile_provider:
-            declared_signatures = {
-                (e.left_table, e.right_table, e.key_pairs) for e in declared_edges or []
-            }
-            checked: list[JoinEdge] = []
-            for e in edges:
-                if (e.left_table, e.right_table, e.key_pairs) in declared_signatures:
-                    checked.append(e)
-                    continue
-                verified = self.profile_provider.check_join(replace(e, evidence=()))
-                # Inferred candidates rejected by the full-table profile are not joins.
-                if verified.status != "invalid":
-                    checked.append(verified)
-            edges = checked
         return SchemaCatalog(
             tuple(tables), tuple(key_candidates), tuple(edges), tuple(warnings)
         )
+
+    def _sql_join_candidates(
+        self,
+        tables: list[TableMetadata],
+        keys: list[KeyCandidate],
+        declared: list[JoinEdge],
+        warnings: list[str],
+    ) -> SchemaCatalog:
+        """Bound structural proposals first, then verify full SQL tuples, never samples."""
+        edges = list(declared)
+        signatures = {_edge_signature(edge) for edge in edges}
+        unique = {(key.table, key.columns) for key in keys if key.status == "candidate"}
+        budget = 1024
+        for left, right in combinations(tables, 2):
+            proposals: set[tuple[tuple[str, str], ...]] = set()
+            for lcol in left.columns:
+                for rcol in right.columns:
+                    left_role = self.profile_provider.column_role(left.name, lcol.name)
+                    right_role = self.profile_provider.column_role(
+                        right.name, rcol.name
+                    )
+                    non_keys = {"money", "quantity", "date", "boolean", "status"}
+                    if (
+                        (
+                            left_role == "identifier"
+                            or right_role == "identifier"
+                            or _identifier(lcol.name)
+                            or _identifier(lcol.provenance or "")
+                        )
+                        and left_role not in non_keys
+                        and right_role not in non_keys
+                        and (_column_tokens(lcol) & _column_tokens(rcol))
+                        and _compatible_types(lcol.data_type, rcol.data_type)
+                    ):
+                        if lcol.cardinality == rcol.cardinality == 1:
+                            warning = "constant identifiers excluded from inferred JOINs; declare single-value relationships explicitly"
+                            if warning not in warnings:
+                                warnings.append(warning)
+                            continue
+                        proposals.add(((lcol.name, rcol.name),))
+            for table, other in ((left, right), (right, left)):
+                other_columns = {column.name: column for column in other.columns}
+                for key in keys:
+                    if (
+                        key.table != table.name
+                        or key.status != "candidate"
+                        or len(key.columns) < 2
+                    ):
+                        continue
+                    if not all(
+                        _identifier(c) or c in {"so_thu_tu", "line_no", "seq"}
+                        for c in key.columns
+                    ):
+                        continue
+                    if set(key.columns).issubset(other_columns):
+                        pairs = tuple((c, c) for c in key.columns)
+                        if all(
+                            _compatible_types(
+                                next(
+                                    c.data_type for c in table.columns if c.name == name
+                                ),
+                                other_columns[name].data_type,
+                            )
+                            for name in key.columns
+                        ):
+                            proposals.add(pairs)
+
+            def priority(
+                pairs: tuple[tuple[str, str], ...],
+                left_name: str = left.name,
+                right_name: str = right.name,
+            ) -> tuple:
+                parent_key = (left_name, tuple(a for a, _ in pairs)) in unique or (
+                    right_name,
+                    tuple(b for _, b in pairs),
+                ) in unique
+                return (not parent_key, -len(pairs), pairs)
+
+            ordered = sorted(proposals, key=priority)
+            if len(ordered) > 32:
+                warnings.append(
+                    f"{left.name}/{right.name}: JOIN search limited to 32 structural proposals"
+                )
+            for pairs in ordered[:32]:
+                edge = JoinEdge(
+                    left.name,
+                    pairs[0][0],
+                    right.name,
+                    pairs[0][1],
+                    "unknown",
+                    "uncertain",
+                    0.0,
+                    (),
+                    additional_key_pairs=pairs[1:],
+                )
+                signature = _edge_signature(edge)
+                if signature in signatures:
+                    continue
+                if budget == 0:
+                    warnings.append(
+                        "JOIN search stopped at 1024 full-table SQL checks; declarations are not limited"
+                    )
+                    return SchemaCatalog(
+                        tuple(tables), tuple(keys), tuple(edges), tuple(warnings)
+                    )
+                budget -= 1
+                checked = self.profile_provider.check_join(edge)
+                stats = checked.statistics
+                if (
+                    stats
+                    and stats.matched_distinct
+                    and max(stats.left_coverage, stats.right_coverage) >= 0.8
+                ):
+                    edges.append(checked)
+                    signatures.add(signature)
+        return SchemaCatalog(tuple(tables), tuple(keys), tuple(edges), tuple(warnings))
 
     def _sql_keys(self, table: TableMetadata) -> list[KeyCandidate]:
         columns = {c.name: c for c in table.columns}
@@ -295,6 +409,50 @@ def _hashable(value: Any) -> Any:
         return value
     except TypeError:
         return repr(value)
+
+
+def _edge_signature(edge: JoinEdge) -> tuple:
+    forward = (edge.left_table, edge.right_table, tuple(sorted(edge.key_pairs)))
+    backward = (
+        edge.right_table,
+        edge.left_table,
+        tuple(sorted((b, a) for a, b in edge.key_pairs)),
+    )
+    return min(forward, backward)
+
+
+def _token(value: str) -> str:
+    text = unicodedata.normalize("NFD", value.lower().replace("đ", "d"))
+    return re.sub(
+        r"[^a-z0-9]", "", "".join(c for c in text if not unicodedata.combining(c))
+    )
+
+
+def _column_tokens(column: Any) -> set[str]:
+    return {_token(value) for value in (column.name, column.provenance) if value}
+
+
+def _identifier(value: str) -> bool:
+    token = _token(value)
+    return (
+        value.lower().startswith(("ma_", "mã ", "ma "))
+        or (value.startswith("Ma") and len(value) > 2 and value[2].isupper())
+        or value.lower().endswith("_id")
+        or value.endswith(("Id", "ID"))
+        or token in {"id", "sku", "code"}
+    )
+
+
+def _compatible_types(left: str, right: str) -> bool:
+    def family(kind: str) -> str:
+        upper = kind.upper()
+        if any(t in upper for t in ("INT", "DECIMAL", "NUMERIC", "FLOAT", "DOUBLE")):
+            return "number"
+        if upper in {"VARCHAR", "TEXT", "STRING", "UNKNOWN"}:
+            return "text"
+        return upper
+
+    return family(left) == family(right)
 
 
 def _values(rows: tuple[dict[str, Any], ...], column: str) -> set[Any]:
@@ -403,10 +561,11 @@ def _check_declared_edge(
     edge: JoinEdge,
     left: TableMetadata,
     right: TableMetadata,
+    business_id: str | None = None,
 ) -> tuple[str, float, str, tuple[str, ...]]:
     """Check referential coverage only for declared, documented relationships."""
     if (
-        not edge.evidence
+        not trusted_relationship(edge, business_id)
         or not _has_complete_rows(left)
         or not _has_complete_rows(right)
     ):
@@ -415,7 +574,7 @@ def _check_declared_edge(
             min(edge.confidence, 0.85),
             edge.cardinality,
             (
-                "declaration requires source evidence and complete profiles at both ends for validation",
+                "declaration requires trusted attestation and complete profiles at both ends for validation",
             ),
         )
     left_rows = _join_values(

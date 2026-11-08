@@ -5,11 +5,20 @@ from __future__ import annotations
 import json
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal, overload
 
-from .contracts import ColumnMetadata, JoinEdge, TableMetadata
+from .contracts import (
+    ColumnMetadata,
+    JoinEdge,
+    JoinStatistics,
+    KeyCandidate,
+    RelationshipEvidence,
+    SchemaCatalog,
+    TableMetadata,
+)
+from .relationship_evidence import trusted_relationship
 
 
 @dataclass(frozen=True)
@@ -116,6 +125,99 @@ class JSONMetadataProvider(BaseMetadataProvider):
             obj.get("answerability_constraints"),
             handle,
         )
+
+
+class BusinessContextSchemaReader:
+    """Read the B01 portion of an existing 1.0/1.1 contract without re-inference."""
+
+    def read(self, payload: Any) -> SchemaCatalog:
+        """Preserve edge statuses; reject validated claims without scoped provenance."""
+        from datamate.b0.b02.contracts import ContractBuilder, RuleCatalog
+
+        if not isinstance(payload, dict) or payload.get("contract_version") not in {
+            "1.0",
+            "1.1",
+        }:
+            raise ValueError("expected Business Context contract 1.0 or 1.1")
+        business_id = _text(payload.get("business_id"), "business_id")
+        obj = _object(
+            payload.get("schema_catalog"),
+            {"tables", "key_candidates", "join_graph", "warnings"},
+            "schema_catalog",
+        )
+        tables = tuple(_table(table) for table in _list(obj.get("tables"), "tables"))
+        keys = []
+        for value in _list(obj.get("key_candidates", []), "key_candidates"):
+            key = _object(
+                value, set(KeyCandidate.__dataclass_fields__), "key_candidate"
+            )
+            keys.append(
+                KeyCandidate(
+                    _text(key.get("table"), "key.table"),
+                    _strings(key.get("columns"), "key.columns"),
+                    _text(key.get("key_type"), "key_type"),
+                    _text(key.get("status"), "key.status"),
+                    _ratio(key.get("confidence"), "key.confidence"),
+                    _strings(key.get("evidence", []), "key.evidence"),
+                )
+            )
+        edges = []
+        for value in _list(obj.get("join_graph", []), "join_graph"):
+            edge_obj = _object(value, set(JoinEdge.__dataclass_fields__), "join_edge")
+            edge = _relationship(
+                {
+                    key: val
+                    for key, val in edge_obj.items()
+                    if key not in {"status", "fanout_warning", "statistics"}
+                }
+            )
+            status = edge_obj.get("status")
+            if status not in {"candidate", "uncertain", "validated", "invalid"}:
+                raise ValueError("unsupported JOIN status")
+            fanout = edge_obj.get("fanout_warning", edge.cardinality != "one_to_one")
+            if not isinstance(fanout, bool):
+                raise TypeError("fanout_warning must be boolean")
+            statistics = edge_obj.get("statistics")
+            if statistics is not None:
+                fields = set(JoinStatistics.__dataclass_fields__)
+                statistics = _object(statistics, fields, "join_statistics")
+                if set(statistics) != fields:
+                    raise ValueError("incomplete JOIN statistics")
+                for name in fields - {
+                    "left_coverage",
+                    "right_coverage",
+                    "observed_cardinality",
+                }:
+                    if _count(statistics[name], name) is None:
+                        raise ValueError("JOIN statistics require nonnegative counts")
+                for name in ("left_coverage", "right_coverage"):
+                    _ratio(statistics[name], name)
+                if statistics["observed_cardinality"] not in {
+                    "one_to_one",
+                    "one_to_many",
+                    "many_to_one",
+                    "many_to_many",
+                }:
+                    raise ValueError("invalid observed cardinality")
+                statistics = JoinStatistics(**statistics)
+            edge = replace(
+                edge, status=status, fanout_warning=fanout, statistics=statistics
+            )
+            if status == "validated" and not trusted_relationship(edge, business_id):
+                raise ValueError("validated JOIN requires a trusted scoped attestation")
+            edges.append(edge)
+        catalog = SchemaCatalog(
+            tables,
+            tuple(keys),
+            tuple(edges),
+            _strings(obj.get("warnings", []), "warnings"),
+        )
+        ContractBuilder().build(business_id, catalog, RuleCatalog(()))
+        for key in keys:
+            columns = {c.name for t in tables if t.name == key.table for c in t.columns}
+            if not key.columns or not set(key.columns).issubset(columns):
+                raise ValueError("candidate key references unknown table/column")
+        return catalog
 
 
 def _object(value: Any, allowed: set[str], label: str) -> dict[str, Any]:
@@ -272,6 +374,7 @@ def _relationship(value: Any) -> JoinEdge:
             "confidence",
             "evidence",
             "additional_key_pairs",
+            "relationship_evidence",
         },
         "relationship",
     )
@@ -297,4 +400,16 @@ def _relationship(value: Any) -> JoinEdge:
         confidence=_ratio(obj.get("confidence", 0.5), "confidence"),
         evidence=_strings(obj.get("evidence", []), "evidence"),
         additional_key_pairs=tuple((pair[0], pair[1]) for pair in pairs),
+        relationship_evidence=_relationship_evidence(obj.get("relationship_evidence")),
     )
+
+
+def _relationship_evidence(value: Any) -> RelationshipEvidence | None:
+    """Parse structured producer attestation; SQL validation remains mandatory."""
+    if value is None:
+        return None
+    fields = set(RelationshipEvidence.__dataclass_fields__)
+    obj = _object(value, fields, "relationship_evidence")
+    if set(obj) != fields:
+        raise ValueError("incomplete relationship_evidence")
+    return RelationshipEvidence(**{name: _text(obj[name], name) for name in fields})

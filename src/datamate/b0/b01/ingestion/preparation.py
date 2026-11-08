@@ -11,14 +11,15 @@ import time
 import uuid
 from collections import Counter, defaultdict
 from contextlib import ExitStack
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
 import duckdb
 import openpyxl
 
-from datamate.b0.b01.contracts import JoinEdge
+from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
+from datamate.b0.b01.relationship_evidence import relationship_fingerprint
 from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
 from datamate.b0.b02.context_service import BusinessContextService
 from datamate.b0.b02.contracts import ContractBuilder
@@ -44,6 +45,7 @@ from .profiling import (
     metadata_dict,
 )
 from .readers import READERS, column_names, fold, quote, sql_name
+from .relationships import ReviewedRelationships
 
 
 def _hash(path: Path) -> str:
@@ -98,6 +100,7 @@ def prepare_business(
     *,
     rulebook: str | Path | None = None,
     calendar: str | Path | None = None,
+    relationships: str | Path | None = None,
     config: PreparationConfig | None = None,
 ) -> PreparedBusinessArtifacts:
     """Prepare a business; a failed build raises and retains a diagnostic directory."""
@@ -123,12 +126,21 @@ def prepare_business(
     ]
     if rulebook is not None:
         documents.append(Path(rulebook).resolve(strict=True))
+    reviewed = (
+        ReviewedRelationships(relationships, root.name) if relationships else None
+    )
     dependencies = list(
         dict.fromkeys(
-            documents + ([Path(calendar).resolve(strict=True)] if calendar else [])
+            documents
+            + ([Path(calendar).resolve(strict=True)] if calendar else [])
+            + (reviewed.dependencies if reviewed else [])
         )
     )
     hashes = {str(p): _hash(p) for p in dict.fromkeys(files + dependencies)}
+    if reviewed and any(
+        hashes[path] != digest for path, digest in reviewed.input_hashes.items()
+    ):
+        raise ValueError("relationship manifest/evidence changed while being read")
     cache_inputs = {
         "sources": {str(p.relative_to(root)): hashes[str(p)] for p in files},
         "documents": {str(p): hashes[str(p)] for p in dependencies},
@@ -260,11 +272,13 @@ def prepare_business(
             raise PreparationError(
                 f"discovery failed: {failures or 'no business tables'}"
             )
-        mapping, relationships = _materialize(
+        mapping, declared_relationships = _materialize(
             work, sources, documents, config, manifest, report
         )
+        if reviewed:
+            declared_relationships += reviewed.resolve(sources, mapping)
         provider = DuckDBMetadataProvider(
-            work / "data.duckdb", root.name, mapping, relationships, config
+            work / "data.duckdb", root.name, mapping, declared_relationships, config
         )
         metadata = provider.load(root.name)
         _json(work / "foundation_metadata.json", metadata_dict(metadata))
@@ -273,7 +287,17 @@ def prepare_business(
             connection.execute("SET memory_limit=?", [config.memory_limit])
             service = BusinessContextService(
                 provider,
-                SchemaCatalogBuilder(DuckDBProfileProvider(connection)),
+                SchemaCatalogBuilder(
+                    DuckDBProfileProvider(
+                        connection,
+                        root.name,
+                        {
+                            (table, column): info["role"]
+                            for table, data in mapping.items()
+                            for column, info in data["columns"].items()
+                        },
+                    )
+                ),
                 BusinessRuleCompiler(),
                 ContractBuilder(),
             )
@@ -674,10 +698,12 @@ def _materialize(work, sources, documents, config, manifest, report):
             )
             connection.execute("CHECKPOINT")
         report["issues"] = dict(sorted(issue_counts.items()))
-        return mapping, _relationships(sources, mapping)
+        return mapping, _relationships(sources, mapping, manifest["business_id"])
 
 
-def _relationships(sources, mapping):
+def _relationships(
+    sources: list[SourceTable], mapping: dict[str, Any], business_id: str
+) -> tuple[JoinEdge, ...]:
     """Preserve declared SQLite composite foreign keys as complete ordered tuples."""
     source_tables = {
         (s.relative_path, s.sheet): (s, name)
@@ -719,4 +745,16 @@ def _relationships(sources, mapping):
                     additional_key_pairs=tuple(pairs[1:]),
                 )
             )
+            edge = edges[-1]
+            proof = RelationshipEvidence(
+                "sqlite_foreign_key",
+                business_id,
+                f"{source.relative_path}#{source.sheet}:foreign_key_list:{parts[0]['id']}",
+                _hash(source.path),
+                json.dumps(parts, sort_keys=True),
+                "source_declared",
+                "SQLite schema declaration",
+                relationship_fingerprint(edge, business_id),
+            )
+            edges[-1] = replace(edge, relationship_evidence=proof)
     return tuple(edges)

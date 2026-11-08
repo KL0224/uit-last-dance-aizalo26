@@ -8,7 +8,9 @@ from typing import Any
 from datamate.b0.b01.contracts import (
     ColumnMetadata,
     JoinEdge,
+    JoinStatistics,
     KeyCandidate,
+    RelationshipEvidence,
     SchemaCatalog,
     TableMetadata,
 )
@@ -65,6 +67,10 @@ class BusinessContext:
         # Internal samples used for inference must never be copied into the downstream contract.
         for table in payload["schema_catalog"]["tables"]:
             table.pop("profile_rows", None)
+        for edge in payload["schema_catalog"]["join_graph"]:
+            for optional in ("statistics", "relationship_evidence"):
+                if edge[optional] is None:
+                    edge.pop(optional)
         if self.normalized_data_handle is None:
             payload.pop("normalized_data_handle", None)
         return payload
@@ -184,6 +190,8 @@ __all__ = [
     "TableMetadata",
     "KeyCandidate",
     "JoinEdge",
+    "JoinStatistics",
+    "RelationshipEvidence",
     "SchemaCatalog",
 ]
 

@@ -6,6 +6,8 @@ import sqlite3
 import unittest
 from dataclasses import replace
 
+from relationship_fixtures import reviewed_edge
+
 from datamate.b0.b02.contracts import (
     ColumnMetadata,
     ContractBuilder,
@@ -41,16 +43,18 @@ class CompositeJoinTests(unittest.TestCase):
                 {"order_ref": 1, "line_ref": 2},
             ),
         )
-        self.edge = JoinEdge(
-            "allocations",
-            "order_ref",
-            "lines",
-            "order_id",
-            "many_to_one",
-            "candidate",
-            0.9,
-            ("README: allocation references the order and its line",),
-            additional_key_pairs=(("line_ref", "line_no"),),
+        self.edge = reviewed_edge(
+            JoinEdge(
+                "allocations",
+                "order_ref",
+                "lines",
+                "order_id",
+                "many_to_one",
+                "candidate",
+                0.9,
+                ("README: allocation references the order and its line",),
+                additional_key_pairs=(("line_ref", "line_no"),),
+            )
         )
 
     def test_tuple_join_is_validated_and_executes_without_cross_product(self) -> None:
