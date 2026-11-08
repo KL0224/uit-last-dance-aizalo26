@@ -49,6 +49,7 @@ class B0Pipeline:
         *,
         rulebook: str | Path | None = None,
         calendar: str | Path | None = None,
+        relationships: str | Path | None = None,
         config: Any = None,
     ) -> PreparedBusinessArtifacts:
         """Chuẩn bị bundle B0.1 + B0.2 cho một thư mục doanh nghiệp."""
@@ -57,6 +58,7 @@ class B0Pipeline:
             output_dir=output_dir,
             rulebook=rulebook,
             calendar=calendar,
+            relationships=relationships,
             config=config,
         )
 
