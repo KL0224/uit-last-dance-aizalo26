@@ -79,7 +79,7 @@ def run_b0_on_modal_gpu(
     split: str,
     run_name: str,
     limit: int = 0,
-    batch_size: int = 32,
+    batch_size: int = 16,
     business_ids: list[str] | None = None,
     question_ids: list[str] | None = None,
     model_id: str = "Qwen/Qwen3.5-9B",
@@ -151,7 +151,7 @@ def run_b0_on_modal_gpu(
 def main(
     split: str = "train",
     limit: int = 0,
-    batch_size: int = 32,
+    batch_size: int = 16,
     business_id: str = "",
     question_id: str = "",
     model_id: str = "Qwen/Qwen3.5-9B",
