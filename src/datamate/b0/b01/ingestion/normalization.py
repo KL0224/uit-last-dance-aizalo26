@@ -349,6 +349,11 @@ class ColumnParser:
         if value is None or value.strip() == "":
             return None, None
         if self.role in {"identifier", "text"}:
+            if isinstance(value, str):
+                if self.role == "text":
+                    value = re.sub(r"\s+", " ", value).strip()
+                else:
+                    value = value.strip()
             return value, None
         if self.role == "status":
             mapped = _STATUS.get(fold(value))

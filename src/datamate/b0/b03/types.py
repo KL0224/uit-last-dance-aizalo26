@@ -179,18 +179,30 @@ class Text2SQLResult:
 _MONEY_PARTS = frozenset(
     "tien gia doanh_thu thu chi_phi phi lai no chiet khau amount cost price revenue profit".split()
 )
+_QTY_PARTS = frozenset(
+    "so_luong soluong quantity qty don_vi sl luong".split()
+)
 
 
 def _infer_numeric_kind(sql: str) -> str | None:
     """Infer B0.5 numeric_kind from the first projected expression; None when unsure."""
     match = re.match(r"\s*SELECT\s+(?:DISTINCT\s+)?(.+?)\s+FROM\b", sql, re.IGNORECASE | re.DOTALL)
     projection = (match.group(1) if match else sql).lower()
-    if re.match(r"\s*count\s*\(", projection):
+    raw_words = set(re.split(r"[^a-z0-9_]+", projection))
+    words = set()
+    for w in raw_words:
+        words.add(w)
+        words.update(w.split("_"))
+    has_money = bool(words & _MONEY_PARTS)
+    has_qty = bool(words & _QTY_PARTS)
+    if "count" in words and not has_money and not has_qty and "/" not in projection:
         return "count"
-    aggregate = re.match(r"\s*(avg|sum)\s*\((.*)\)", projection, re.DOTALL)
-    if not aggregate:
-        return None
-    parts = set(re.split(r"[^a-z]+", aggregate.group(2)))
-    if not parts & _MONEY_PARTS:
-        return None
-    return "average_money_vnd" if aggregate.group(1) == "avg" else "money_vnd"
+    if has_money:
+        if "/" in projection or "avg" in words:
+            return "average_money_vnd"
+        return "money_vnd"
+    if has_qty:
+        if "/" in projection or "avg" in words:
+            return "average_nonmoney"
+        return "quantity"
+    return None

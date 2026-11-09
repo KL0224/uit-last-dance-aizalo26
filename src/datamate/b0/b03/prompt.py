@@ -27,6 +27,11 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
    - Luôn sử dụng đúng các giá trị thực tế liệt kê trong mục [Giá trị thực tế] của từng cột phân loại để so khớp điều kiện WHERE (không tự dịch hay suy đoán giá trị khác).
 
 2. QUY TẮC SO SÁNH THỜI GIAN & CÚ PHÁP DUCKDB:
+   - KÝ HIỆU THỜI GIAN TIẾNG VIỆT & TỪ ĐỊA PHƯƠNG:
+     + `T{M}`, `Th{M}`, `Th {M}` (ví dụ: `T2`, `T3`, `Th 10`) luôn là **THÁNG M** (Month M), TUYỆT ĐỐI KHÔNG phải Quý (Quý luôn ký hiệu là `Q{N}`). Ví dụ `T2/2026` là Tháng 2/2026, chọn bảng T2 và lọc tháng 2/2026!
+     + "Hôm nay", "bữa nay", "hôm ni", "bữa ni" = Đúng ngày hôm nay: `DATE(col) = DATE '{as_of_date}'`. TUYỆT ĐỐI KHÔNG dùng `<= '{as_of_date}'` (gây đếm dồn từ đầu tháng) và không gom nhiều ngày!
+     + "Hôm qua", "bữa qua" = Đúng ngày hôm qua: `DATE(col) = (DATE '{as_of_date}' - INTERVAL 1 DAY)`. TUYỆT ĐỐI KHÔNG hiểu là 7 ngày gần nhất!
+   - BẮT BUỘC LỌC THÁNG/NĂM TRÊN BẢNG PHÂN VÙNG: Các bảng phân vùng (ví dụ `ban_hang_t4`) có thể chứa dữ liệu của nhiều năm (cả 2025 và 2026). Khi câu hỏi hỏi tháng/năm cụ thể (ví dụ T4/2025), BẮT BUỘC phải có điều kiện lọc ngày tháng chính xác: `WHERE STRFTIME(ngay_dat_hang, '%Y-%m') = '2025-04'`. TUYỆT ĐỐI KHÔNG bỏ qua điều kiện ngày tháng chỉ vì bảng có tên `t4`!
    - SO SÁNH THỜI GIAN: Luôn so sánh NĂM (`YYYY`) trước, sau đó mới so sánh THÁNG (`MM`). Bất kỳ tháng nào của năm trước (ví dụ tháng 9, 11 của năm N) đều diễn ra TRƯỚC các tháng của năm sau (năm N+1). Tuyệt đối không so sánh riêng số tháng mà bỏ qua năm (không được coi tháng 9 hay 11 là tương lai chỉ vì `09 > 08` hay `11 > 08`). Dữ liệu có đầy đủ các tháng trong năm nếu năm đó nằm trong khoảng thời gian quan sát.
    - TĂNG / GIẢM PHẦN TRĂM (PERCENT GROWTH): Khi câu hỏi hỏi "tăng hay giảm mấy phần trăm" hoặc "thay đổi bao nhiêu phần trăm" so với kỳ trước / cùng kỳ:
      BẮT BUỘC phải tính tỷ lệ phần trăm theo công thức: ROUND(((doanh_thu_ky_nay - doanh_thu_ky_truoc) / doanh_thu_ky_truoc) * 100, 2). TUYỆT ĐỐI KHÔNG trả về số tiền chênh lệch tuyệt đối! answer_type BẮT BUỘC là 'percent'.
@@ -49,6 +54,7 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
 
 4. QUY ĐỊNH VỀ 'unanswerable':
    - Chỉ trả về 'unanswerable' khi dữ liệu trong các bảng thực sự KHÔNG CÓ trường thông tin cần thiết và không thể tính toán được theo bất kỳ quy tắc nào trong Rulebook.
+   - THIẾU CỘT NHÓM HÀNG / DANH MỤC: Nếu câu hỏi yêu cầu lọc, tính doanh thu hay so sánh theo "nhóm hàng", "danh mục", "nhóm trà", "nhóm cà phê" mà trong cấu trúc các bảng KHÔNG có cột danh mục / nhóm hàng -> BẮT BUỘC trả về 'unanswerable' (reason: "Dữ liệu không có thông tin nhóm hàng/danh mục"), TUYỆT ĐỐI KHÔNG tự phỏng đoán bằng LIKE '%trà%' hay LIKE '%cà phê%'!
    - Tuyệt đối không phán đoán unanswerable khi thông tin đã có trong các bảng hoặc có thể suy luận qua bảng liên kết (JOIN).
 
 5. NGUYÊN TẮC SUY LUẬN & TRẢ VỀ:
