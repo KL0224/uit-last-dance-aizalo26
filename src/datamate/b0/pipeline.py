@@ -410,9 +410,11 @@ class B0Pipeline:
                         )
                         # Cho phép Bounded Retry (Attempt 1) để cứu vãn lỗi parse
                         repair_req = RepairRequest(
+                            attempt=1,
                             failed_sql="",
                             error_type="JSON_OR_SQL_PARSE_ERROR",
                             error_message=str(gr),
+                            error_code=ErrorCode.GENERATION_INVALID,
                             instruction=(
                                 "Bạn chưa xuất khối JSON hợp lệ theo định dạng quy định. "
                                 "Hãy xuất trực tiếp khối ```json ... ``` gồm 'status', 'answer_type', 'sql' "
