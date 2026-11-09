@@ -32,7 +32,7 @@ class GenerationOptions:
     giữa các phiên bản engine hoặc phần cứng.
     """
 
-    max_new_tokens: int = 1024
+    max_new_tokens: int = 2048
     temperature: float = 0.7
     top_p: float = 0.8
     top_k: int = 20

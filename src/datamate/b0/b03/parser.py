@@ -70,8 +70,21 @@ def strip_think_blocks(text: str) -> str:
         return text.rsplit("</think>", 1)[1].strip()
     if "<think>" in text:
         # Prompt hoặc model mở thẻ <think> nhưng bị cắt cụt token chưa đóng được
+        after_think = text.split("<think>", 1)[1]
+        m = re.search(r"```(?:json|sql)?|(?:\n\s*\{)", after_think)
+        if m:
+            return after_think[m.start():].strip()
         return ""
-    return _THINK_BLOCK.sub("", text).strip()
+
+    cleaned = _THINK_BLOCK.sub("", text).strip()
+    # Nếu không có thẻ <think>, kiểm tra xem có reasoning preamble (Thinking Process:, Analysis, etc.)
+    # xuất hiện trước khối ```json, ```sql hoặc { không:
+    m = re.search(r"```(?:json|sql)?|(?:\n\s*\{)", cleaned)
+    if m and m.start() > 20:
+        preamble = cleaned[:m.start()].strip()
+        if any(w in preamble.lower() for w in ("think", "analyze", "xem xét", "suy luận", "bước 1", "task:", "role:", "the user wants")):
+            return cleaned[m.start():].strip()
+    return cleaned
 
 
 def _regex_tables(sql: str) -> list[str]:
@@ -267,10 +280,15 @@ def _try_recover_truncated_json(s: str) -> dict[str, Any] | None:
         reason = reason_m.group(1) if reason_m else "Dữ liệu không đủ để trả lời."
         return {"status": "unanswerable", "reason": reason}
 
-    sql_m = re.search(r"\"sql\"\s*:\s*\"([\s\S]*?)(?:\"|\Z)", candidate)
+    sql_m = re.search(r'\"sql\"\s*:\s*(?:\"((?:[^"\\]|\\.)*)(?:\"|\Z)|```(?:sql)?\s*([\s\S]*?)(?:```|\Z))', candidate, re.IGNORECASE)
     if not sql_m:
-        return None
-    sql = sql_m.group(1).strip()
+        # Fallback tìm "sql": "..." dạng non-greedy
+        sql_m = re.search(r"\"sql\"\s*:\s*\"([\s\S]*?)(?:\"|\Z)", candidate)
+        if not sql_m:
+            return None
+        sql = sql_m.group(1).strip()
+    else:
+        sql = (sql_m.group(1) or sql_m.group(2) or "").strip()
     if not sql:
         return None
     sql = sql.replace('\\"', '"').replace('\\n', '\n').replace('\\t', '\t')
@@ -449,6 +467,32 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
                         thinking=thinking,
                         raw_response=raw_text,
                     )
+
+    # 2d. Fallback tìm block ```sql ... ``` trong raw_text (kể cả khi kẹt trong thinking block dở dang)
+    if "```sql" in raw_text:
+        sql_block_raw = re.search(r"```sql\s*([\s\S]*?)(?:```|$)", raw_text, re.IGNORECASE)
+        if sql_block_raw:
+            cand = sql_block_raw.group(1).strip()
+            cand_clean = re.sub(r";+\s*$", "", cand)
+            try:
+                node = sqlglot.parse_one(cand_clean, read="duckdb")
+                if node is not None and node.key in ("select", "with"):
+                    tables = extract_tables_from_sql(cand_clean)
+                    ans_type = infer_answer_type_from_sql(cand_clean)
+                    if question:
+                        ans_type = normalize_answer_type(ans_type, cand_clean, question=question)
+                    return Text2SQLResult(
+                        status="answerable",
+                        answer_type=ans_type,
+                        sql=cand_clean,
+                        tables_used=tables,
+                        assumptions=(),
+                        reason=None,
+                        thinking=thinking,
+                        raw_response=raw_text,
+                    )
+            except Exception:
+                pass
 
     # 3. Fallback: Nếu model trả lời bằng câu văn từ chối rõ ràng bằng tiếng Việt
     # Lưu ý: Tuyệt đối không dùng từ khóa tiếng Anh "unanswerable" vì mô hình suy luận

@@ -491,18 +491,72 @@ def _materialize(work, sources, documents, config, manifest, report):
                                 "tong thang",
                                 "tong cong",
                             } or marker.startswith("ghi chu ")
+
+                            # Check whether any cell is a summary or footer marker
+                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ')
+                            summary_col_idx = None
+                            summary_markers_exact = {
+                                "tong",
+                                "tong cong",
+                                "tong thang",
+                                "tong ngay",
+                                "tong nam",
+                                "tong so",
+                                "tong don hang",
+                                "tong doanh thu",
+                                "subtotal",
+                                "total",
+                                "grand total",
+                            }
+                            summary_prefixes = (
+                                "tong ngay ",
+                                "tong thang ",
+                                "tong nam ",
+                                "tong cong ",
+                                "tong so ",
+                                "tong don hang ",
+                                "tong don ",
+                                "tong doanh thu ",
+                                "ghi chu ",
+                                "subtotal ",
+                                "grand total ",
+                            )
+                            for idx, val in enumerate(values):
+                                if val is not None:
+                                    s_val = fold(str(val)).strip()
+                                    if s_val in summary_markers_exact or s_val.startswith(summary_prefixes):
+                                        summary_col_idx = idx
+                                        break
+
+                            is_non_data = False
                             if (
                                 roles[0] == "date"
                                 and footer_marker
                                 and not any(values[i] for i in set(orders + products))
                             ):
+                                is_non_data = True
+                                log_col = columns[0]
+                            elif (
+                                summary_col_idx is not None
+                                and not any(
+                                    values[i] is not None
+                                    and str(values[i]).strip()
+                                    and fold(str(values[i])).strip() not in summary_markers_exact
+                                    and not fold(str(values[i])).strip().startswith(summary_prefixes)
+                                    for i in set(orders + products)
+                                )
+                            ):
+                                is_non_data = True
+                                log_col = columns[summary_col_idx]
+
+                            if is_non_data:
                                 report["excluded_non_data_rows"] += 1
                                 issue(
                                     source,
                                     number,
-                                    columns[0],
+                                    log_col,
                                     "non_data_footer",
-                                    "explicit summary/note in date field; no order or product identity; retained in raw",
+                                    "explicit summary/note in data row; no valid order or product identity; retained in raw",
                                 )
                                 # A summary/note terminates the preceding order group.
                                 group_order, order_fields = None, {}

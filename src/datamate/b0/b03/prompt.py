@@ -21,6 +21,9 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
      + Khi câu hỏi hỏi theo đơn vị tính cụ thể (ví dụ: số ly, số hộp, số viên): Đối chiếu với cột đơn vị cơ bản của bảng danh mục sản phẩm/hàng hóa để chỉ lọc các mặt hàng có đơn vị đó.
      + Khi bảng hàng hoá không có cột riêng cho thuộc tính (ví dụ không có cột size riêng, hoặc cột thuộc tính bị rỗng): BẮT BUỘC so khớp trực tiếp trên cột Tên sản phẩm/Tên hàng (cột có vai trò text/name) theo quy tắc ngành trong Rulebook: ví dụ `WHERE LOWER(col_ten_sp) LIKE '%(m)'` hoặc `LIKE '%(l)'`. TUYỆT ĐỐI KHÔNG lọc trên cột rỗng và KHÔNG kết luận unanswerable!
      + Khi câu hỏi hỏi đích danh một sản phẩm cụ thể kèm size (ví dụ "Cà phê sữa (L)"): BẮT BUỘC phải lọc CẢ tên mặt hàng VÀ kích cỡ: ví dụ `WHERE LOWER(col_ten_sp) LIKE '%cà phê sữa%' AND LOWER(col_ten_sp) LIKE '%(l)'`. Tuyệt đối không chỉ lọc riêng `%(l)` vì sẽ nhầm sang mọi mặt hàng size L khác!
+     + QUY TẮC KHÁCH HÀNG (RULEBOOK MỤC 3): Khi câu hỏi hỏi về khách hàng (Ai mua nhiều nhất, khách hàng thân thiết, xếp hạng khách hàng, top khách hàng, đếm số khách hàng): "Khách lẻ", "kl", "lẻ", "khach le", "khách vãng lai" KHÔNG PHẢI là khách hàng cụ thể. BẮT BUỘC thêm điều kiện loại trừ: `WHERE LOWER(col_khach_hang) NOT IN ('khách lẻ', 'khach le', 'kl', 'lẻ', 'khách vãng lai', 'le') AND col_khach_hang IS NOT NULL AND TRIM(col_khach_hang) != '' AND LOWER(col_khach_hang) NOT LIKE 'tổng%'`. TUYỆT ĐỐI KHÔNG xếp hạng hay trả về 'khách lẻ'/'kl'/'lẻ'!
+     + LOẠI TRỪ ĐƠN HUỶ & ĐƠN TRẢ: Trừ khi câu hỏi hỏi đích danh về đơn huỷ hoặc hàng trả lại, mọi truy vấn tính doanh thu, số đơn, mặt hàng bán chạy BẮT BUỘC loại trừ đơn huỷ/đổi trả: `WHERE LOWER(trang_thai) NOT IN ('cancelled', 'huỷ', 'hủy', 'đã huỷ', 'đã hủy', 'da huy', 'returned', 'trả hàng', 'hàng trả về', 'đổi trả', 'doi tra')`.
+     + ĐẾM SỐ ĐƠN HÀNG TRÊN BẢNG DÒNG HÀNG: Khi bảng dữ liệu là bảng chi tiết dòng hàng (order lines/line items), để đếm số đơn hàng BẮT BUỘC dùng `COUNT(DISTINCT ma_don_hang)`. TUYỆT ĐỐI KHÔNG dùng `COUNT(*)` vì sẽ đếm nhầm số dòng sản phẩm thay vì số đơn hàng.
    - Luôn sử dụng đúng các giá trị thực tế liệt kê trong mục [Giá trị thực tế] của từng cột phân loại để so khớp điều kiện WHERE (không tự dịch hay suy đoán giá trị khác).
 
 2. QUY TẮC SO SÁNH THỜI GIAN & CÚ PHÁP DUCKDB:
@@ -49,13 +52,8 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
    - Tuyệt đối không phán đoán unanswerable khi thông tin đã có trong các bảng hoặc có thể suy luận qua bảng liên kết (JOIN).
 
 5. NGUYÊN TẮC SUY LUẬN & TRẢ VỀ:
-   - Nếu bạn cần suy luận từng bước, hãy đặt toàn bộ suy luận trong cặp thẻ <think>...</think>.
-   - QUAN TRỌNG VỀ SUY LUẬN: Hãy suy luận ngắn gọn, súc tích (dưới 800 từ) theo đúng 4 bước:
-     (1) Xác định bảng cần truy vấn (dựa vào thời gian và cấu trúc dữ liệu);
-     (2) Điều kiện WHERE và quan hệ JOIN;
-     (3) Cột SELECT cần chiếu và answer_type tương ứng;
-     (4) Viết câu lệnh DuckDB SQL hoàn chỉnh.
-     TUYỆT ĐỐI KHÔNG chép lại toàn bộ Rulebook hay lược đồ bảng vào suy luận để tránh lãng phí token!
+   - Hãy đi thẳng vào kết quả JSON hoặc nếu suy luận thì suy luận CỰC KỲ NGẮN GỌN trong <think>...</think> (dưới 150 từ) theo 3 bước: bảng & thời gian -> điều kiện WHERE/JOIN -> DuckDB SQL.
+   - TUYỆT ĐỐI KHÔNG viết "Thinking Process:" hay phân tích dài dòng bằng tiếng Anh bên ngoài thẻ <think>!
    - KHI HOÀN THÀNH SUY LUẬN: Đóng ngay thẻ </think> và xuất trực tiếp khối ```json ... ```. TUYỆT ĐỐI KHÔNG viết thêm bất kỳ câu văn xuôi giải thích nào sau thẻ </think>!
    - Khối kết quả cuối cùng BẮT BUỘC phải là một khối JSON hợp lệ duy nhất nằm trong ```json ... ```:
 ```json
@@ -326,16 +324,22 @@ def build_repair_messages(
 ) -> list[ChatMessage]:
     """Tạo chuỗi messages cho vòng Bounded Retry sửa lại câu SQL khi bị lỗi thực thi."""
     context_str = format_context_for_prompt(context, industry)
+    if previous_sql and previous_sql.strip():
+        sql_section = f"""### CÂU TRUY VẤN TRƯỚC ĐÓ ĐÃ BỊ LỖI THỰC THI:
+```sql
+{previous_sql}
+```"""
+    else:
+        sql_section = """### LƯU Ý Ở LẦN THỰC THI TRƯỚC:
+Ở lần trước mô hình chưa xuất được khối JSON hợp lệ hoặc câu SQL bị lỗi cú pháp."""
+
     user_content = f"""{context_str}
 
 ### THÔNG TIN CÂU HỎI:
 - Ngày tham chiếu (as_of_date): {as_of_date}
 - Câu hỏi: "{question}"
 
-### CÂU TRUY VẤN TRƯỚC ĐÓ ĐÃ BỊ LỖI THỰC THI:
-```sql
-{previous_sql}
-```
+{sql_section}
 
 ### THÔNG BÁO LỖI (ERROR MESSAGE TỪ DATABASE/EXECUTOR):
 ```
