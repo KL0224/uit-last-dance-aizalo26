@@ -3,6 +3,8 @@
 **Nhóm thực hiện:** UIT Last Dance  
 **Vị trí:** `docs/code/b05/`
 
+> Bộ tài liệu theo file bên dưới phản ánh implementation v1 ban đầu. Báo cáo tổng hợp các thay đổi v2, test và migration hiện tại nằm tại [B05_V2_IMPLEMENTATION_CHANGES.md](B05_V2_IMPLEMENTATION_CHANGES.md).
+
 ---
 
 ## 1. Mục Đích Của Thư Mục Này
@@ -73,4 +75,3 @@ Mỗi tài liệu phân tích cặn kẽ:
 | [**`audit.md`**](audit.md) | `src/datamate/b05/audit.py` | Hộp đen kiểm toán: Ghi vết JSON per-question logs, bảo toàn lịch sử 2 lần thử, băm SHA-256 chống Path Traversal. |
 | [**`cli.md`**](cli.md) | `src/datamate/b05/cli.py` | Giao diện dòng lệnh: Chạy thử nghiệm mock trên file fixtures JSONL độc lập mà không cần các module B0.1-B0.4. |
 | [**`init.md`**](init.md) | `src/datamate/b05/__init__.py` | Giao diện xuất khẩu (Public Facade): Khai báo `__all__`, đóng gói package chuyên nghiệp và tiện dụng. |
-
