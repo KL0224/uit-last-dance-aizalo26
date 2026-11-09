@@ -49,6 +49,31 @@ class Decision(str, Enum):
     RETRY = "retry"
 
 
+class PolicyMode(str, Enum):
+    LEGACY = "legacy"
+    SHADOW = "shadow"
+    ENFORCE = "enforce"
+
+
+class ProofStatus(str, Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    UNKNOWN = "unknown"
+
+
+class CapabilityStatus(str, Enum):
+    SUPPORTED = "supported"
+    UNSUPPORTED = "unsupported"
+    AMBIGUOUS = "ambiguous"
+    UNKNOWN = "unknown"
+
+
+class ReleaseStatus(str, Enum):
+    SAFE = "safe"
+    UNSAFE = "unsafe"
+    UNKNOWN = "unknown"
+
+
 @dataclass
 class QuestionMeta:
     id: str
@@ -73,6 +98,9 @@ class GenerationResult:
     tables_used: List[str] = field(default_factory=list)
     assumptions: List[str] = field(default_factory=list)
     answer_semantics: AnswerSemantics = field(default_factory=AnswerSemantics)
+    plan_id: Optional[str] = None
+    metric_id: Optional[str] = None
+    expected_answer_type: Optional[str] = None
 
 
 @dataclass
@@ -108,12 +136,60 @@ class EvidenceProof:
 
 
 @dataclass
+class CapabilityProof:
+    status: str = CapabilityStatus.UNKNOWN
+    capability_ids: List[str] = field(default_factory=list)
+    missing_requirement_ids: List[str] = field(default_factory=list)
+    checked_source_ids: List[str] = field(default_factory=list)
+    catalog_version: Optional[str] = None
+    proof_hash: Optional[str] = None
+    conflicts: List[str] = field(default_factory=list)
+
+
+@dataclass
+class SemanticCheck:
+    check_id: str
+    status: str
+    source_id: str
+    details: Optional[str] = None
+
+
+@dataclass
+class SemanticProof:
+    status: str = ProofStatus.UNKNOWN
+    plan_id: Optional[str] = None
+    checks: List[SemanticCheck] = field(default_factory=list)
+    schema_version: Optional[str] = None
+    rule_version: Optional[str] = None
+
+
+@dataclass
+class RepairOrigin:
+    plan_id: str
+    metric_id: str
+    expected_answer_type: str
+
+
+@dataclass
+class RiskAssessment:
+    policy_version: str
+    policy_mode: str
+    hard_failures: List[str] = field(default_factory=list)
+    warnings: List[str] = field(default_factory=list)
+    release_status: str = ReleaseStatus.UNKNOWN
+
+
+@dataclass
 class GateRequest:
     contract_version: str
     question: QuestionMeta
     generation: Optional[GenerationResult]
     execution: ExecutionResult
     evidence: EvidenceProof = field(default_factory=EvidenceProof)
+    capability_proof: CapabilityProof = field(default_factory=CapabilityProof)
+    semantic_proof: SemanticProof = field(default_factory=SemanticProof)
+    policy_mode: str = PolicyMode.LEGACY
+    repair_origin: Optional[RepairOrigin] = None
     attempt: int = 0
     trace: Dict[str, Any] = field(default_factory=dict)
 
@@ -129,6 +205,9 @@ class RepairRequest:
     available_columns: Optional[List[str]] = None
     do_not_change_question: bool = True
     instruction: str = "Fix the SQL error without changing question semantics."
+    plan_id: Optional[str] = None
+    metric_id: Optional[str] = None
+    expected_answer_type: Optional[str] = None
 
 
 @dataclass
@@ -172,4 +251,7 @@ class GateOutcome:
     validation: Dict[str, Any] = field(default_factory=lambda: {"passed": True, "errors": [], "warnings": []})
     retry_count: int = 0
     repair_request: Optional[RepairRequest] = None
-
+    risk_assessment: Optional[RiskAssessment] = None
+    legacy_decision: Optional[str] = None
+    shadow_decision: Optional[str] = None
+    shadow_reason_code: Optional[str] = None
