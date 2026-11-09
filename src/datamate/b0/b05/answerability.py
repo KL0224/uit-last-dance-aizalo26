@@ -2,7 +2,8 @@
 
 from typing import Optional, Tuple
 
-from .contracts import GateRequest
+from .contracts import CapabilityStatus, GateRequest
+from .risk_policy import capability_proof_complete
 
 
 def evaluate_answerability(request: GateRequest) -> Tuple[bool, Optional[str]]:
@@ -11,6 +12,14 @@ def evaluate_answerability(request: GateRequest) -> Tuple[bool, Optional[str]]:
     Returns:
         (is_unanswerable: bool, reason: Optional[str])
     """
+    if request.contract_version == "b05.v2":
+        proof = request.capability_proof
+        if proof.status != CapabilityStatus.UNSUPPORTED or not capability_proof_complete(request):
+            return False, None
+        requirements = ", ".join(sorted(proof.missing_requirement_ids))
+        capabilities = ", ".join(sorted(proof.capability_ids))
+        return True, f"Unsupported capability {capabilities}; missing requirements: {requirements}"
+
     evidence = request.evidence
 
     # Reject unverified self-claims from LLM
@@ -37,4 +46,3 @@ def evaluate_answerability(request: GateRequest) -> Tuple[bool, Optional[str]]:
         reason = "Dữ liệu được kiểm chứng không hỗ trợ chỉ số theo yêu cầu câu hỏi"
 
     return True, reason
-

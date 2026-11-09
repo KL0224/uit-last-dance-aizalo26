@@ -92,10 +92,23 @@ class AuditLogger:
             "total_elapsed_ms": total_elapsed_ms,
             "model_version": model_version,
             "prompt_version": prompt_version,
+            "legacy_decision": outcome.legacy_decision,
+            "shadow_decision": outcome.shadow_decision,
+            "shadow_reason_code": outcome.shadow_reason_code,
+            "risk_assessment": (
+                {
+                    "policy_version": outcome.risk_assessment.policy_version,
+                    "policy_mode": outcome.risk_assessment.policy_mode,
+                    "hard_failures": outcome.risk_assessment.hard_failures,
+                    "warnings": outcome.risk_assessment.warnings,
+                    "release_status": outcome.risk_assessment.release_status,
+                }
+                if outcome.risk_assessment
+                else None
+            ),
         }
 
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(log_payload, f, ensure_ascii=False, indent=2)
 
         return filepath
-

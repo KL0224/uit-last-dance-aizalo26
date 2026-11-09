@@ -85,6 +85,16 @@ def classify_error(
 
     # 2. Classify validation failure
     if validation_error_code is not None:
+        if validation_error_code in (
+            ErrorCode.ANSWER_TYPE_MISMATCH,
+            ErrorCode.SEMANTIC_PROOF_FAILED,
+        ):
+            return ErrorClassification(
+                code=validation_error_code,
+                retryable=True,
+                evidence=f"Proof validation failed with code: {validation_error_code}",
+                safe_feedback="Repair the candidate while preserving plan_id, metric_id, and expected_answer_type.",
+            )
         if validation_error_code == ErrorCode.SCALAR_SHAPE_MISMATCH:
             return ErrorClassification(
                 code=ErrorCode.SCALAR_SHAPE_MISMATCH,
@@ -162,5 +172,7 @@ def decide_retry(
         available_columns=None,
         do_not_change_question=True,
         instruction=classification.safe_feedback,
+        plan_id=request.generation.plan_id if request.generation else None,
+        metric_id=request.generation.metric_id if request.generation else None,
+        expected_answer_type=request.generation.expected_answer_type if request.generation else None,
     )
-

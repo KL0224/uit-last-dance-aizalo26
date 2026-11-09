@@ -74,13 +74,6 @@ def validate_execution(request: GateRequest) -> ValidationResult:
             )
 
         if len(rows) > 1:
-            # Tự động cứu vãn sang kiểu 'list' nếu câu SQL là Top-N 1 cột có LIMIT > 1
-            import re
-            sql = request.generation.sql if request.generation else ""
-            if sql and re.search(r"\bLIMIT\s+([2-9]|\d{2,})\b", sql.upper()) and len(rows[0]) == 1:
-                request.generation.answer_type = AnswerType.LIST
-                return validate_execution(request)
-
             return ValidationResult(
                 passed=False,
                 error_code=ErrorCode.SCALAR_SHAPE_MISMATCH,
@@ -239,4 +232,3 @@ def validate_execution(request: GateRequest) -> ValidationResult:
             details=f"Unsupported answer_type: {answer_type}",
             warnings=warnings,
         )
-
