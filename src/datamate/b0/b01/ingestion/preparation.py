@@ -273,7 +273,7 @@ def prepare_business(
                 f"discovery failed: {failures or 'no business tables'}"
             )
         mapping, declared_relationships = _materialize(
-            work, sources, documents, config, manifest, report
+            work, sources, documents, config, manifest, report, calendar=calendar
         )
         if reviewed:
             declared_relationships += reviewed.resolve(sources, mapping)
@@ -355,7 +355,7 @@ def prepare_business(
         raise PreparationError(f"{exc}; diagnostics: {failed}") from exc
 
 
-def _materialize(work, sources, documents, config, manifest, report):
+def _materialize(work, sources, documents, config, manifest, report, calendar=None):
     with ExitStack() as spool_cleanup:
         descriptions_by_name = descriptions(
             "\n".join(p.read_text(encoding="utf-8") for p in documents)
@@ -739,6 +739,25 @@ def _materialize(work, sources, documents, config, manifest, report):
             connection.executemany(
                 "INSERT INTO meta.source_mapping VALUES (?, ?, ?, ?, ?)", rows
             )
+            if calendar and Path(calendar).is_file():
+                cal_path = Path(calendar).resolve()
+                connection.execute(
+                    f"CREATE TABLE calendar AS SELECT row_number() OVER () AS __dm_row_id, * FROM read_csv_auto('{cal_path}')"
+                )
+                mapping["calendar"] = {
+                    "columns": {
+                        "date": {"original_name": "date", "role": "date", "sql_type": "DATE"},
+                        "weekday": {"original_name": "weekday", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_day": {"original_name": "lunar_day", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_month": {"original_name": "lunar_month", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_year": {"original_name": "lunar_year", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_leap": {"original_name": "lunar_leap", "role": "boolean", "sql_type": "BOOLEAN"},
+                        "holiday": {"original_name": "holiday", "role": "text", "sql_type": "VARCHAR"},
+                    },
+                    "source_ids": ["calendar"],
+                    "family": "calendar",
+                    "grain": "row keyed by date",
+                }
             connection.execute(
                 "CREATE TABLE meta.column_mapping (table_name VARCHAR, column_name VARCHAR, original_name VARCHAR, role VARCHAR)"
             )

@@ -89,13 +89,15 @@ def validate_execution(request: GateRequest) -> ValidationResult:
             )
 
         first_row = rows[0]
-        if not isinstance(first_row, list) or len(first_row) != 1:
+        if not isinstance(first_row, list) or len(first_row) == 0:
             return ValidationResult(
                 passed=False,
                 error_code=ErrorCode.SCALAR_SHAPE_MISMATCH,
-                details=f"Scalar type '{answer_type}' expected 1 column in row, got {len(first_row) if isinstance(first_row, list) else 0}",
+                details=f"Scalar type '{answer_type}' expected at least 1 column in row, got 0",
                 warnings=warnings,
             )
+        if len(first_row) > 1:
+            warnings.append(f"Scalar type '{answer_type}' expected 1 column, got {len(first_row)}; extracted first column")
 
         candidate = first_row[0]
         if candidate is None:
@@ -132,13 +134,15 @@ def validate_execution(request: GateRequest) -> ValidationResult:
     elif answer_type == AnswerType.LIST:
         clean_items = []
         for r_idx, row in enumerate(rows):
-            if not isinstance(row, list) or len(row) != 1:
+            if not isinstance(row, list) or len(row) == 0:
                 return ValidationResult(
                     passed=False,
                     error_code=ErrorCode.SCALAR_SHAPE_MISMATCH,
-                    details=f"List row {r_idx} must have exactly 1 column, got {len(row) if isinstance(row, list) else 0}",
+                    details=f"List row {r_idx} must have at least 1 column, got 0",
                     warnings=warnings,
                 )
+            if len(row) > 1 and r_idx == 0:
+                warnings.append(f"List row expected 1 column, got {len(row)}; extracted first column")
             item = row[0]
             if item is None:
                 return ValidationResult(
@@ -174,6 +178,42 @@ def validate_execution(request: GateRequest) -> ValidationResult:
 
     # Case C: Table type
     elif answer_type == AnswerType.TABLE:
+        # Tự động unwrap bảng 1x1 về kiểu vô hướng (scalar) phù hợp
+        if len(rows) == 1 and len(columns) == 1:
+            val = rows[0][0]
+            val_str = str(val).strip()
+            import re
+            q_text = (request.question.question if request.question else "").lower()
+            if re.match(r"^\d{4}-\d{2}(-\d{2})?$", val_str):
+                request.generation.answer_type = AnswerType.DATE
+            elif any(k in q_text for k in ["%", "phần trăm", "phan tram", "tỉ lệ", "ti le", "tăng", "giảm", "tang", "giam"]):
+                request.generation.answer_type = AnswerType.PERCENT
+            elif isinstance(val, (int, float)) or (isinstance(val, str) and re.match(r"^-?\d+(\.\d+)?$", val_str)):
+                request.generation.answer_type = AnswerType.NUMBER
+            else:
+                request.generation.answer_type = AnswerType.STRING
+            return validate_execution(request)
+
+        # Tự động unwrap bảng 2 cột của câu hỏi danh sách/Top-N về List
+        q_text = (request.question.question if request.question else "").lower()
+        table_explicit_keywords = (
+            "table", "bảng", "bang", "cái bảng", "cho bảng",
+            "kèm", "kem", "và số", "va so", "mỗi người", "moi nguoi",
+            "từng người", "tung nguoi", "số nợ của từng", "con no bao nhieu", "còn nợ bao nhiêu",
+        )
+        list_indicators = (
+            "top", "món", "mon", "mặt hàng", "mat hang", "sản phẩm", "san pham",
+            "khách", "khach", "những", "nhung", "liệt kê", "liet ke", "danh sách", "danh sach", "ai",
+        )
+        if (
+            len(rows) > 1
+            and len(columns) == 2
+            and any(k in q_text for k in list_indicators)
+            and not any(k in q_text for k in table_explicit_keywords)
+        ):
+            request.generation.answer_type = AnswerType.LIST
+            return validate_execution(request)
+
         if not columns or not all(isinstance(c, str) and c.strip() for c in columns):
             return ValidationResult(
                 passed=False,

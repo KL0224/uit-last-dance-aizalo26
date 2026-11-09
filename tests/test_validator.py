@@ -71,3 +71,36 @@ def test_validator_table_shape():
     assert res.passed is False
     assert res.error_code == ErrorCode.TABLE_SHAPE_ERROR
 
+
+def test_validator_table_1x1_unwrap():
+    # 1x1 table unwraps to scalar
+    raw = {
+        "contract_version": "b05.v1",
+        "question": {"id": "q1", "business_id": "b1", "question": "Lãi ròng là bao nhiêu?", "as_of_date": "2026-03-04"},
+        "generation": {"answer_type": "table", "sql": "SELECT ..."},
+        "execution": {"status": "success", "columns": ["net_profit"], "rows": [[-35146983]]},
+        "attempt": 0,
+    }
+    req = adapt_gate_request(raw)
+    res = validate_execution(req)
+    assert res.passed is True
+    assert req.generation.answer_type == "number"
+    assert res.normalized_candidate == -35146983
+
+
+def test_validator_table_top_n_unwrap():
+    # 2-column table for Top-N list unwraps to list
+    raw = {
+        "contract_version": "b05.v1",
+        "question": {"id": "q2", "business_id": "b1", "question": "Top 3 món bán chạy nhất?", "as_of_date": "2026-03-04"},
+        "generation": {"answer_type": "table", "sql": "SELECT ..."},
+        "execution": {"status": "success", "columns": ["ten_mon", "qty"], "rows": [["Món A", 10], ["Món B", 8]]},
+        "attempt": 0,
+    }
+    req = adapt_gate_request(raw)
+    res = validate_execution(req)
+    assert res.passed is True
+    assert req.generation.answer_type == "list"
+    assert res.normalized_candidate == ["Món A", "Món B"]
+
+
