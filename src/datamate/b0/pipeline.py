@@ -423,6 +423,7 @@ class B0Pipeline:
                         )
                         entry["outcome"] = GateOutcome(
                             action=GateAction.RETRY,
+                            question_id=entry["q_meta"].id,
                             decision="retry",
                             reason_code="GENERATION_INVALID",
                             repair_request=repair_req,
