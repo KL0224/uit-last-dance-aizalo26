@@ -1,6 +1,7 @@
 """CLI Runner for B0.5 Basic Output Gate (DataMate 2026)."""
 
 import argparse
+import copy
 import json
 from pathlib import Path
 import sys
@@ -25,6 +26,8 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
         "abstain": 0,
         "retry_attempts": 0,
     }
+    final_outcomes: list[GateOutcome] = []
+    expected_ids: list[str] = []
 
     if not fixtures_path.exists():
         print(f"Error: Fixtures file not found at {fixtures_path}", file=sys.stderr)
@@ -44,6 +47,7 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
             except Exception as c_err:
                 # Contract error fallback to abstain
                 q_id = str(raw_record.get("question", {}).get("id") or f"unknown_{line_num}")
+                expected_ids.append(q_id)
                 counts["abstain"] += 1
                 outcome = GateOutcome(
                     action=GateAction.FINAL,
@@ -55,10 +59,12 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
                     retry_count=0,
                 )
                 writer.write_final(outcome, trace_meta={"business_id": "", "contract_version": "b05.v1"})
+                final_outcomes.append(outcome)
                 continue
 
             # Record attempt 0 trace
             q_id = req.question.id
+            expected_ids.append(q_id)
             sql_attempt0 = req.generation.sql if req.generation else ""
             status_attempt0 = req.execution.status
             err_code0 = req.execution.error.type if req.execution.error else None
@@ -84,8 +90,14 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
                 simulated_success = raw_record.get("_simulate_retry_success", False)
                 corrected_rows = raw_record.get("_simulate_corrected_rows", [[125]])
 
-                raw_attempt1 = dict(raw_record)
+                raw_attempt1 = copy.deepcopy(raw_record)
                 raw_attempt1["attempt"] = 1
+                if req.contract_version == "b05.v2" and outcome.repair_request:
+                    raw_attempt1["repair_origin"] = {
+                        "plan_id": outcome.repair_request.plan_id,
+                        "metric_id": outcome.repair_request.metric_id,
+                        "expected_answer_type": outcome.repair_request.expected_answer_type,
+                    }
 
                 if simulated_success:
                     raw_attempt1["execution"] = {
@@ -97,12 +109,8 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
                         "elapsed_ms": 12.0,
                     }
                     if req.generation:
-                        raw_attempt1["generation"] = {
-                            "answer_type": req.generation.answer_type,
-                            "sql": "SELECT ... -- repaired",
-                            "tables_used": req.generation.tables_used,
-                            "answer_semantics": req.generation.answer_semantics.__dict__,
-                        }
+                        raw_attempt1["generation"] = copy.deepcopy(raw_record["generation"])
+                        raw_attempt1["generation"]["sql"] = "SELECT ... -- repaired"
                 else:
                     # Still failing
                     pass
@@ -133,9 +141,14 @@ def run_pipeline(fixtures_path: Path, result_dir: Path) -> Dict[str, Any]:
                 "total_elapsed_ms": (time.monotonic() - start_time) * 1000.0,
             }
             writer.write_final(outcome, trace_meta=meta)
+            final_outcomes.append(outcome)
 
     total_time_s = time.monotonic() - start_time
     counts["total_time_seconds"] = round(total_time_s, 3)
+    counts["submission_manifest"] = writer.finalize(
+        final_outcomes,
+        expected_ids=expected_ids,
+    )
 
     return counts
 

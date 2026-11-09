@@ -2,11 +2,12 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Set
 
 from .audit import AuditLogger
 from .contracts import GateAction, GateOutcome
 from .errors import OutputWriteError
+from .finalizer import SubmissionFinalizer
 
 
 class SubmissionWriter:
@@ -114,3 +115,18 @@ class SubmissionWriter:
         except Exception as exc:
             raise OutputWriteError(f"Failed to write audit log for {q_id}: {exc}")
 
+    def finalize(
+        self,
+        outcomes: Iterable[GateOutcome],
+        *,
+        expected_ids: Sequence[str],
+        reference_records: Sequence[Mapping] | None = None,
+    ) -> Dict[str, Any]:
+        """Replace the append journal with a validated canonical artifact."""
+        manifest = SubmissionFinalizer(self.result_dir).finalize(
+            outcomes,
+            expected_ids=expected_ids,
+            reference_records=reference_records,
+        )
+        self.seen_ids = set(str(question_id) for question_id in expected_ids)
+        return manifest
