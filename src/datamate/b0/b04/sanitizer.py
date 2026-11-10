@@ -92,10 +92,20 @@ def _mask_literals_and_comments(sql: str) -> str:
     return _MASK_PATTERN.sub(" ", sql)
 
 
+def _strip_literals_and_comments(sql: str) -> str:
+    """Strip block/line comments and blank out string literals and quoted identifiers."""
+    sql = re.sub(r"/\*[\s\S]*?\*/", " ", sql)
+    sql = re.sub(r"--[^\n]*", " ", sql)
+    sql = re.sub(r"'(?:''|[^'])*'", "''", sql)
+    sql = re.sub(r'"(?:""|[^"])*"', '""', sql)
+    return sql.lower()
+
+
 def extract_clean_sql(raw_sql: str) -> str:
     """
-    Extracts SQL query from markdown code blocks if present,
-    strips whitespace, comments, and trailing semicolons.
+    Extracts SQL query from markdown code blocks if present (picking the last block
+    when multiple markdown blocks exist), strips <think> blocks, trailing comments,
+    and trailing semicolons.
     Raises EmptyQueryError if the resulting string is empty.
     """
     if not raw_sql or not raw_sql.strip():
@@ -107,16 +117,16 @@ def extract_clean_sql(raw_sql: str) -> str:
     if not text:
         raise EmptyQueryError("SQL query is empty.")
 
-    # Match ```sql ... ``` or ``` ... ```
+    # Match all ```sql ... ``` or ``` ... ``` blocks and take the last one
     pattern = r"```(?:sql)?\s*([\s\S]*?)\s*```"
-    match = re.search(pattern, text, re.IGNORECASE)
-    if match:
-        extracted = match.group(1).strip()
-    else:
-        extracted = text
+    matches = re.findall(pattern, text, re.IGNORECASE)
+    extracted = matches[-1].strip() if matches else text
 
-    # Strip trailing semicolons and whitespace
+    # Strip trailing comments before stripping trailing semicolons
+    extracted = re.sub(r"/\*[\s\S]*?\*/\s*$", "", extracted).strip()
+    extracted = re.sub(r"--[^\n]*$", "", extracted).strip()
     extracted = re.sub(r";+\s*$", "", extracted).strip()
+    extracted = re.sub(r"--[^\n]*$", "", extracted).strip()
 
     if not extracted:
         raise EmptyQueryError("SQL query is empty after stripping markdown and formatting.")
@@ -127,67 +137,80 @@ def extract_clean_sql(raw_sql: str) -> str:
 def validate_read_only_sql(sql: str) -> str:
     """
     Statically analyzes SQL AST to ensure query safety.
+    - Parses AST first via sqlglot to avoid false positives on literals/comments
     - Ensures single statement (prevents multi-statement injection)
-    - Validates no DDL/DML/administrative/file-access operations
-    - Allows genuine syntax errors to pass through to DuckDB for precise line diagnostics
+    - Validates root node is in ALLOWED_ROOT_NODES (or syntax fragment for DuckDB error reporting)
+    - Validates no DDL/DML/administrative/file-access operations or duckdb_* system functions
+    - Falls back to literal-stripped regex scanning only when sqlglot raises ParseError
     Raises SecurityViolation or EmptyQueryError.
     """
     cleaned_sql = extract_clean_sql(sql)
-
-    fast_check = _mask_literals_and_comments(cleaned_sql).lower()
-
-    # Fast-path check for forbidden file functions
-    for forbidden_func in FORBIDDEN_FUNCTIONS:
-        if re.search(rf"\b{forbidden_func}\b", fast_check):
-            raise SecurityViolation(f"File reading or direct table function '{forbidden_func}' is forbidden.")
-
-    # Fast-path check for explicit destructive keywords
-    for word in FORBIDDEN_KEYWORDS:
-        if re.search(rf"\b{word}\b", fast_check):
-            raise SecurityViolation(f"Forbidden SQL operation '{word}' detected.")
+    masked_check = _mask_literals_and_comments(cleaned_sql).lower()
 
     try:
         parsed_statements = sqlglot.parse(cleaned_sql, read="duckdb")
+        valid_stmts = [s for s in parsed_statements if s is not None]
+
+        if not valid_stmts:
+            raise EmptyQueryError("No valid SQL statement found.")
+
+        if len(valid_stmts) > 1:
+            raise SecurityViolation(
+                f"Multiple SQL statements detected ({len(valid_stmts)} statements). Only single queries are allowed."
+            )
+
+        stmt = valid_stmts[0]
+
+        # Expression fragments (typos such as "SELEC * FORM t" parse as an Alias) are not
+        # statements; DuckDB rejects them with a precise syntax error for the retry loop,
+        # provided they are not leading with an administrative/DDL keyword.
+        if not isinstance(stmt, ALLOWED_ROOT_NODES + SYNTAX_FRAGMENT_NODES):
+            raise SecurityViolation(
+                f"Only SELECT queries are allowed, got '{type(stmt).__name__}'."
+            )
+
+        if isinstance(stmt, SYNTAX_FRAGMENT_NODES):
+            first_word = re.match(r"[a-z_]+", masked_check.strip())
+            if first_word and (
+                first_word.group(0) in NON_QUERY_LEADING_WORDS
+                or first_word.group(0) in FORBIDDEN_KEYWORDS
+            ):
+                raise SecurityViolation(
+                    f"Only SELECT queries are allowed, got '{first_word.group(0)}'."
+                )
+
+        # Check for forbidden AST nodes and functions anywhere in the tree
+        for node in stmt.walk():
+            if isinstance(node, FORBIDDEN_AST_NODES):
+                raise SecurityViolation(
+                    f"Forbidden operation '{type(node).__name__}' is not allowed in read-only execution."
+                )
+
+            if isinstance(node, (exp.Func, exp.Anonymous, exp.Table)):
+                name = (node.name or "").lower() if hasattr(node, "name") else ""
+                if name in FORBIDDEN_FUNCTIONS or name.startswith("duckdb_"):
+                    raise SecurityViolation(f"Forbidden function or table source '{name}' detected.")
+
     except ParseError:
-        # If sqlglot cannot parse, let DuckDB's native parser generate precise line/column hints,
-        # but never forward multiple statements or administrative commands unchecked.
-        code = fast_check.strip().rstrip(";").strip()
+        # If sqlglot cannot parse, scan masked SQL (with literals & comments stripped)
+        masked_sql = _strip_literals_and_comments(cleaned_sql)
+        code = masked_sql.strip().rstrip(";").strip()
         if ";" in code:
             raise SecurityViolation("Multiple SQL statements detected. Only single queries are allowed.")
+
+        for func in FORBIDDEN_FUNCTIONS:
+            if re.search(rf"\b{func}\b", masked_sql):
+                raise SecurityViolation(f"File reading or direct table function '{func}' is forbidden.")
+
+        if re.search(r"\bduckdb_[a-z0-9_]+\s*\(", masked_sql):
+            raise SecurityViolation("System function 'duckdb_*' is forbidden.")
+
+        for word in FORBIDDEN_KEYWORDS:
+            if re.search(rf"\b{word}\b", masked_sql):
+                raise SecurityViolation(f"Forbidden SQL operation '{word}' detected.")
+
         first_word = re.match(r"[a-z_]+", code)
         if first_word and first_word.group(0) in NON_QUERY_LEADING_WORDS:
             raise SecurityViolation(f"Only SELECT queries are allowed, got '{first_word.group(0)}'.")
-        return cleaned_sql
-
-    valid_stmts = [s for s in parsed_statements if s is not None]
-
-    if not valid_stmts:
-        raise EmptyQueryError("No valid SQL statement found.")
-
-    if len(valid_stmts) > 1:
-        raise SecurityViolation(
-            f"Multiple SQL statements detected ({len(valid_stmts)} statements). Only single queries are allowed."
-        )
-
-    stmt = valid_stmts[0]
-
-    # Expression fragments (typos such as "SELEC * FORM t" parse as an Alias) are not
-    # statements; DuckDB rejects them with a precise syntax error for the retry loop.
-    if not isinstance(stmt, ALLOWED_ROOT_NODES + SYNTAX_FRAGMENT_NODES):
-        raise SecurityViolation(
-            f"Only SELECT queries are allowed, got '{type(stmt).__name__}'."
-        )
-
-    # Check for forbidden AST nodes anywhere in the tree
-    for node in stmt.walk():
-        if isinstance(node, FORBIDDEN_AST_NODES):
-            raise SecurityViolation(
-                f"Forbidden operation '{type(node).__name__}' is not allowed in read-only execution."
-            )
-
-        if isinstance(node, (exp.Func, exp.Anonymous, exp.Table)):
-            name = node.name.lower() if hasattr(node, "name") and node.name else ""
-            if name in FORBIDDEN_FUNCTIONS:
-                raise SecurityViolation(f"Forbidden function or table source '{name}' detected.")
 
     return cleaned_sql
