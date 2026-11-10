@@ -1,0 +1,20 @@
+# Local Qwen 2.5 3B semantic extractor used only by Component C fallback.
+[model]
+model_path = "../.models/Qwen2.5-3B-Instruct"
+dtype = "bfloat16"
+max_model_len = 4096
+# Nếu chạy đồng thời với model 9B trên cùng GPU, phải giảm cấu hình
+# gpu_memory_utilization của model 9B để tổng hai engine nằm trong VRAM thực tế.
+gpu_memory_utilization = 0.35
+tensor_parallel_size = 1
+max_num_seqs = 8
+trust_remote_code = false
+
+[generation]
+max_new_tokens = 512
+temperature = 0.0
+top_p = 1.0
+top_k = -1
+repetition_penalty = 1.0
+presence_penalty = 0.0
+stop = []
