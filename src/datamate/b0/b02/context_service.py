@@ -32,7 +32,7 @@ class BusinessContextService:
         if metadata.business_id != business_id:
             raise ValueError("metadata provider returned another business")
         schema = self.schema_builder.build(
-            list(metadata.tables), list(metadata.relationships)
+            list(metadata.tables), list(metadata.relationships), business_id=business_id
         )
         rules = self.rule_compiler.ingest_documents(documents, business_id, schema)
         return self.contract_builder.build(

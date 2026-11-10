@@ -11,10 +11,17 @@ from typing import Any
 
 import duckdb
 
-from datamate.b0.b01.contracts import ColumnMetadata, JoinEdge, KeyCandidate, TableMetadata
+from datamate.b0.b01.contracts import (
+    ColumnMetadata,
+    JoinEdge,
+    JoinStatistics,
+    KeyCandidate,
+    TableMetadata,
+)
+from datamate.b0.b01.metadata_adapter import BaseMetadataProvider, FoundationMetadata
+from datamate.b0.b01.relationship_evidence import trusted_relationship
 from .models import PreparationConfig
 from .readers import quote
-from datamate.b0.b01.metadata_adapter import BaseMetadataProvider, FoundationMetadata
 
 
 def json_value(value: Any) -> Any:
@@ -37,8 +44,18 @@ class BaseProfileProvider(ABC):
 
 
 class DuckDBProfileProvider(BaseProfileProvider):
-    def __init__(self, connection: duckdb.DuckDBPyConnection) -> None:
+    def __init__(
+        self,
+        connection: duckdb.DuckDBPyConnection,
+        business_id: str | None = None,
+        column_roles: dict[tuple[str, str], str] | None = None,
+    ) -> None:
         self.connection = connection
+        self.business_id = business_id
+        self.column_roles = column_roles or {}
+
+    def column_role(self, table: str, column: str) -> str | None:
+        return self.column_roles.get((table, column))
 
     def check_key(self, table: TableMetadata, columns: tuple[str, ...]) -> KeyCandidate:
         fields = ", ".join(quote(column) for column in columns)
@@ -66,7 +83,7 @@ class DuckDBProfileProvider(BaseProfileProvider):
         left = tuple(pair[0] for pair in edge.key_pairs)
         right = tuple(pair[1] for pair in edge.key_pairs)
 
-        def relation(table: str, columns: tuple[str, ...]) -> tuple[str, int, int]:
+        def relation(table: str, columns: tuple[str, ...]) -> tuple[str, int, int, int]:
             projection = ", ".join(
                 f"{quote(column)} AS k{index}" for index, column in enumerate(columns)
             )
@@ -74,16 +91,16 @@ class DuckDBProfileProvider(BaseProfileProvider):
                 f"{quote(column)} IS NOT NULL" for column in columns
             )
             sql = f"SELECT {projection} FROM {quote(table)} WHERE {condition}"
-            count = self.connection.execute(f"SELECT COUNT(*) FROM ({sql})").fetchone()[
-                0
-            ]
+            total, count = self.connection.execute(
+                f"SELECT COUNT(*), COUNT(*) FILTER (WHERE {condition}) FROM {quote(table)}"
+            ).fetchone()
             distinct = self.connection.execute(
                 f"SELECT COUNT(*) FROM (SELECT DISTINCT * FROM ({sql}))"
             ).fetchone()[0]
-            return sql, count, distinct
+            return sql, total, count, distinct
 
-        lsql, lcount, ldistinct = relation(edge.left_table, left)
-        rsql, rcount, rdistinct = relation(edge.right_table, right)
+        lsql, ltotal, lcount, ldistinct = relation(edge.left_table, left)
+        rsql, rtotal, rcount, rdistinct = relation(edge.right_table, right)
         keys = ", ".join(f"k{index}" for index in range(len(left)))
         overlap = self.connection.execute(
             f"SELECT COUNT(*) FROM (SELECT DISTINCT {keys} FROM ({lsql}) INTERSECT SELECT DISTINCT {keys} FROM ({rsql}))"
@@ -91,26 +108,42 @@ class DuckDBProfileProvider(BaseProfileProvider):
         from datamate.b0.b01.schema_catalog import _cardinality
 
         observed = _cardinality(lcount == ldistinct, rcount == rdistinct)
+        edge = replace(
+            edge,
+            statistics=JoinStatistics(
+                ltotal,
+                rtotal,
+                ltotal - lcount,
+                rtotal - rcount,
+                ldistinct,
+                rdistinct,
+                overlap,
+                overlap / ldistinct if ldistinct else 0.0,
+                overlap / rdistinct if rdistinct else 0.0,
+                observed,
+            ),
+        )
         evidence = edge.evidence + (
             f"exact SQL tuple coverage: left={overlap}/{ldistinct}, right={overlap}/{rdistinct}; observed={observed}",
         )
-        if not edge.evidence:
-            # Inferred candidate (no declared evidence): require real full-table overlap.
-            coverage = (
-                max(overlap / ldistinct, overlap / rdistinct)
-                if ldistinct and rdistinct
-                else 0.0
-            )
-            if coverage < 0.8:
-                return replace(edge, status="invalid", confidence=0.0, evidence=evidence)
         if not ldistinct or not rdistinct:
-            return replace(edge, status="uncertain", confidence=0.2, evidence=evidence)
-        if not edge.evidence:
+            return replace(
+                edge,
+                status="uncertain",
+                confidence=0.2,
+                fanout_warning=True,
+                evidence=evidence
+                + ("no non-NULL tuples on one side; cannot verify relationship",),
+            )
+        if not trusted_relationship(edge, self.business_id):
             return replace(
                 edge,
                 status="uncertain",
                 confidence=0.75,
-                evidence=evidence,
+                evidence=evidence
+                + (
+                    "no trusted relationship attestation; statistics do not prove semantics",
+                ),
                 cardinality=observed,
                 fanout_warning=observed != "one_to_one",
             )
@@ -134,6 +167,10 @@ class DuckDBProfileProvider(BaseProfileProvider):
         status = "validated" if shape_ok and coverage_ok else "invalid"
         if edge.cardinality == "one_to_one" and shape_ok and not coverage_ok:
             status = "uncertain"
+        evidence += (
+            f"declared={edge.cardinality}; cardinality_ok={shape_ok}; referential_coverage_ok={coverage_ok}; NULL tuples excluded",
+            "aggregate grain and join type must still be planned by downstream",
+        )
         return replace(
             edge,
             status=status,
@@ -258,5 +295,6 @@ def metadata_dict(metadata: FoundationMetadata) -> dict[str, Any]:
     for relationship in obj["relationships"]:
         relationship.pop("status", None)
         relationship.pop("fanout_warning", None)
+        relationship.pop("statistics", None)
     obj["metadata_version"] = "1.1"
     return obj

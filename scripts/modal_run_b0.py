@@ -53,8 +53,15 @@ image = (
     .add_local_dir(str(PROJECT_ROOT / "scripts"), remote_path="/workspace/scripts")
     .add_local_dir(str(PROJECT_ROOT / "tests"), remote_path="/workspace/tests")
     .add_local_dir(str(PROJECT_ROOT / "docs"), remote_path="/workspace/docs")
-    .add_local_dir(str(PROJECT_ROOT / "data"), remote_path="/workspace/data")
+    .add_local_dir(str(PROJECT_ROOT / "examples"), remote_path="/workspace/examples")
+    .add_local_dir(str(PROJECT_ROOT / "data" / "train"), remote_path="/workspace/data/train")
 )
+
+if (PROJECT_ROOT / "data" / "public_test").is_dir():
+    image = image.add_local_dir(
+        str(PROJECT_ROOT / "data" / "public_test"),
+        remote_path="/workspace/data/public_test",
+    )
 
 app = modal.App("datamate-b0-pipeline", image=image)
 
@@ -102,6 +109,7 @@ def run_b0_on_modal_gpu(
         model_dir.mkdir(parents=True, exist_ok=True)
         snapshot_download(repo_id=model_id, local_dir=str(model_dir))
         complete_marker.write_text("complete", encoding="utf-8")
+        (model_dir / ".model-download.json").write_text(json.dumps({"status": "complete"}), encoding="utf-8")
         volume.commit()
     else:
         print(f"[Modal GPU] Đã tìm thấy model cache tại {model_dir}", flush=True)

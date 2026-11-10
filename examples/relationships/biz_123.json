@@ -1,0 +1,170 @@
+{
+  "version": "1.0",
+  "business_id": "biz_123",
+  "relationships": [
+    {
+      "id": "order_customer",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "don_hang",
+        "columns": [
+          "MaKhachHang"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "khach_hang",
+        "columns": [
+          "MaKhachHang"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`don_hang.MaKhachHang -> khach_hang.MaKhachHang`: many_to_one; khách là tùy chọn, NULL không phải orphan."
+        }
+      }
+    },
+    {
+      "id": "line_order",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "chi_tiet_don",
+        "columns": [
+          "MaHoaDon"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "don_hang",
+        "columns": [
+          "MaHoaDon"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`chi_tiet_don.MaHoaDon -> don_hang.MaHoaDon`: many_to_one; dòng bán thuộc một đơn."
+        }
+      }
+    },
+    {
+      "id": "line_product",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "chi_tiet_don",
+        "columns": [
+          "MaHangHoa"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "san_pham",
+        "columns": [
+          "MaHangHoa"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`chi_tiet_don.MaHangHoa -> san_pham.MaHangHoa`: many_to_one; dòng bán tham chiếu danh mục sản phẩm."
+        }
+      }
+    },
+    {
+      "id": "payment_order",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "thanh_toan",
+        "columns": [
+          "MaHoaDon"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "don_hang",
+        "columns": [
+          "MaHoaDon"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`thanh_toan.MaHoaDon -> don_hang.MaHoaDon`: many_to_one; một đơn có thể có nhiều lần thu tiền."
+        }
+      }
+    },
+    {
+      "id": "allocation_line",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "chi_tiet_don_lo",
+        "columns": [
+          "MaHoaDon",
+          "SoThuTu"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "chi_tiet_don",
+        "columns": [
+          "MaHoaDon",
+          "SoThuTu"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`chi_tiet_don_lo.(MaHoaDon,SoThuTu) -> chi_tiet_don.(MaHoaDon,SoThuTu)`: many_to_one; phân bổ lô thuộc đúng dòng bán, không chỉ thuộc đơn."
+        }
+      }
+    },
+    {
+      "id": "allocation_lot",
+      "left": {
+        "file": "pos.sqlite",
+        "table": "chi_tiet_don_lo",
+        "columns": [
+          "MaLo"
+        ]
+      },
+      "right": {
+        "file": "pos.sqlite",
+        "table": "lo_hang",
+        "columns": [
+          "MaLo"
+        ]
+      },
+      "cardinality": "many_to_one",
+      "review": {
+        "status": "approved",
+        "reviewed_by": "Codex: source/schema review 2026-11-07; no teammate sign-off",
+        "evidence": {
+          "path": "biz_123_review.md",
+          "sha256": "442df1390313d723a60b9b14392b5d50fbefe41e446db0afd5ebf75327778425",
+          "quote": "`chi_tiet_don_lo.MaLo -> lo_hang.MaLo`: many_to_one; phân bổ tham chiếu một lô, không yêu cầu mọi lô đã được bán."
+        }
+      }
+    }
+  ]
+}

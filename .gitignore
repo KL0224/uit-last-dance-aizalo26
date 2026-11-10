@@ -51,3 +51,6 @@ agent_code
 data/raw
 *.zip
 *.tar.gz
+
+data/
+khoi_docs/

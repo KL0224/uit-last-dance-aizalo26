@@ -21,9 +21,19 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
      + Khi câu hỏi hỏi theo đơn vị tính cụ thể (ví dụ: số ly, số hộp, số viên): Đối chiếu với cột đơn vị cơ bản của bảng danh mục sản phẩm/hàng hóa để chỉ lọc các mặt hàng có đơn vị đó.
      + Khi bảng hàng hoá không có cột riêng cho thuộc tính (ví dụ không có cột size riêng, hoặc cột thuộc tính bị rỗng): BẮT BUỘC so khớp trực tiếp trên cột Tên sản phẩm/Tên hàng (cột có vai trò text/name) theo quy tắc ngành trong Rulebook: ví dụ `WHERE LOWER(col_ten_sp) LIKE '%(m)'` hoặc `LIKE '%(l)'`. TUYỆT ĐỐI KHÔNG lọc trên cột rỗng và KHÔNG kết luận unanswerable!
      + Khi câu hỏi hỏi đích danh một sản phẩm cụ thể kèm size (ví dụ "Cà phê sữa (L)"): BẮT BUỘC phải lọc CẢ tên mặt hàng VÀ kích cỡ: ví dụ `WHERE LOWER(col_ten_sp) LIKE '%cà phê sữa%' AND LOWER(col_ten_sp) LIKE '%(l)'`. Tuyệt đối không chỉ lọc riêng `%(l)` vì sẽ nhầm sang mọi mặt hàng size L khác!
+     + QUY TẮC KHÁCH HÀNG (RULEBOOK MỤC 3): Khi câu hỏi hỏi về khách hàng (Ai mua nhiều nhất, khách hàng thân thiết, xếp hạng khách hàng, top khách hàng, đếm số khách hàng): "Khách lẻ", "kl", "lẻ", "khach le", "khách vãng lai" KHÔNG PHẢI là khách hàng cụ thể. BẮT BUỘC thêm điều kiện loại trừ: `WHERE LOWER(col_khach_hang) NOT IN ('khách lẻ', 'khach le', 'kl', 'lẻ', 'khách vãng lai', 'le') AND col_khach_hang IS NOT NULL AND TRIM(col_khach_hang) != '' AND LOWER(col_khach_hang) NOT LIKE 'tổng%'`. TUYỆT ĐỐI KHÔNG xếp hạng hay trả về 'khách lẻ'/'kl'/'lẻ'!
+     + "TIỆM MÌNH / QUÁN MÌNH / SHOP MÌNH / CỬA HÀNG MÌNH": Là cách xưng hô của chủ quán chỉ toàn bộ cửa hàng/doanh nghiệp. Hãy truy vấn trên toàn bộ dữ liệu đơn hàng hiện có, TUYỆT ĐỐI KHÔNG tìm hay đòi hỏi cột `ten_tiem`, `ma_tiem`, `ten_quan`, `ma_quan` và KHÔNG đánh dấu unanswerable vì lý do này!
+     + BẢNG LỊCH & NGÀY LỄ / TẾT ÂM LỊCH (BẢNG `calendar`): Khi câu hỏi hỏi về ngày lễ, Tết ("Tết âm lịch", "Tết 2026", "Tết Nguyên Đán", "nghỉ Tết"), ngày cuối tuần, hoặc ngày âm lịch: Sử dụng bảng `calendar` (các cột: `date`, `weekday`, `lunar_day`, `lunar_month`, `lunar_year`, `lunar_leap`, `holiday`) để JOIN với bảng bán hàng qua cột ngày: `JOIN calendar ON DATE(don_hang.ngay) = calendar.date`. Ví dụ lọc Tết: `WHERE calendar.holiday LIKE '%Tết%'` hoặc `(calendar.lunar_month = 1 AND calendar.lunar_day <= 5)`.
+     + LOẠI TRỪ ĐƠN HUỶ & ĐƠN TRẢ: Trừ khi câu hỏi hỏi đích danh về đơn huỷ hoặc hàng trả lại, mọi truy vấn tính doanh thu, số đơn, mặt hàng bán chạy BẮT BUỘC loại trừ đơn huỷ/đổi trả: `WHERE LOWER(trang_thai) NOT IN ('cancelled', 'huỷ', 'hủy', 'đã huỷ', 'đã hủy', 'da huy', 'returned', 'trả hàng', 'hàng trả về', 'đổi trả', 'doi tra')`.
+     + ĐẾM SỐ ĐƠN HÀNG TRÊN BẢNG DÒNG HÀNG: Khi bảng dữ liệu là bảng chi tiết dòng hàng (order lines/line items), để đếm số đơn hàng BẮT BUỘC dùng `COUNT(DISTINCT ma_don_hang)`. TUYỆT ĐỐI KHÔNG dùng `COUNT(*)` vì sẽ đếm nhầm số dòng sản phẩm thay vì số đơn hàng.
    - Luôn sử dụng đúng các giá trị thực tế liệt kê trong mục [Giá trị thực tế] của từng cột phân loại để so khớp điều kiện WHERE (không tự dịch hay suy đoán giá trị khác).
 
 2. QUY TẮC SO SÁNH THỜI GIAN & CÚ PHÁP DUCKDB:
+   - KÝ HIỆU THỜI GIAN TIẾNG VIỆT & TỪ ĐỊA PHƯƠNG:
+     + `T{M}`, `Th{M}`, `Th {M}` (ví dụ: `T2`, `T3`, `Th 10`) luôn là **THÁNG M** (Month M), TUYỆT ĐỐI KHÔNG phải Quý (Quý luôn ký hiệu là `Q{N}`). Ví dụ `T2/2026` là Tháng 2/2026, chọn bảng T2 và lọc tháng 2/2026!
+     + "Hôm nay", "bữa nay", "hôm ni", "bữa ni" = Đúng ngày hôm nay: `DATE(col) = DATE '{as_of_date}'`. TUYỆT ĐỐI KHÔNG dùng `<= '{as_of_date}'` (gây đếm dồn từ đầu tháng) và không gom nhiều ngày!
+     + "Hôm qua", "bữa qua" = Đúng ngày hôm qua: `DATE(col) = (DATE '{as_of_date}' - INTERVAL 1 DAY)`. TUYỆT ĐỐI KHÔNG hiểu là 7 ngày gần nhất!
+   - BẮT BUỘC LỌC THÁNG/NĂM TRÊN BẢNG PHÂN VÙNG: Các bảng phân vùng (ví dụ `ban_hang_t4`) có thể chứa dữ liệu của nhiều năm (cả 2025 và 2026). Khi câu hỏi hỏi tháng/năm cụ thể (ví dụ T4/2025), BẮT BUỘC phải có điều kiện lọc ngày tháng chính xác: `WHERE STRFTIME(ngay_dat_hang, '%Y-%m') = '2025-04'`. TUYỆT ĐỐI KHÔNG bỏ qua điều kiện ngày tháng chỉ vì bảng có tên `t4`!
    - SO SÁNH THỜI GIAN: Luôn so sánh NĂM (`YYYY`) trước, sau đó mới so sánh THÁNG (`MM`). Bất kỳ tháng nào của năm trước (ví dụ tháng 9, 11 của năm N) đều diễn ra TRƯỚC các tháng của năm sau (năm N+1). Tuyệt đối không so sánh riêng số tháng mà bỏ qua năm (không được coi tháng 9 hay 11 là tương lai chỉ vì `09 > 08` hay `11 > 08`). Dữ liệu có đầy đủ các tháng trong năm nếu năm đó nằm trong khoảng thời gian quan sát.
    - TĂNG / GIẢM PHẦN TRĂM (PERCENT GROWTH): Khi câu hỏi hỏi "tăng hay giảm mấy phần trăm" hoặc "thay đổi bao nhiêu phần trăm" so với kỳ trước / cùng kỳ:
      BẮT BUỘC phải tính tỷ lệ phần trăm theo công thức: ROUND(((doanh_thu_ky_nay - doanh_thu_ky_truoc) / doanh_thu_ky_truoc) * 100, 2). TUYỆT ĐỐI KHÔNG trả về số tiền chênh lệch tuyệt đối! answer_type BẮT BUỘC là 'percent'.
@@ -38,24 +48,22 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
 3. ĐỊNH DẠNG ĐÁP ÁN (ANSWER TYPES & SHAPE):
    - 'number', 'percent', 'date', 'string', 'boolean': Kết quả trả về phải là SCALAR (chính xác 1 dòng và 1 cột).
      + Khi câu hỏi hỏi về một ngày/thời điểm cụ thể (ví dụ: ngày nào doanh thu cao nhất): answer_type là 'date' (hoặc 'string').
-   - 'list': BẮT BUỘC dùng khi câu hỏi yêu cầu danh sách các thực thể hoặc Top N (Top 3, Top 5 mặt hàng bán chạy nhất, Top 5 khách hàng chi tiêu nhiều nhất, v.v.). TUYỆT ĐỐI KHÔNG dùng 'string' hay 'table' cho Top N!
-     + Câu lệnh SQL CHỈ ĐƯỢC SELECT ĐÚNG 1 CỘT (chứa các giá trị tương ứng, mỗi dòng là một giá trị). Với câu hỏi Top-N, câu lệnh SELECT CHỈ LẤY ĐÚNG 1 CỘT Tên thực thể (ví dụ: tên món hàng, tên khách hàng), TUYỆT ĐỐI KHÔNG kèm cột tổng/điểm/số tiền (ví dụ: KHÔNG select doanh_thu hay tổng số lượng).
+     + Khi câu hỏi hỏi duy nhất 1 đối tượng, 1 món hàng, 1 khách hàng (ví dụ: món nào bán chạy nhất, ai mua nhiều nhất): answer_type là 'string', SELECT đúng 1 cột tên (1 dòng 1 cột).
+   - 'list': BẮT BUỘC dùng khi câu hỏi yêu cầu danh sách các thực thể hoặc Top N (Top 3, Top 5 mặt hàng bán chạy nhất, Top 5 khách hàng chi tiêu nhiều nhất, liệt kê các món, v.v.). TUYỆT ĐỐI KHÔNG dùng 'string' hay 'table' cho Top N!
+     + Câu lệnh SQL CHỈ ĐƯỢC SELECT ĐÚNG 1 CỘT Tên thực thể duy nhất (mỗi dòng là một giá trị). Với câu hỏi Top-N, câu lệnh SELECT CHỈ LẤY ĐÚNG 1 CỘT Tên thực thể (ví dụ: tên món hàng, tên khách hàng), TUYỆT ĐỐI KHÔNG kèm cột phụ/doanh thu/số lượng.
      + Cột SELECT bắt buộc phải là Tên thực thể (tên khách hàng, tên sản phẩm), KHÔNG chọn số điện thoại, mã barcode hay mã định danh trừ khi câu hỏi yêu cầu rõ mã.
      + TUYỆT ĐỐI KHÔNG viết tắt dấu '...' trong câu lệnh SQL!
-   - 'table': Chỉ dùng khi câu hỏi yêu cầu bảng biểu đa chiều (nhiều cột).
+   - 'table': CHỈ dùng khi câu hỏi yêu cầu rõ ràng xuất bảng biểu ("lập bảng", "cho tôi bảng...", "bảng doanh thu...") hoặc câu hỏi yêu cầu nhiều thông tin đa chiều cùng lúc. TUYỆT ĐỐI KHÔNG dùng 'table' cho câu hỏi liệt kê danh sách hoặc Top N.
 
 4. QUY ĐỊNH VỀ 'unanswerable':
    - Chỉ trả về 'unanswerable' khi dữ liệu trong các bảng thực sự KHÔNG CÓ trường thông tin cần thiết và không thể tính toán được theo bất kỳ quy tắc nào trong Rulebook.
+   - TIÊU CHÍ ĐỊNH TÍNH / CHỦ QUAN KHÔNG CÓ TRONG DỮ LIỆU HOẶC RULEBOOK: Nếu câu hỏi hỏi về các tiêu chí chủ quan, định tính mà bảng không có cột và Rulebook không có định nghĩa/công thức đo lường (ví dụ: "thợ nhiệt tình nhất", "nhân viên vui vẻ nhất", "khách hàng thân thiện nhất") -> BẮT BUỘC trả về 'unanswerable' (reason: "Dữ liệu không có thông tin đo lường tiêu chí chủ quan này"). TUYỆT ĐỐI KHÔNG tự ý lấy thợ làm nhiều đơn/doanh thu cao nhất gán vào "nhiệt tình nhất"!
+   - THIẾU CỘT NHÓM HÀNG / DANH MỤC: Nếu câu hỏi yêu cầu lọc, tính doanh thu hay so sánh theo "nhóm hàng", "danh mục", "nhóm trà", "nhóm cà phê" mà trong cấu trúc các bảng KHÔNG có cột danh mục / nhóm hàng -> BẮT BUỘC trả về 'unanswerable' (reason: "Dữ liệu không có thông tin nhóm hàng/danh mục"), TUYỆT ĐỐI KHÔNG tự phỏng đoán bằng LIKE '%trà%' hay LIKE '%cà phê%'!
    - Tuyệt đối không phán đoán unanswerable khi thông tin đã có trong các bảng hoặc có thể suy luận qua bảng liên kết (JOIN).
 
 5. NGUYÊN TẮC SUY LUẬN & TRẢ VỀ:
-   - Nếu bạn cần suy luận từng bước, hãy đặt toàn bộ suy luận trong cặp thẻ <think>...</think>.
-   - QUAN TRỌNG VỀ SUY LUẬN: Hãy suy luận ngắn gọn, súc tích (dưới 800 từ) theo đúng 4 bước:
-     (1) Xác định bảng cần truy vấn (dựa vào thời gian và cấu trúc dữ liệu);
-     (2) Điều kiện WHERE và quan hệ JOIN;
-     (3) Cột SELECT cần chiếu và answer_type tương ứng;
-     (4) Viết câu lệnh DuckDB SQL hoàn chỉnh.
-     TUYỆT ĐỐI KHÔNG chép lại toàn bộ Rulebook hay lược đồ bảng vào suy luận để tránh lãng phí token!
+   - Hãy đi thẳng vào kết quả JSON hoặc nếu suy luận thì suy luận CỰC KỲ NGẮN GỌN trong <think>...</think> (dưới 150 từ) theo 3 bước: bảng & thời gian -> điều kiện WHERE/JOIN -> DuckDB SQL.
+   - TUYỆT ĐỐI KHÔNG viết "Thinking Process:" hay phân tích dài dòng bằng tiếng Anh bên ngoài thẻ <think>!
    - KHI HOÀN THÀNH SUY LUẬN: Đóng ngay thẻ </think> và xuất trực tiếp khối ```json ... ```. TUYỆT ĐỐI KHÔNG viết thêm bất kỳ câu văn xuôi giải thích nào sau thẻ </think>!
    - Khối kết quả cuối cùng BẮT BUỘC phải là một khối JSON hợp lệ duy nhất nằm trong ```json ... ```:
 ```json
@@ -326,16 +334,22 @@ def build_repair_messages(
 ) -> list[ChatMessage]:
     """Tạo chuỗi messages cho vòng Bounded Retry sửa lại câu SQL khi bị lỗi thực thi."""
     context_str = format_context_for_prompt(context, industry)
+    if previous_sql and previous_sql.strip():
+        sql_section = f"""### CÂU TRUY VẤN TRƯỚC ĐÓ ĐÃ BỊ LỖI THỰC THI:
+```sql
+{previous_sql}
+```"""
+    else:
+        sql_section = """### LƯU Ý Ở LẦN THỰC THI TRƯỚC:
+Ở lần trước mô hình chưa xuất được khối JSON hợp lệ hoặc câu SQL bị lỗi cú pháp."""
+
     user_content = f"""{context_str}
 
 ### THÔNG TIN CÂU HỎI:
 - Ngày tham chiếu (as_of_date): {as_of_date}
 - Câu hỏi: "{question}"
 
-### CÂU TRUY VẤN TRƯỚC ĐÓ ĐÃ BỊ LỖI THỰC THI:
-```sql
-{previous_sql}
-```
+{sql_section}
 
 ### THÔNG BÁO LỖI (ERROR MESSAGE TỪ DATABASE/EXECUTOR):
 ```

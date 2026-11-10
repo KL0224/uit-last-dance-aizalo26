@@ -7,11 +7,15 @@ import json
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
+from dataclasses import asdict
 from pathlib import Path
+
+from relationship_fixtures import reviewed_edge
 
 from datamate.b0.b02.cli import main
 from datamate.b0.b02.context_service import BusinessContextService
 from datamate.b0.b02.contracts import ContractBuilder
+from datamate.b0.b01.contracts import JoinEdge
 from datamate.b0.b01.metadata_adapter import JSONMetadataProvider
 from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
 from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
@@ -45,6 +49,21 @@ def _payload() -> dict:
                 "right_column": "id",
                 "cardinality": "many_to_one",
                 "evidence": ["README:4 payment order reference"],
+                "relationship_evidence": asdict(
+                    reviewed_edge(
+                        JoinEdge(
+                            "payments",
+                            "order_ref",
+                            "orders",
+                            "id",
+                            "many_to_one",
+                            "candidate",
+                            0.0,
+                            (),
+                        ),
+                        "biz_1",
+                    ).relationship_evidence
+                ),
             }
         ],
         "data_profiling": {"orders": {"row_count": 2}},
@@ -52,6 +71,21 @@ def _payload() -> dict:
 
 
 class MetadataBoundaryTests(unittest.TestCase):
+    def test_legacy_plain_evidence_still_parses_but_cannot_grant_validation(
+        self,
+    ) -> None:
+        payload = _payload()
+        payload["relationships"][0].pop("relationship_evidence")
+        metadata = JSONMetadataProvider("unused.json").from_dict(payload, "biz_1")
+        catalog = SchemaCatalogBuilder().build(
+            list(metadata.tables), list(metadata.relationships), business_id="biz_1"
+        )
+        self.assertEqual(catalog.join_graph[0].status, "candidate")
+        context = ContractBuilder().build(
+            "biz_1", catalog, BusinessRuleCompiler().ingest_documents([], "biz_1")
+        )
+        self.assertEqual(context.contract_version, "1.0")
+
     def test_provider_rejects_invalid_version_scope_and_unknown_fields(self) -> None:
         provider = JSONMetadataProvider("unused.json")
         for change in (

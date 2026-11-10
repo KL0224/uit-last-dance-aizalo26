@@ -3,8 +3,18 @@
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import dataclass
 
 from .contracts import JoinEdge, SchemaCatalog
+
+
+@dataclass(frozen=True)
+class JoinPathResult:
+    """A validated structural path still requires query-specific grain planning."""
+
+    status: str
+    path: tuple[JoinEdge, ...]
+    warnings: tuple[str, ...]
 
 
 class JoinGraphNavigator:
@@ -37,6 +47,55 @@ class JoinGraphNavigator:
                     visited.add(neighbor)
                     queue.append((neighbor, path + (edge,)))
         return None
+
+    def describe_path(
+        self, catalog: SchemaCatalog, source: str, target: str
+    ) -> JoinPathResult:
+        """Explain traversal direction and measure fanout without inventing a path."""
+        path = self.find_path(catalog, source, target)
+        if path is None:
+            return JoinPathResult(
+                "no_validated_path",
+                (),
+                (
+                    "No validated path; uncertain/candidate/invalid edges were not used.",
+                ),
+            )
+        warnings = []
+        current = source
+        for edge in path:
+            forward = current == edge.left_table
+            neighbor = edge.right_table if forward else edge.left_table
+            shape = (
+                edge.cardinality
+                if forward
+                else {
+                    "many_to_one": "one_to_many",
+                    "one_to_many": "many_to_one",
+                }.get(edge.cardinality, edge.cardinality)
+            )
+            if edge.fanout_warning or shape != "one_to_one":
+                warnings.append(
+                    f"{current} -> {neighbor}: {shape}; "
+                    + (
+                        f"may multiply rows/measures from {current}. "
+                        if shape in {"one_to_many", "many_to_many"}
+                        else f"may repeat measures from {neighbor} across child rows. "
+                    )
+                    + "Preserve the intended aggregation grain."
+                )
+            if edge.statistics and (
+                edge.statistics.left_null_rows or edge.statistics.right_null_rows
+            ):
+                warnings.append(
+                    f"{current} -> {neighbor}: NULL keys exist; INNER JOIN may drop rows."
+                )
+            current = neighbor
+        if warnings:
+            warnings.append(
+                "Joining multiple child relations can multiply SUM/COUNT; aggregate each at the required grain before joining."
+            )
+        return JoinPathResult("validated_path", path, tuple(warnings))
 
 
 class JoinPredicateCompiler:

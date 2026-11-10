@@ -341,11 +341,21 @@ def run_pipeline_cli(
             print(f"  [CẢNH BÁO] Không tìm thấy thư mục dữ liệu cho {biz_id} tại {biz_path}")
             continue
         t0 = time.perf_counter()
+        biz_relationships = None
+        for cand in (
+            split_dir / "relationships" / f"{biz_id}.json",
+            ROOT_DIR / "examples" / "relationships" / f"{biz_id}.json",
+        ):
+            if cand.is_file():
+                biz_relationships = cand
+                break
+
         artifacts = B0Pipeline.prepare_bundle(
             business_dir=biz_path,
             output_dir=bundles_dir,
             rulebook=rulebook,
             calendar=calendar,
+            relationships=biz_relationships,
         )
         elapsed = time.perf_counter() - t0
         cache_tag = "CACHE HIT" if artifacts.cache_hit else "BUILT"

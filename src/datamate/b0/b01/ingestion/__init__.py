@@ -6,10 +6,12 @@ from .models import (
     PreparedBusinessArtifacts,
 )
 from .preparation import prepare_business
+from .relationships import ReviewedRelationships
 
 __all__ = [
     "PreparationConfig",
     "PreparationError",
     "PreparedBusinessArtifacts",
+    "ReviewedRelationships",
     "prepare_business",
 ]

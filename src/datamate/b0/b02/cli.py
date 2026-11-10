@@ -58,6 +58,9 @@ def prepare_main(argv: list[str]) -> int:
     parser.add_argument("--rulebook")
     parser.add_argument("--calendar")
     parser.add_argument(
+        "--relationships", help="Reviewed relationship manifest JSON (source names)"
+    )
+    parser.add_argument(
         "--config", help="JSON PreparationConfig, including source_overrides"
     )
     args = parser.parse_args(argv)
@@ -74,6 +77,7 @@ def prepare_main(argv: list[str]) -> int:
             args.output_dir,
             rulebook=args.rulebook,
             calendar=args.calendar,
+            relationships=args.relationships,
             config=config,
         )
         print(json.dumps(result.to_dict(), ensure_ascii=False))

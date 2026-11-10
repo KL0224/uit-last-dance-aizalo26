@@ -22,6 +22,7 @@ from datamate.b0.b05.contracts import (
     GateOutcome,
     GateRequest,
     QuestionMeta,
+    RepairRequest,
 )
 from datamate.b0.b05.errors import ErrorCode
 
@@ -49,6 +50,7 @@ class B0Pipeline:
         *,
         rulebook: str | Path | None = None,
         calendar: str | Path | None = None,
+        relationships: str | Path | None = None,
         config: Any = None,
     ) -> PreparedBusinessArtifacts:
         """Chuẩn bị bundle B0.1 + B0.2 cho một thư mục doanh nghiệp."""
@@ -57,6 +59,7 @@ class B0Pipeline:
             output_dir=output_dir,
             rulebook=rulebook,
             calendar=calendar,
+            relationships=relationships,
             config=config,
         )
 
@@ -405,7 +408,28 @@ class B0Pipeline:
                             error_message=str(gr),
                             llm_generation_ms=llm_dur0,
                         )
-                        entry["outcome"] = self._abstain_outcome(entry["q_meta"].id, str(gr), attempt=0)
+                        # Cho phép Bounded Retry (Attempt 1) để cứu vãn lỗi parse
+                        repair_req = RepairRequest(
+                            attempt=1,
+                            failed_sql="",
+                            error_type="JSON_OR_SQL_PARSE_ERROR",
+                            error_message=str(gr),
+                            error_code=ErrorCode.GENERATION_INVALID,
+                            instruction=(
+                                "Bạn chưa xuất khối JSON hợp lệ theo định dạng quy định. "
+                                "Hãy xuất trực tiếp khối ```json ... ``` gồm 'status', 'answer_type', 'sql' "
+                                "mà không thêm văn bản dẫn dắt hay giải thích bên ngoài."
+                            ),
+                        )
+                        entry["outcome"] = GateOutcome(
+                            action=GateAction.RETRY,
+                            question_id=entry["q_meta"].id,
+                            decision="retry",
+                            reason_code="GENERATION_INVALID",
+                            repair_request=repair_req,
+                            retry_count=0,
+                        )
+                        repair_needed.append(entry)
                     else:
                         entry["gen_res_0"] = gr
                         outcome_0 = self._evaluate_attempt(
@@ -429,11 +453,12 @@ class B0Pipeline:
                         error_feedback = f"[{repair_req.error_type}] {repair_req.error_message}"
                         if repair_req.instruction:
                             error_feedback = f"{error_feedback}\nHướng dẫn: {repair_req.instruction}"
+                        prev_sql = repair_req.failed_sql or ((entry.get("gen_res_0") or None) and entry["gen_res_0"].sql or "")
                         repair_inputs.append({
                             "context": entry["context"],
                             "question": entry["q_meta"].question,
                             "as_of_date": entry["q_meta"].as_of_date,
-                            "previous_sql": repair_req.failed_sql or (entry["gen_res_0"].sql or ""),
+                            "previous_sql": prev_sql,
                             "error_message": error_feedback,
                             "industry": entry["industry"],
                         })

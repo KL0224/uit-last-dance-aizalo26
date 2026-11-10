@@ -11,14 +11,15 @@ import time
 import uuid
 from collections import Counter, defaultdict
 from contextlib import ExitStack
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 from typing import Any
 
 import duckdb
 import openpyxl
 
-from datamate.b0.b01.contracts import JoinEdge
+from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
+from datamate.b0.b01.relationship_evidence import relationship_fingerprint
 from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
 from datamate.b0.b02.context_service import BusinessContextService
 from datamate.b0.b02.contracts import ContractBuilder
@@ -44,6 +45,7 @@ from .profiling import (
     metadata_dict,
 )
 from .readers import READERS, column_names, fold, quote, sql_name
+from .relationships import ReviewedRelationships
 
 
 def _hash(path: Path) -> str:
@@ -98,6 +100,7 @@ def prepare_business(
     *,
     rulebook: str | Path | None = None,
     calendar: str | Path | None = None,
+    relationships: str | Path | None = None,
     config: PreparationConfig | None = None,
 ) -> PreparedBusinessArtifacts:
     """Prepare a business; a failed build raises and retains a diagnostic directory."""
@@ -123,12 +126,21 @@ def prepare_business(
     ]
     if rulebook is not None:
         documents.append(Path(rulebook).resolve(strict=True))
+    reviewed = (
+        ReviewedRelationships(relationships, root.name) if relationships else None
+    )
     dependencies = list(
         dict.fromkeys(
-            documents + ([Path(calendar).resolve(strict=True)] if calendar else [])
+            documents
+            + ([Path(calendar).resolve(strict=True)] if calendar else [])
+            + (reviewed.dependencies if reviewed else [])
         )
     )
     hashes = {str(p): _hash(p) for p in dict.fromkeys(files + dependencies)}
+    if reviewed and any(
+        hashes[path] != digest for path, digest in reviewed.input_hashes.items()
+    ):
+        raise ValueError("relationship manifest/evidence changed while being read")
     cache_inputs = {
         "sources": {str(p.relative_to(root)): hashes[str(p)] for p in files},
         "documents": {str(p): hashes[str(p)] for p in dependencies},
@@ -260,11 +272,13 @@ def prepare_business(
             raise PreparationError(
                 f"discovery failed: {failures or 'no business tables'}"
             )
-        mapping, relationships = _materialize(
-            work, sources, documents, config, manifest, report
+        mapping, declared_relationships = _materialize(
+            work, sources, documents, config, manifest, report, calendar=calendar
         )
+        if reviewed:
+            declared_relationships += reviewed.resolve(sources, mapping)
         provider = DuckDBMetadataProvider(
-            work / "data.duckdb", root.name, mapping, relationships, config
+            work / "data.duckdb", root.name, mapping, declared_relationships, config
         )
         metadata = provider.load(root.name)
         _json(work / "foundation_metadata.json", metadata_dict(metadata))
@@ -273,7 +287,17 @@ def prepare_business(
             connection.execute("SET memory_limit=?", [config.memory_limit])
             service = BusinessContextService(
                 provider,
-                SchemaCatalogBuilder(DuckDBProfileProvider(connection)),
+                SchemaCatalogBuilder(
+                    DuckDBProfileProvider(
+                        connection,
+                        root.name,
+                        {
+                            (table, column): info["role"]
+                            for table, data in mapping.items()
+                            for column, info in data["columns"].items()
+                        },
+                    )
+                ),
                 BusinessRuleCompiler(),
                 ContractBuilder(),
             )
@@ -331,7 +355,7 @@ def prepare_business(
         raise PreparationError(f"{exc}; diagnostics: {failed}") from exc
 
 
-def _materialize(work, sources, documents, config, manifest, report):
+def _materialize(work, sources, documents, config, manifest, report, calendar=None):
     with ExitStack() as spool_cleanup:
         descriptions_by_name = descriptions(
             "\n".join(p.read_text(encoding="utf-8") for p in documents)
@@ -467,18 +491,72 @@ def _materialize(work, sources, documents, config, manifest, report):
                                 "tong thang",
                                 "tong cong",
                             } or marker.startswith("ghi chu ")
+
+                            # Check whether any cell is a summary or footer marker
+                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ')
+                            summary_col_idx = None
+                            summary_markers_exact = {
+                                "tong",
+                                "tong cong",
+                                "tong thang",
+                                "tong ngay",
+                                "tong nam",
+                                "tong so",
+                                "tong don hang",
+                                "tong doanh thu",
+                                "subtotal",
+                                "total",
+                                "grand total",
+                            }
+                            summary_prefixes = (
+                                "tong ngay ",
+                                "tong thang ",
+                                "tong nam ",
+                                "tong cong ",
+                                "tong so ",
+                                "tong don hang ",
+                                "tong don ",
+                                "tong doanh thu ",
+                                "ghi chu ",
+                                "subtotal ",
+                                "grand total ",
+                            )
+                            for idx, val in enumerate(values):
+                                if val is not None:
+                                    s_val = fold(str(val)).strip()
+                                    if s_val in summary_markers_exact or s_val.startswith(summary_prefixes):
+                                        summary_col_idx = idx
+                                        break
+
+                            is_non_data = False
                             if (
                                 roles[0] == "date"
                                 and footer_marker
                                 and not any(values[i] for i in set(orders + products))
                             ):
+                                is_non_data = True
+                                log_col = columns[0]
+                            elif (
+                                summary_col_idx is not None
+                                and not any(
+                                    values[i] is not None
+                                    and str(values[i]).strip()
+                                    and fold(str(values[i])).strip() not in summary_markers_exact
+                                    and not fold(str(values[i])).strip().startswith(summary_prefixes)
+                                    for i in set(orders + products)
+                                )
+                            ):
+                                is_non_data = True
+                                log_col = columns[summary_col_idx]
+
+                            if is_non_data:
                                 report["excluded_non_data_rows"] += 1
                                 issue(
                                     source,
                                     number,
-                                    columns[0],
+                                    log_col,
                                     "non_data_footer",
-                                    "explicit summary/note in date field; no order or product identity; retained in raw",
+                                    "explicit summary/note in data row; no valid order or product identity; retained in raw",
                                 )
                                 # A summary/note terminates the preceding order group.
                                 group_order, order_fields = None, {}
@@ -661,6 +739,25 @@ def _materialize(work, sources, documents, config, manifest, report):
             connection.executemany(
                 "INSERT INTO meta.source_mapping VALUES (?, ?, ?, ?, ?)", rows
             )
+            if calendar and Path(calendar).is_file():
+                cal_path = Path(calendar).resolve()
+                connection.execute(
+                    f"CREATE TABLE calendar AS SELECT row_number() OVER () AS __dm_row_id, * FROM read_csv_auto('{cal_path}')"
+                )
+                mapping["calendar"] = {
+                    "columns": {
+                        "date": {"original_name": "date", "role": "date", "sql_type": "DATE"},
+                        "weekday": {"original_name": "weekday", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_day": {"original_name": "lunar_day", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_month": {"original_name": "lunar_month", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_year": {"original_name": "lunar_year", "role": "quantity", "sql_type": "BIGINT"},
+                        "lunar_leap": {"original_name": "lunar_leap", "role": "boolean", "sql_type": "BOOLEAN"},
+                        "holiday": {"original_name": "holiday", "role": "text", "sql_type": "VARCHAR"},
+                    },
+                    "source_ids": ["calendar"],
+                    "family": "calendar",
+                    "grain": "row keyed by date",
+                }
             connection.execute(
                 "CREATE TABLE meta.column_mapping (table_name VARCHAR, column_name VARCHAR, original_name VARCHAR, role VARCHAR)"
             )
@@ -674,10 +771,12 @@ def _materialize(work, sources, documents, config, manifest, report):
             )
             connection.execute("CHECKPOINT")
         report["issues"] = dict(sorted(issue_counts.items()))
-        return mapping, _relationships(sources, mapping)
+        return mapping, _relationships(sources, mapping, manifest["business_id"])
 
 
-def _relationships(sources, mapping):
+def _relationships(
+    sources: list[SourceTable], mapping: dict[str, Any], business_id: str
+) -> tuple[JoinEdge, ...]:
     """Preserve declared SQLite composite foreign keys as complete ordered tuples."""
     source_tables = {
         (s.relative_path, s.sheet): (s, name)
@@ -719,4 +818,16 @@ def _relationships(sources, mapping):
                     additional_key_pairs=tuple(pairs[1:]),
                 )
             )
+            edge = edges[-1]
+            proof = RelationshipEvidence(
+                "sqlite_foreign_key",
+                business_id,
+                f"{source.relative_path}#{source.sheet}:foreign_key_list:{parts[0]['id']}",
+                _hash(source.path),
+                json.dumps(parts, sort_keys=True),
+                "source_declared",
+                "SQLite schema declaration",
+                relationship_fingerprint(edge, business_id),
+            )
+            edges[-1] = replace(edge, relationship_evidence=proof)
     return tuple(edges)
