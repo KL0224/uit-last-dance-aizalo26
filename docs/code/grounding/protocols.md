@@ -46,11 +46,14 @@ Biểu diễn siêu dữ liệu của một bảng dữ liệu:
 
 #### `JoinSpec`
 Mô tả một cạnh liên kết giữa hai bảng trong `JoinGraph`:
-* `left_table: str` & `left_column: str`: Bảng và cột phía trái.
-* `right_table: str` & `right_column: str`: Bảng và cột phía phải.
+* `left_table: str` & `left_column: str`: Bảng và cột khóa chính phía trái.
+* `right_table: str` & `right_column: str`: Bảng và cột khóa chính phía phải.
 * `cardinality: str`: Lực lượng quan hệ (`"many_to_one"`, `"one_to_many"`, `"one_to_one"`).
 * `fanout_warning: bool`: Đánh dấu cảnh báo nếu phép JOIN có nguy cơ nhân bản số dòng (đặc biệt khi nối từ bảng 1 dòng sang bảng nhiều dòng).
 * `confidence: float`: Độ tin cậy của quan hệ (từ 0.0 đến 1.0).
+* `additional_key_pairs: tuple[tuple[str, str], ...]`: Danh sách các cặp cột phụ dành cho quan hệ nối phức hợp (composite equijoin).
+* `null_key_warning: bool`: Đánh dấu nếu cột nối chứa giá trị NULL theo thống kê `JoinStatistics` từ B0.1 (cảnh báo rủi ro rơi dòng khi dùng INNER JOIN).
+* Thuộc tính `@property def key_pairs -> tuple[tuple[str, str], ...]`: Trả về danh sách đầy đủ tất cả các cặp cột `((left_column, right_column),) + additional_key_pairs`.
 
 #### `MetricSpec`
 Đặc tả chỉ số nghiệp vụ chuẩn từ Semantic Metric Registry (Component B3):

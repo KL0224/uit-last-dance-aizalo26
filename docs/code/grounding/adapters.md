@@ -29,10 +29,19 @@ Lớp bọc (Wrapper) biến một đối tượng `datamate.b0.b02.contracts.Bu
 #### Logic chuyển đổi cấu trúc bảng (`_build_tables`):
 * Duyệt qua từng `TableMetadata` trong `schema_catalog.tables`.
 * **Bảo vệ rò rỉ cột nội bộ (Defense against Internal Lineage Leak)**: B0.1 tự động thêm cột `__dm_row_id` vào mọi bảng trong DuckDB để theo dõi nguồn gốc dữ liệu. Hàm `_build_tables` tự động **lọc bỏ tất cả các cột có tiền tố `__dm_`**, không đưa vào danh sách cột ngữ nghĩa của Grounding, giúp Planner không bị nhầm lẫn khi viết `SELECT *`.
-* **Trích xuất giá trị mẫu tự động (Automatic Sample Values Extraction)**: B0.1 lưu trữ tối đa 5–15 dòng dữ liệu mẫu trong `tbl.profile_rows`. Adapter tự động quét qua các dòng này, trích xuất tối đa 15 giá trị phân biệt (`distinct values`) cho từng cột (loại trừ `None`) và nạp vào thuộc tính `sample_values` của `ColumnSpec`. Nhờ đó, C4 Value Grounder có ngay dữ liệu để đối chiếu thực thể mà không cần chạy câu lệnh `SELECT DISTINCT` trên DuckDB.
+* **Trích xuất giá trị mẫu & khoảng ngày từ `data_profiling`**: Khi bundle context được serialize ra JSON (qua `BusinessContext.to_dict()`), trường `profile_rows` bị lược bỏ để bảo vệ an toàn dữ liệu. Adapter tự động chuyển sang đọc mẫu tại `data_profiling[table]["samples"]` và trích xuất khoảng thời gian `observed_min`/`observed_max` để thiết lập `date_coverage_start`/`date_coverage_end`. Nhờ đó, C4 Value Grounder có ngay dữ liệu để đối chiếu thực thể và C5 Answerability có thể phát hiện lỗi `TEMPORAL_OUT_OF_RANGE`.
+* **Trích xuất vai trò (`role`) và tên alias gốc tiếng Việt**: Ánh xạ vai trò cột từ `schema_mapping` (`identifier` $\rightarrow$ `id`, `date`, `money`, `quantity`, `text`) và trích xuất tên hiển thị gốc từ `col.provenance` và `original_name` vào `ColumnSpec.aliases` (tự động phân rã các tiền tố `"Mã "`, `"Tên "`, `"Số "`).
 
 #### Logic chuyển đổi đồ thị liên kết (`_build_joins`):
-* Duyệt qua từng `JoinEdge` trong `schema_catalog.join_graph` và ánh xạ sang `JoinSpec`, bảo toàn thông tin lực lượng quan hệ (`cardinality`) và cờ cảnh báo nhân dòng (`fanout_warning`).
+* **Lọc nghiêm ngặt chỉ lấy cạnh `status == "validated"`**: B0.1 phát hiện nhiều cạnh candidate nhưng chỉ những cạnh đã qua xác thực (`status == "validated"`) mới được phép nạp vào Grounding. Mọi cạnh `uncertain`, `candidate`, `invalid` đều bị loại trừ.
+* **Bảo toàn Khóa Nối Phức Hợp (`additional_key_pairs`)**: Ánh xạ đầy đủ các cặp khóa phụ trong quan hệ nối nhiều cột, giúp `JoinSpec` giữ nguyên vẹn cấu trúc composite equijoin.
+* **Cảnh báo mất dòng do khóa NULL (`null_key_warning`)**: Nếu `edge.statistics` ghi nhận `left_null_rows > 0` hoặc `right_null_rows > 0`, adapter tự động kích hoạt cờ `null_key_warning=True` để hạ nguồn biết rằng phép `INNER JOIN` có thể làm mất dữ liệu.
+
+#### Khởi tạo trực tiếp từ JSON Dictionary (`from_dict`):
+* Cung cấp classmethod `B02ContextAdapter.from_dict(payload)`: Tự động sử dụng `BusinessContextSchemaReader().read(payload)` của B0.1 để kiểm chứng chữ ký `RelationshipEvidence` và tái tạo đối tượng ngữ cảnh hoàn chỉnh từ file JSON mà không phụ thuộc vào bộ nhớ runtime.
+
+#### Tự động suy diễn chỉ số nghiệp vụ (`_build_metrics`):
+* Quét qua các quy tắc trong `rule_catalog.rules` kết hợp danh sách cột `role == "money"` để tự động tổng hợp danh mục `MetricSpec` chuẩn (ví dụ `revenue`, `cash_collected`, `cost`) kèm bảng ưu tiên (`preferred_table`) và các cột bắt buộc.
 
 #### Cài đặt các phương thức tra cứu nghiệp vụ:
 * `get_capability_status(capability_key)`: Đọc từ từ điển `answerability_constraints`. Hỗ trợ linh hoạt cả kiểu boolean (`True`/`False`) lẫn kiểu chuỗi (`"supported"`/`"unsupported"`/`"unknown"`).
@@ -60,11 +69,12 @@ Sinh ra một đoạn văn bản Markdown súc tích để nối vào prompt h�
   - **Bảng trọng tâm (Primary Table)**: `shift_payments`
     + Bảng `shift_payments` (grain=payment_event): các cột liên quan `[shift_name, payment_method, collected_amount, payment_date]`
     + Gợi ý JOIN: `shift_payments.order_id = orders.order_id` (many_to_one)
+    + Gợi ý JOIN: `allocations.order_id = lines.order_id AND allocations.line_no = lines.line_no` (many_to_one) [CẢNH BÁO KHÓA NULL - CÂN NHẮC LEFT JOIN]
   - **Giá trị thực tế trong DB đã đối chiếu (Grounded Values)**:
     + Cụm từ `ca tối` -> Cột `shift_payments.shift_name` = `'Ca tối'`
     + Cụm từ `tiền mặt` -> Cột `shift_payments.payment_method` = `'Tiền mặt'`
   ```
-* **Lợi ích**: LLM 9B nhận được chỉ dẫn chính xác tuyệt đối về tên bảng, tên cột, khoảng ngày và giá trị điều kiện lọc, giúp loại bỏ 100% ảo giác cú pháp.
+* **Lợi ích**: LLM 9B nhận được chỉ dẫn chính xác tuyệt đối về tên bảng, tên cột, khoảng ngày, biểu thức JOIN phức hợp (kèm cảnh báo khóa NULL) và giá trị điều kiện lọc, giúp loại bỏ 100% ảo giác cú pháp.
 
 #### `to_b05_evidence_proof(grounded: GroundedQuestion) -> EvidenceProof`
 Chuyển đổi kết quả đánh giá từ C5 sang đối tượng `datamate.b0.b05.contracts.EvidenceProof`:

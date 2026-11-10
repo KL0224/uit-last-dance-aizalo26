@@ -106,9 +106,9 @@ Khoảng thời gian đã được phân giải xác định:
 * **Logic phòng thủ (`__post_init__`)**: Xác thực bất biến `start_date <= end_date` và `comparison_start_date <= comparison_end_date`.
 
 #### `SchemaCandidate`, `CandidateJoinPath` & `SelectedSchema` (Đầu ra của C3)
-* `SchemaCandidate`: Bảng ứng viên gồm `table_name`, `relevant_columns` (danh sách cột đã chọn lọc), `grain` (hạt dữ liệu), `score` (điểm liên quan), `rationale` (lý do chọn).
-* `CandidateJoinPath`: Đường nối giữa 2 bảng gồm `left_table`, `left_column`, `right_table`, `right_column`, `cardinality`, `fanout_warning`, `confidence`.
-* `SelectedSchema`: Gồm `primary_table` (bảng Fact trọng tâm), `tables`, `join_paths`, cờ `fanout_warning` và danh sách cảnh báo `warnings`.
+* `SchemaCandidate`: Bảng ứng viên gồm `table_name`, `relevant_columns` (danh sách cột đã chọn lọc bao gồm cả các khóa join phụ), `grain` (hạt dữ liệu), `score` (điểm liên quan), `rationale` (lý do chọn).
+* `CandidateJoinPath`: Đường nối giữa 2 bảng gồm `left_table`, `left_column`, `right_table`, `right_column`, `cardinality`, `fanout_warning`, `confidence`, `additional_key_pairs` (khóa nối phụ), `null_key_warning` (cảnh báo NULL key) và thuộc tính `key_pairs`.
+* `SelectedSchema`: Gồm `primary_table` (bảng Fact trọng tâm), `tables`, `join_paths`, cờ `fanout_warning` và danh sách cảnh báo `warnings` (bao gồm cảnh báo fanout và cảnh báo mất dòng do khóa NULL).
 
 #### `MatchedValue` (Đầu ra của C4)
 Liên kết cụm từ với dữ liệu thực tế:

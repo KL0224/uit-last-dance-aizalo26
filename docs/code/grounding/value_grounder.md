@@ -76,7 +76,10 @@ def ground(
    * Với các điều kiện lọc chuỗi (ví dụ `field_hint="shift_name"`, `raw_value="ca tối"`), thuật toán đối chiếu và điền giá trị chuẩn vào:
      * `grounded_column = "shift_payments.shift_name"`
      * `grounded_value = "Ca tối"`
-3. Trả về bộ đôi: `(tuple[MatchedValue, ...], tuple[FilterCondition, ...])`.
+3. **Quét trực tiếp câu hỏi đối chiếu với tập mẫu của B0.1 (`question_sample`, confidence = `0.92`)**:
+   * Quét các giá trị mẫu chuỗi (`sample_values`) của toàn bộ các cột phi số học (loại trừ `date`, `money`, `quantity`).
+   * Nếu giá trị mẫu xuất hiện nguyên văn trong câu hỏi của người dùng (ví dụ: `"ShopeeFood"` hay `"KHO-HN"`), thuật toán tự động gắn kết thành `MatchedValue` tương ứng với bảng và cột đó.
+4. Trả về bộ đôi: `(tuple[MatchedValue, ...], tuple[FilterCondition, ...])`.
 
 ---
 

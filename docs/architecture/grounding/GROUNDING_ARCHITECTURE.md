@@ -196,6 +196,7 @@ Bộ test suite độc lập của Grounding tại [`tests/grounding/`](file:///
   * `test_schema_value_grounder.py` (4 passed): Chấm điểm Fact table, tìm đường BFS và khử dấu tiếng Việt.
   * `test_answerability.py` (4 passed): Kiểm chứng `unsupported` và cơ chế chống False UA.
   * `test_grounding_e2e.py` (4 passed): Kiểm tra toàn trình, đo đạc latency, và tương thích `B02ContextAdapter`.
+  * `test_b01_b02_compatibility.py` (4 passed): Kiểm chứng tính tương thích với B0.1/B0.2 cải tiến (lọc cạnh `validated`, khóa nối composite, cảnh báo khóa NULL, và khôi phục `data_profiling`). Xem chi tiết tại [`docs/change/B01_B02_GROUNDING_COMPATIBILITY_CHANGELOG.md`](file:///home/kiet97/uit-last-dance-aizalo26/docs/change/B01_B02_GROUNDING_COMPATIBILITY_CHANGELOG.md).
 * **Đo đạc độ trễ (Latency)**: Toàn bộ quy trình C1..C5 chỉ tốn trung bình **12.4ms** trên CPU (ngân sách cam kết < 100ms).
 * **Tính tất định (Determinism)**: Chạy lặp lại 2 lần liên tiếp trên cùng câu hỏi cho ra kết quả `g1.to_dict() == g2.to_dict()` đạt 100%.
 

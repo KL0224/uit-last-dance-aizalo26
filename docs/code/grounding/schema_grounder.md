@@ -39,7 +39,7 @@ def _find_shortest_join_path(
   * Sử dụng **Tìm kiếm theo chiều rộng (Breadth-First Search - BFS)** với hàng đợi `deque` và tập `visited` chống lặp vô tận.
   * Hỗ trợ duyệt cạnh theo cả hai chiều:
     * Chiều thuận (`left -> right`): Giữ nguyên thông tin cạnh `JoinSpec`.
-    * Chiều nghịch (`right -> left`): Tự động đảo vị trí `left_table/column` và `right_table/column`, đồng thời **đảo ngược lực lượng quan hệ**: nếu chiều thuận là `many_to_one` (an toàn) thì chiều nghịch là `one_to_many` (có nguy cơ nhân dòng $\rightarrow$ bật `fanout_warning=True`).
+    * Chiều nghịch (`right -> left`): Tự động đảo vị trí `left_table/column` và `right_table/column`, đồng thời **đảo ngược từng cặp khóa trong `additional_key_pairs`** `(right_col, left_col)`, và **đảo ngược lực lượng quan hệ**: nếu chiều thuận là `many_to_one` (an toàn) thì chiều nghịch là `one_to_many` (có nguy cơ nhân dòng $\rightarrow$ bật `fanout_warning=True`).
   * Trả về danh sách các cạnh `JoinSpec` tạo thành đường đi ngắn nhất giữa hai bảng.
 
 ---
@@ -87,14 +87,15 @@ Hệ thống chấm điểm đa tiêu chí cho từng bảng trong doanh nghiệ
    * Nếu gom nhóm theo sản phẩm, bảng chứa tên sản phẩm được cộng điểm.
 3. **Tiêu chí Điều Kiện Lọc Thực Thể (+0.30 điểm)**:
    * Nếu bảng chứa cột lưu trữ giá trị alias (ví dụ bảng `shift_payments` chứa cột `shift_name`), bảng đó được cộng điểm.
-4. **Tiêu chí Khớp Từ Vựng (+0.15 đến +0.25 điểm)**:
-   * Tên bảng hoặc alias của bảng xuất hiện trực tiếp trong câu hỏi.
+4. **Tiêu chí Khớp Từ Vựng & Giá Trị Mẫu (+0.15 đến +0.35 điểm)**:
+   * Tên bảng hoặc alias của bảng xuất hiện trực tiếp trong câu hỏi (+0.25).
+   * Giá trị mẫu (`sample_values`) của cột trong bảng xuất hiện trong câu hỏi (+0.35 điểm) giúp định vị ngay bảng dữ liệu nghiệp vụ thực tế.
 
 #### Lựa Chọn Bảng & Kết Nối Đồ Thị:
 1. Chọn bảng có điểm cao nhất làm `primary_table`.
 2. Chọn các bảng phụ có `score >= 0.35` (tối đa `top_k_tables = 4` bảng).
-3. Chạy thuật toán BFS kết nối `primary_table` với từng bảng phụ. Mọi bảng trung gian trên đường đi (nếu chưa có) sẽ được tự động bổ sung vào `SelectedSchema`.
-4. Nếu bất kỳ cạnh nào trên đường nối có cờ `fanout_warning=True`, hệ thống bổ sung cảnh báo rõ ràng vào `warnings`.
+3. Chạy thuật toán BFS kết nối `primary_table` với từng bảng phụ. Mọi bảng trung gian trên đường đi (nếu chưa có) sẽ được tự động bổ sung vào `SelectedSchema`, và toàn bộ các cột thuộc `key_pairs` đều được nạp vào `relevant_columns`.
+4. Nếu bất kỳ cạnh nào trên đường nối có cờ `fanout_warning=True` hoặc `null_key_warning=True`, hệ thống bổ sung cảnh báo rõ ràng vào `warnings` (cảnh báo nhân dòng và cảnh báo mất dòng do NULL key).
 
 ---
 

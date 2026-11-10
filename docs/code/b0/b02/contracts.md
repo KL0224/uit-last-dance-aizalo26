@@ -14,7 +14,7 @@ Tệp `contracts.py` trong B0.2 định nghĩa **Hợp đồng Ngữ cảnh Kinh
 
 ## 2. Chi Tiết Các Lớp & Thực Thể
 
-### 2.1. Hằng số `CONTRACT_VERSION = "1.0"`
+### 2.1. Hằng số `CONTRACT_VERSION = "1.0"` (hoặc `"1.1"` khi có normalized data handle)
 * Phiên bản hợp đồng hiện tại. Ngăn chặn việc trộn lẫn các phiên bản metadata cũ và mới.
 
 ### 2.2. Lớp `BusinessRule`
@@ -38,10 +38,11 @@ Tệp `contracts.py` trong B0.2 định nghĩa **Hợp đồng Ngữ cảnh Kinh
   * `contract_version`, `business_id`.
   * `schema_catalog`: Toàn bộ thông tin schema từ B0.1.
   * `rule_catalog`: Toàn bộ quy tắc từ B0.2.
-  * `data_profiling`: Dữ liệu thống kê profile (nếu có).
-  * `business_metadata`: Metadata nghiệp vụ bổ sung.
+  * `data_profiling`: Dữ liệu thống kê profile (chứa `samples`, `observed_min`, `observed_max`).
+  * `business_metadata`: Metadata nghiệp vụ bổ sung (bao gồm `schema_mapping`).
   * `answerability_constraints`: Ràng buộc khả năng trả lời.
-* Phương thức `to_dict()`: Chuyển đổi thành JSON serializable, đồng thời **tự động loại bỏ `profile_rows`** để không làm rò rỉ dữ liệu mẫu.
+  * `normalized_data_handle`: Chỉ dẫn kết nối DuckDB database chuẩn hóa (contract 1.1).
+* Phương thức `to_dict()`: Chuyển đổi thành JSON serializable, đồng thời **tự động loại bỏ `profile_rows`** để không làm rò rỉ dữ liệu mẫu, và dọn dẹp các trường rỗng của `JoinStatistics` / `RelationshipEvidence`.
 
 ### 2.5. Lớp `ContractBuilder`
 * Trình xây dựng và kiểm chứng chéo toàn diện:
@@ -63,7 +64,8 @@ Tệp `contracts.py` trong B0.2 định nghĩa **Hợp đồng Ngữ cảnh Kinh
 
 ## 4. Ý Nghĩa & Ảnh Hưởng Đến Các Module Khác
 
-* **Module B0.3 (Text-to-SQL)**: Đầu vào chính của B0.3 chính là file JSON do `BusinessContext.to_dict()` xuất ra.
+* **Component C (Question Grounding)**: Lớp `B02ContextAdapter` (hoặc `B02ContextAdapter.from_dict()`) tiêu thụ trực tiếp `BusinessContext` để trích xuất `TableSpec`, `JoinSpec`, `MetricSpec` và thực hiện phân tích câu hỏi trước khi lập kế hoạch SQL.
+* **Module B0.3 (Text-to-SQL)**: Đầu vào chính của B0.3 chính là file JSON do `BusinessContext.to_dict()` xuất ra (hoặc kết quả làm giàu ngữ cảnh từ Component C).
 * **Module B0.5 (Output Gate)**: Đọc các trường `answerability_constraints` để phát hiện câu hỏi không thể trả lời.
 
 ---
