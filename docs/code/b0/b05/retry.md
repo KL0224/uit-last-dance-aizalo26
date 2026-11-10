@@ -24,12 +24,14 @@ File `retry.py` đảm nhiệm 2 công việc quan trọng:
 Hàm nhận vào chi tiết lỗi từ DuckDB Executor và mã lỗi từ Validator để phân loại:
 
 * **Trường hợp lỗi từ DuckDB (`error_detail != None`)**:
-  * Phân tích chuỗi lỗi kết hợp giữa `error.type` và `error.message`:
-    * Chứa `"security"`, `"forbidden"`, `"drop"`, `"delete"`: Gán `SECURITY_VIOLATION`, `retryable = False`.
-    * Chứa `"binder"`, `"not found"`, `"column"`, `"unknown table"`: Gán `SCHEMA_ERROR`, `retryable = True`. Phản hồi: *"Reinspect exact available column and table names from schema."*
-    * Chứa `"parser"`, `"syntax"`, `"near"`: Gán `SQL_SYNTAX`, `retryable = True`. Phản hồi: *"Fix SQL syntax error to match valid dialect."*
-    * Chứa `"cast"`, `"type mismatch"`, `"conversion"`: Gán `SQL_TYPE_ERROR`, `retryable = True`.
-    * Chứa `"timeout"`, `"deadline"`: Gán `QUERY_TIMEOUT`, `retryable = False`.
+  * Phân tích chuỗi lỗi kết hợp giữa `error.type` và `error.message` (đồng bộ hoàn toàn với 9 loại lỗi có thể phục hồi của B0.4 / B1.4):
+    * **Bảo vệ chống False-Positive `SECURITY_VIOLATION`**: Kiểm tra cờ `is_known_recoverable_type` (`binder`, `catalog`, `parser`, `syntax`, `conversion`, `dataerror`, `emptyquery`, `emptyresultwarning`). Chỉ gán `SECURITY_VIOLATION` (`retryable = False`) khi `error.type` là lỗi bảo mật/quyền hạn (`security`, `permission`) hoặc khi không phải các lỗi phục hồi đã biết mà `error.message` chứa từ khóa cấm (`"forbidden"`, `"drop "`, `"delete "`, `"update "`, `"insert "`, `"read-only"`). Nhờ đó, các câu SQL hợp lệ có điều kiện lọc `WHERE status = 'update record'` khi gặp `BinderError` (do DuckDB echo lại câu SQL trong thông báo lỗi) vẫn được phép retry.
+    * **Hỗ trợ `EmptyResultWarning` từ B0.4**: Khi `error.type` là `EmptyResultWarning` (hoặc `error.message` chứa `"all null values"` do truy vấn `SUM`/`AVG` ở Attempt 0 trả về 1 dòng toàn `NULL`), gán mã `NULL_RESULT` với `retryable = True` và hướng dẫn LLM kiểm tra lại điều kiện lọc `WHERE` (dấu tiếng Việt hoặc định dạng ngày tháng).
+    * **Ưu tiên `ConversionError` & `DataError`**: Khi `error.type` là `ConversionError` hoặc `DataError`, gán ngay `SQL_TYPE_ERROR` (`retryable = True`) trước khi quét từ khóa `"column"` trong message (kể cả khi B0.4 đính kèm `[Gợi ý Schema thực tế trong DB]`).
+    * Chứa `"binder"`, `"catalog"`, `"not found"`, `"column"`, `"unknown table"`: Gán `SCHEMA_ERROR`, `retryable = True`. Phản hồi: *"Reinspect exact available column and table names from schema."*
+    * Chứa `"parser"`, `"syntax"`, `"emptyquery"`: Gán `SQL_SYNTAX`, `retryable = True`. Phản hồi: *"Fix SQL syntax error to match valid dialect."*
+    * Chứa `"cast"`, `"type mismatch"`, `"conversion"`, `"out of range"`, `"invalid input"`: Gán `SQL_TYPE_ERROR`, `retryable = True`.
+    * Chứa `"timeout"`, `"deadline"`, `"time limit"`: Gán `QUERY_TIMEOUT`, `retryable = False`.
     * Lỗi khác: Gán `EXECUTOR_FAILURE`, `retryable = False`.
 * **Trường hợp lỗi từ Validator (`validation_error_code != None`)**:
   * `SCALAR_SHAPE_MISMATCH`: `retryable = True`. Phản hồi: *"Add aggregate function or appropriate GROUP BY / LIMIT to return exactly 1 row and 1 column."*

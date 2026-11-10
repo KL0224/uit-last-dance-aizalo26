@@ -23,9 +23,10 @@ Tệp `error_handler.py` là **Bộ xử lý lỗi và điều hướng thông m
 RECOVERABLE_ERROR_TYPES = {
     "SyntaxError", "CatalogError", "BinderError", "ConversionError",
     "DataError", "TimeoutError", "SecurityViolation", "EmptyQueryError",
+    "EmptyResultWarning",
 }
 ```
-* Đây là các lỗi mà nguyên nhân xuất phát từ việc mô hình LLM viết sai cú pháp SQL, gọi sai tên cột/bảng hoặc đặt điều kiện join chưa tối ưu. Việc cung cấp lại thông báo lỗi cho LLM ở lần retry tiếp theo có xác suất sửa chữa thành công rất cao.
+* Đây là các lỗi mà nguyên nhân xuất phát từ việc mô hình LLM viết sai cú pháp SQL, gọi sai tên cột/bảng, ép kiểu sai hoặc đặt điều kiện lọc `WHERE` lệch giá trị dẫn đến kết quả `SUM`/`AVG` toàn `NULL` (`EmptyResultWarning`). Việc cung cấp lại thông báo lỗi kèm gợi ý schema cho LLM ở lần retry tiếp theo có xác suất sửa chữa thành công rất cao.
 
 ### 2.2. Hàm `classify_error(exc: Exception) -> Tuple[str, bool]`
 * Ánh xạ các ngoại lệ của DuckDB và Python thành định danh chuẩn:
@@ -53,6 +54,12 @@ RECOVERABLE_ERROR_TYPES = {
   * Nếu là `EmptyQueryError`: Hướng dẫn *"SQL query is empty. Please provide a valid, single SELECT query."*.
   * Nếu là `SecurityViolation`: Ghi rõ *"Security Violation: ... Only single read-only SELECT queries are permitted."*.
   * Với các lỗi DuckDB: Dùng Regex xóa bỏ các đường dẫn file Python máy chủ (ví dụ: `File "...", line 123...` hoặc `C:\foo\bar.py`), bảo tồn nguyên vẹn vị trí dòng lỗi của DuckDB và gợi ý *"Did you mean column X?"*.
+
+### 2.5. Hàm `enrich_error_with_schema(con, error_type: str, base_msg: str) -> str`
+* Khi `error_type in ("CatalogError", "BinderError", "ConversionError")` và kết nối DuckDB `con` đang mở:
+  * Tự động truy vấn `SHOW TABLES` và `DESCRIBE "<table_name>"` (tối đa 6 bảng, mỗi bảng tối đa 25 cột).
+  * Ẩn toàn bộ các cột nội bộ bắt đầu bằng `__dm_` (ví dụ `__dm_row_id` của B0.1).
+  * Đính kèm khối `[Gợi ý Schema thực tế trong DB]:` vào cuối `base_msg` để LLM nhìn thấy chính xác tên bảng, tên cột và kiểu dữ liệu thực tế ở lượt One Bounded Retry (Attempt 1).
 
 ---
 
