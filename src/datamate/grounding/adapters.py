@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from datamate.b0.b02.contracts import BusinessContext
+from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
+from datamate.b0.b02.contracts import BusinessContext, BusinessRule, RuleCatalog
 from datamate.b0.b05.contracts import EvidenceProof
 
 from .contracts import GroundedQuestion
@@ -17,6 +18,35 @@ from .protocols import (
     TableSpec,
 )
 
+_ROLE_MAP: dict[str, str] = {
+    "identifier": "id",
+    "id": "id",
+    "date": "date",
+    "money": "money",
+    "quantity": "quantity",
+    "text": "text",
+    "name": "name",
+    "category": "category",
+    "status": "category",
+}
+
+
+def _extract_column_aliases(raw_names: Sequence[str | None]) -> tuple[str, ...]:
+    aliases: list[str] = []
+    for raw in raw_names:
+        if not raw or not str(raw).strip():
+            continue
+        clean = str(raw).strip()
+        if clean not in aliases:
+            aliases.append(clean)
+        lower = clean.lower()
+        for prefix in ("mã ", "tên ", "số ", "ngày "):
+            if lower.startswith(prefix) and len(clean) > len(prefix) + 1:
+                stripped = clean[len(prefix) :].strip()
+                if stripped and stripped not in aliases:
+                    aliases.append(stripped)
+    return tuple(aliases)
+
 
 class B02ContextAdapter(BusinessContextProtocol):
     """Adapter wrapping a B0.2 BusinessContext to satisfy BusinessContextProtocol."""
@@ -26,13 +56,80 @@ class B02ContextAdapter(BusinessContextProtocol):
         self.business_id: str = b02_context.business_id
         self._tables: tuple[TableSpec, ...] = self._build_tables()
         self._join_edges: tuple[JoinSpec, ...] = self._build_joins()
+        self._metrics: tuple[MetricSpec, ...] = self._build_metrics()
+
+    @classmethod
+    def from_dict(cls, payload: dict[str, Any]) -> B02ContextAdapter:
+        """Construct a B02ContextAdapter from a serialized BusinessContext JSON dictionary."""
+        schema_catalog = BusinessContextSchemaReader().read(payload)
+        raw_rc = payload.get("rule_catalog") or {}
+        raw_rules = raw_rc.get("rules") or ()
+        rules = tuple(
+            BusinessRule(
+                rule_id=str(r.get("rule_id", "")),
+                text=str(r.get("text", "")),
+                source=str(r.get("source", "")),
+                scope=str(r.get("scope", "global")),
+                precedence=int(r.get("precedence", 0)),
+                status=str(r.get("status", "descriptive")),
+                required_fields=tuple(str(f) for f in (r.get("required_fields") or ())),
+                expression=r.get("expression"),
+                validation_messages=tuple(
+                    str(m) for m in (r.get("validation_messages") or ())
+                ),
+                topic=r.get("topic"),
+                industry=r.get("industry"),
+                question_id=r.get("question_id"),
+                requirements=tuple(str(req) for req in (r.get("requirements") or ())),
+                binding_evidence=tuple(
+                    str(be) for be in (r.get("binding_evidence") or ())
+                ),
+            )
+            for r in raw_rules
+            if isinstance(r, dict)
+        )
+        rule_catalog = RuleCatalog(
+            rules=rules,
+            warnings=tuple(str(w) for w in (raw_rc.get("warnings") or ())),
+            business_id=raw_rc.get("business_id"),
+        )
+        ctx = BusinessContext(
+            contract_version=str(payload.get("contract_version", "1.0")),
+            business_id=str(payload["business_id"]),
+            schema_catalog=schema_catalog,
+            rule_catalog=rule_catalog,
+            data_profiling=payload.get("data_profiling"),
+            business_metadata=payload.get("business_metadata"),
+            answerability_constraints=payload.get("answerability_constraints"),
+            normalized_data_handle=payload.get("normalized_data_handle"),
+        )
+        return cls(ctx)
 
     def _build_tables(self) -> tuple[TableSpec, ...]:
         specs: list[TableSpec] = []
+        profiling = self._ctx.data_profiling or {}
+        schema_mapping = (self._ctx.business_metadata or {}).get("schema_mapping") or {}
+
         for tbl in self._ctx.schema_catalog.tables:
-            # Extract sample values from profile_rows if available
+            tbl_prof = profiling.get(tbl.name) if isinstance(profiling, dict) else None
+            tbl_map = (
+                schema_mapping.get(tbl.name)
+                if isinstance(schema_mapping, dict)
+                else None
+            ) or {}
+            cols_map = tbl_map.get("columns") if isinstance(tbl_map, dict) else {}
+            if not isinstance(cols_map, dict):
+                cols_map = {}
+
+            # Extract sample values from profile_rows or data_profiling['samples']
             samples_by_col: dict[str, list[Any]] = {c.name: [] for c in tbl.columns}
-            for row in tbl.profile_rows:
+            sample_rows: Sequence[dict[str, Any]] = tbl.profile_rows
+            if not sample_rows and isinstance(tbl_prof, dict):
+                sample_rows = tbl_prof.get("samples") or ()
+
+            for row in sample_rows:
+                if not isinstance(row, dict):
+                    continue
                 for col_name, val in row.items():
                     if (
                         col_name in samples_by_col
@@ -42,41 +139,176 @@ class B02ContextAdapter(BusinessContextProtocol):
                     ):
                         samples_by_col[col_name].append(val)
 
+            # Extract date coverage bounds from data_profiling column stats
+            prof_cols = (
+                tbl_prof.get("columns")
+                if isinstance(tbl_prof, dict) and isinstance(tbl_prof.get("columns"), dict)
+                else {}
+            )
+            min_dates: list[str] = []
+            max_dates: list[str] = []
+            for c_stats in prof_cols.values():
+                if isinstance(c_stats, dict):
+                    obs_min = c_stats.get("observed_min")
+                    obs_max = c_stats.get("observed_max")
+                    if isinstance(obs_min, str) and len(obs_min) >= 10:
+                        min_dates.append(obs_min[:10])
+                    if isinstance(obs_max, str) and len(obs_max) >= 10:
+                        max_dates.append(obs_max[:10])
+
             col_specs: list[ColumnSpec] = []
             for col in tbl.columns:
                 if col.name.startswith("__dm_"):
                     continue
+                c_map_entry = cols_map.get(col.name)
+                if not isinstance(c_map_entry, dict):
+                    c_map_entry = {}
+                raw_role = str(c_map_entry.get("role", "")).lower()
+                role = _ROLE_MAP.get(raw_role, "")
+                if not role:
+                    dt_upper = (col.data_type or "").upper()
+                    if any(t in dt_upper for t in ("DATE", "TIMESTAMP")):
+                        role = "date"
+                    elif any(
+                        t in dt_upper for t in ("DECIMAL", "NUMERIC", "DOUBLE", "FLOAT")
+                    ) and any(
+                        k in col.name.lower()
+                        for k in ("tien", "gia", "doanh_thu", "amount", "price", "revenue")
+                    ):
+                        role = "money"
+                    elif col.name.lower().startswith("ma_") or col.name.lower().endswith("_id"):
+                        role = "id"
+
+                aliases = _extract_column_aliases(
+                    (col.provenance, c_map_entry.get("original_name"))
+                )
                 col_specs.append(
                     ColumnSpec(
                         name=col.name,
                         data_type=col.data_type,
+                        aliases=aliases,
                         sample_values=tuple(samples_by_col.get(col.name, ())),
+                        role=role,
                         null_ratio=col.null_ratio or 0.0,
                     )
                 )
+
+            tbl_aliases: list[str] = []
+            family = tbl_map.get("family") if isinstance(tbl_map, dict) else None
+            if isinstance(family, str) and family.strip() and family != tbl.name:
+                tbl_aliases.append(family.strip())
+            if tbl.provenance and tbl.provenance.strip():
+                tbl_aliases.append(tbl.provenance.strip())
+
             specs.append(
                 TableSpec(
                     name=tbl.name,
                     columns=tuple(col_specs),
                     grain=tbl.grain or "unknown",
+                    aliases=tuple(tbl_aliases),
                     row_count=tbl.row_count or 0,
+                    date_coverage_start=min(min_dates) if min_dates else None,
+                    date_coverage_end=max(max_dates) if max_dates else None,
                 )
             )
         return tuple(specs)
 
     def _build_joins(self) -> tuple[JoinSpec, ...]:
-        return tuple(
-            JoinSpec(
-                left_table=edge.left_table,
-                left_column=edge.left_column,
-                right_table=edge.right_table,
-                right_column=edge.right_column,
-                cardinality=edge.cardinality,
-                fanout_warning=edge.fanout_warning,
-                confidence=edge.confidence,
+        joins: list[JoinSpec] = []
+        for edge in self._ctx.schema_catalog.join_graph:
+            if getattr(edge, "status", "validated") != "validated":
+                continue
+            stats = getattr(edge, "statistics", None)
+            has_null_keys = bool(
+                stats is not None
+                and (
+                    getattr(stats, "left_null_rows", 0) > 0
+                    or getattr(stats, "right_null_rows", 0) > 0
+                )
             )
-            for edge in self._ctx.schema_catalog.join_graph
-        )
+            joins.append(
+                JoinSpec(
+                    left_table=edge.left_table,
+                    left_column=edge.left_column,
+                    right_table=edge.right_table,
+                    right_column=edge.right_column,
+                    cardinality=edge.cardinality,
+                    fanout_warning=edge.fanout_warning,
+                    confidence=edge.confidence,
+                    additional_key_pairs=getattr(edge, "additional_key_pairs", ()),
+                    null_key_warning=has_null_keys,
+                )
+            )
+        return tuple(joins)
+
+    def _build_metrics(self) -> tuple[MetricSpec, ...]:
+        metrics: list[MetricSpec] = []
+        seen_ids: set[str] = set()
+        table_names = {t.name for t in self._tables}
+
+        # 1. Derive metrics from BusinessRule bindings in RuleCatalog
+        for rule in self._ctx.rule_catalog.rules:
+            txt_l = f"{rule.topic or ''} {rule.text}".lower()
+            m_id = None
+            aliases: tuple[str, ...] = ()
+            if "doanh thu" in txt_l:
+                m_id = "revenue"
+                aliases = ("doanh thu", "tổng tiền bán")
+            elif "thực thu" in txt_l or "tiền thu" in txt_l:
+                m_id = "cash_collected"
+                aliases = ("thực thu", "tiền thu")
+            elif "giá vốn" in txt_l or "chi phí" in txt_l:
+                m_id = "cost"
+                aliases = ("giá vốn", "chi phí")
+
+            if m_id and m_id not in seen_ids:
+                pref_table = None
+                req_cols: list[str] = []
+                for field_ref in rule.required_fields:
+                    if "." in field_ref:
+                        t_ref, c_ref = field_ref.split(".", 1)
+                        if t_ref in table_names:
+                            pref_table = pref_table or t_ref
+                            req_cols.append(c_ref)
+                if pref_table:
+                    seen_ids.add(m_id)
+                    metrics.append(
+                        MetricSpec(
+                            metric_id=m_id,
+                            aliases=aliases,
+                            preferred_table=pref_table,
+                            required_columns=tuple(req_cols),
+                            formula_hint=rule.text,
+                            unit="VND",
+                        )
+                    )
+
+        # 2. Fallback heuristic on money columns if 'revenue' is not yet bound
+        if "revenue" not in seen_ids:
+            for tbl in self._tables:
+                money_cols = [
+                    c.name
+                    for c in tbl.columns
+                    if c.role == "money"
+                    or any(
+                        k in c.name.lower()
+                        for k in ("tong_tien", "thanh_tien", "doanh_thu")
+                    )
+                ]
+                if money_cols:
+                    seen_ids.add("revenue")
+                    metrics.append(
+                        MetricSpec(
+                            metric_id="revenue",
+                            aliases=("doanh thu", "tổng tiền"),
+                            preferred_table=tbl.name,
+                            required_columns=(money_cols[0],),
+                            unit="VND",
+                        )
+                    )
+                    break
+
+        return tuple(metrics)
 
     def get_tables(self) -> Sequence[TableSpec]:
         return self._tables
@@ -85,7 +317,7 @@ class B02ContextAdapter(BusinessContextProtocol):
         return self._join_edges
 
     def get_metrics(self) -> Sequence[MetricSpec]:
-        return ()
+        return self._metrics
 
     def get_capability_status(self, capability_key: str) -> str:
         constraints = self._ctx.answerability_constraints or {}
@@ -169,9 +401,18 @@ class GroundingToPlannerAdapter:
                     f"  + Bảng `{sc.table_name}` (grain={sc.grain}): các cột liên quan `[{cols_str}]` ({sc.rationale})"
                 )
             for jp in grounded.selected_schema.join_paths:
-                warn = " [CẢNH BÁO FANOUT 1-N]" if jp.fanout_warning else ""
+                warn_parts: list[str] = []
+                if jp.fanout_warning:
+                    warn_parts.append("[CẢNH BÁO FANOUT 1-N]")
+                if jp.null_key_warning:
+                    warn_parts.append("[CẢNH BÁO KHÓA NULL - CÂN NHẮC LEFT JOIN]")
+                warn = (" " + " ".join(warn_parts)) if warn_parts else ""
+                join_expr = " AND ".join(
+                    f"{jp.left_table}.{left_col} = {jp.right_table}.{right_col}"
+                    for left_col, right_col in jp.key_pairs
+                )
                 lines.append(
-                    f"  + Gợi ý JOIN: `{jp.left_table}.{jp.left_column} = {jp.right_table}.{jp.right_column}` ({jp.cardinality}){warn}"
+                    f"  + Gợi ý JOIN: `{join_expr}` ({jp.cardinality}){warn}"
                 )
 
         if grounded.matched_values:
@@ -182,6 +423,8 @@ class GroundingToPlannerAdapter:
                 )
 
         return "\n".join(lines)
+
+    to_planner_prompt_markdown = format_grounded_hint_for_planner
 
     @staticmethod
     def to_b05_evidence_proof(grounded: GroundedQuestion) -> EvidenceProof:

@@ -137,6 +137,39 @@ class ValueGrounder:
             else:
                 updated_filters.append(f_cond)
 
+        # 3. Direct question scan against non-numeric column sample_values
+        q_norm = _normalize_text(question)
+        for t_name in ordered_table_names:
+            t_spec = tables_by_name.get(t_name)
+            if t_spec is None:
+                continue
+            for col in t_spec.columns:
+                if col.role in {"date", "money", "quantity"}:
+                    continue
+                for sv in col.sample_values:
+                    if not isinstance(sv, str):
+                        continue
+                    sv_clean = sv.strip()
+                    sv_norm = _normalize_text(sv_clean)
+                    if (
+                        len(sv_norm) >= 3
+                        and not sv_norm.isdigit()
+                        and sv_norm in q_norm
+                    ):
+                        key = (t_name, col.name, sv_clean)
+                        if key not in seen_matches:
+                            seen_matches.add(key)
+                            matched_list.append(
+                                MatchedValue(
+                                    raw_text=sv_clean,
+                                    table_name=t_name,
+                                    column_name=col.name,
+                                    matched_db_value=sv,
+                                    match_type="question_sample",
+                                    confidence=0.92,
+                                )
+                            )
+
         return tuple(matched_list), tuple(updated_filters)
 
 

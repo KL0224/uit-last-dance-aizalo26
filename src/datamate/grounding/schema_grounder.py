@@ -43,18 +43,26 @@ class SchemaGrounder:
                     visited.add(edge.right_table)
                     queue.append((edge.right_table, new_path))
                 elif edge.right_table == curr and edge.left_table not in visited:
+                    rev_cardinality = {
+                        "many_to_one": "one_to_many",
+                        "one_to_many": "many_to_one",
+                    }.get(edge.cardinality, edge.cardinality)
                     rev_edge = JoinSpec(
                         left_table=edge.right_table,
                         left_column=edge.right_column,
                         right_table=edge.left_table,
                         right_column=edge.left_column,
-                        cardinality=(
-                            "one_to_many"
-                            if edge.cardinality == "many_to_one"
-                            else "many_to_one"
+                        cardinality=rev_cardinality,
+                        fanout_warning=(
+                            edge.fanout_warning
+                            or rev_cardinality in {"one_to_many", "many_to_many"}
                         ),
-                        fanout_warning=(edge.cardinality == "many_to_one"),
                         confidence=edge.confidence,
+                        additional_key_pairs=tuple(
+                            (right_col, left_col)
+                            for left_col, right_col in edge.additional_key_pairs
+                        ),
+                        null_key_warning=edge.null_key_warning,
                     )
                     new_path = path + [rev_edge]
                     if rev_edge.right_table == target_table:
@@ -138,20 +146,32 @@ class SchemaGrounder:
                     rationales[tbl_name].append(f"Chứa điều kiện lọc {ent!r} ({col_name})")
                     required_metric_cols_by_table[tbl_name].add(col_name)
 
-        # 3. Score by group_by dimensions and lexical matches
+        # 3. Score by group_by dimensions, sample value hits, and lexical matches
         for tbl in tables:
             if any(alias.lower() in q_norm for alias in tbl.aliases):
                 scores[tbl.name] += 0.25
                 rationales[tbl.name].append("Khớp tên/alias bảng trong câu hỏi")
 
             if "customer" in intent.group_by and (
-                tbl.grain == "customer" or "customer" in tbl.name.lower()
+                tbl.grain == "customer"
+                or "customer" in tbl.name.lower()
+                or "khach" in tbl.name.lower()
             ):
                 scores[tbl.name] += 0.45
                 rationales[tbl.name].append("Cung cấp định danh/tên khách hàng cho group_by")
 
-            if "product" in intent.group_by and any(
-                c.role == "name" and "product" in c.name.lower() for c in tbl.columns
+            if "product" in intent.group_by and (
+                tbl.grain == "product"
+                or "product" in tbl.name.lower()
+                or "san_pham" in tbl.name.lower()
+                or any(
+                    c.role in {"name", "text"}
+                    and any(
+                        kw in c.name.lower()
+                        for kw in ("product", "san_pham", "ten_hang", "ten_mon")
+                    )
+                    for c in tbl.columns
+                )
             ):
                 scores[tbl.name] += 0.35
                 rationales[tbl.name].append("Cung cấp tên sản phẩm cho group_by")
@@ -159,6 +179,15 @@ class SchemaGrounder:
             for col in tbl.columns:
                 if any(a.lower() in q_norm for a in col.aliases):
                     scores[tbl.name] += 0.15
+                    required_metric_cols_by_table[tbl.name].add(col.name)
+                if any(
+                    len(str(sv).strip()) >= 2 and str(sv).strip().lower() in q_norm
+                    for sv in col.sample_values
+                ):
+                    scores[tbl.name] += 0.35
+                    rationales[tbl.name].append(
+                        f"Khớp giá trị mẫu trong cột {col.name}"
+                    )
                     required_metric_cols_by_table[tbl.name].add(col.name)
 
         ranked_names = sorted(scores.keys(), key=lambda k: scores[k], reverse=True)
@@ -174,7 +203,7 @@ class SchemaGrounder:
         edges = list(context.get_join_edges())
         candidate_joins: list[CandidateJoinPath] = []
         join_cols_by_table: dict[str, set[str]] = {t.name: set() for t in tables}
-        seen_edge_pairs: set[tuple[str, str, str, str]] = set()
+        seen_edge_keys: set[tuple[str, str, tuple[tuple[str, str], ...]]] = set()
 
         for target_tbl in list(needed_tables[1:]):
             path_edges = self._find_shortest_join_path(primary_table, target_tbl, edges)
@@ -183,11 +212,12 @@ class SchemaGrounder:
                     needed_tables.append(pe.left_table)
                 if pe.right_table not in needed_tables:
                     needed_tables.append(pe.right_table)
-                join_cols_by_table[pe.left_table].add(pe.left_column)
-                join_cols_by_table[pe.right_table].add(pe.right_column)
-                edge_key = (pe.left_table, pe.left_column, pe.right_table, pe.right_column)
-                if edge_key not in seen_edge_pairs:
-                    seen_edge_pairs.add(edge_key)
+                for left_col, right_col in pe.key_pairs:
+                    join_cols_by_table[pe.left_table].add(left_col)
+                    join_cols_by_table[pe.right_table].add(right_col)
+                edge_key = (pe.left_table, pe.right_table, pe.key_pairs)
+                if edge_key not in seen_edge_keys:
+                    seen_edge_keys.add(edge_key)
                     candidate_joins.append(
                         CandidateJoinPath(
                             left_table=pe.left_table,
@@ -197,6 +227,8 @@ class SchemaGrounder:
                             cardinality=pe.cardinality,
                             fanout_warning=pe.fanout_warning,
                             confidence=pe.confidence,
+                            additional_key_pairs=pe.additional_key_pairs,
+                            null_key_warning=pe.null_key_warning,
                         )
                     )
 
@@ -223,10 +255,15 @@ class SchemaGrounder:
             )
 
         has_fanout = any(j.fanout_warning for j in candidate_joins)
+        has_null_keys = any(j.null_key_warning for j in candidate_joins)
         warnings: list[str] = []
         if has_fanout:
             warnings.append(
                 "Cảnh báo nhân dòng (fanout_warning): Đang nối cạnh one-to-many, cần aggregate trước khi join."
+            )
+        if has_null_keys:
+            warnings.append(
+                "Cảnh báo khóa NULL (null_key_warning): Cột nối có chứa giá trị NULL; INNER JOIN có thể làm rơi dòng, cân nhắc LEFT JOIN."
             )
 
         return SelectedSchema(

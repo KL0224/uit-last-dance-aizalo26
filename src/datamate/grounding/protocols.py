@@ -46,6 +46,13 @@ class JoinSpec:
     cardinality: str = "many_to_one"
     fanout_warning: bool = False
     confidence: float = 1.0
+    additional_key_pairs: tuple[tuple[str, str], ...] = ()
+    null_key_warning: bool = False
+
+    @property
+    def key_pairs(self) -> tuple[tuple[str, str], ...]:
+        """Return all (left_column, right_column) pairs in deterministic order."""
+        return ((self.left_column, self.right_column),) + self.additional_key_pairs
 
 
 @dataclass(frozen=True)
