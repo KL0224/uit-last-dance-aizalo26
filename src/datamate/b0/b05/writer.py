@@ -49,6 +49,8 @@ class SubmissionWriter:
         assumptions: Optional[ Any] = None,
         error_message: Optional[str] = None,
         llm_generation_ms: Optional[float] = None,
+        generation_diagnostics: Optional[Dict[str, Any]] = None,
+        batch_fallback_error: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record an attempt trace into audit logger history."""
         self.audit_logger.record_attempt(
@@ -63,6 +65,8 @@ class SubmissionWriter:
             assumptions=list(assumptions) if assumptions is not None else None,
             error_message=error_message,
             llm_generation_ms=llm_generation_ms,
+            generation_diagnostics=generation_diagnostics,
+            batch_fallback_error=batch_fallback_error,
         )
 
     def write_final(

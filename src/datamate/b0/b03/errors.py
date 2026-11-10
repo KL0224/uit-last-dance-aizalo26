@@ -2,7 +2,9 @@
 
 
 class LLMError(RuntimeError):
-    """Lỗi chung của tầng model."""
+    """Lỗi chung của tầng model, có thể mang diagnostics của request."""
+
+    diagnostics = None
 
 
 class ModelNotLoadedError(LLMError):

@@ -28,6 +28,7 @@ class GenerationOptions:
 
     max_new_tokens chỉ giới hạn output. Tổng input và output vẫn phải nằm
     trong max_model_len; vLLM kiểm tra theo tokenizer thực tế của checkpoint.
+    thinking_token_budget giới hạn reasoning bên trong max_new_tokens; None giữ hành vi cũ.
     temperature=0 cho greedy decoding; seed không đảm bảo giống bit-for-bit
     giữa các phiên bản engine hoặc phần cứng.
     """
@@ -40,8 +41,14 @@ class GenerationOptions:
     presence_penalty: float = 1.5
     stop: tuple[str, ...] = ()
     seed: int | None = None
+    thinking_token_budget: int | None = None
 
     def __post_init__(self) -> None:
+        if self.thinking_token_budget is not None and (
+            type(self.thinking_token_budget) is not int
+            or not 0 < self.thinking_token_budget < self.max_new_tokens
+        ):
+            raise ValueError("thinking_token_budget must be a positive integer below max_new_tokens")
         if self.max_new_tokens < 1:
             raise ValueError("max_new_tokens must be positive")
         if self.temperature < 0 or not 0 < self.top_p <= 1:
@@ -86,6 +93,24 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
+class GenerationDiagnostics:
+    """Thông tin quan sát được; None nghĩa là backend chưa cung cấp."""
+
+    raw_response: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    finish_reason: str | None = None
+    thinking_enabled: bool | None = None
+    thinking_token_budget: int | None = None
+    max_new_tokens: int | None = None
+    parse_success: bool | None = None
+    failure_kind: str | None = None
+    error_type: str | None = None
+    error_message: str | None = None
+    traceback: str | None = None
+
+
+@dataclass(frozen=True)
 class GenerationResult:
     """Kết quả sinh text thô từ model độc lập backend.
 
@@ -94,9 +119,10 @@ class GenerationResult:
     """
 
     text: str
-    input_tokens: int
-    output_tokens: int
+    input_tokens: int | None
+    output_tokens: int | None
     finish_reason: str | None
+    diagnostics: GenerationDiagnostics | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +142,7 @@ class Text2SQLResult:
     missing_fields: tuple[str, ...] = ()
     thinking: str | None = None
     raw_response: str | None = None
+    diagnostics: GenerationDiagnostics | None = None
 
     def __post_init__(self) -> None:
         if self.status not in {"answerable", "unanswerable"}:

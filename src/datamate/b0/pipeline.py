@@ -8,6 +8,7 @@ import time
 from typing import Any, Mapping, Sequence
 
 from datamate.b0.b01.ingestion import PreparedBusinessArtifacts, prepare_business
+from datamate.b0.b03.diagnostics import diagnostics_dict
 from datamate.b0.b03.errors import LLMError
 from datamate.b0.b03.generator import Text2SQLGenerator
 from datamate.b0.b03.types import GenerationOptions, Text2SQLResult
@@ -171,6 +172,7 @@ class B0Pipeline:
                     execution_status="error",
                     error_code=ErrorCode.GENERATION_INVALID,
                     error_message=str(exc),
+                    generation_diagnostics=diagnostics_dict(exc),
                     llm_generation_ms=llm_ms0,
                 )
             return self._abstain_outcome(q_meta.id, str(exc), attempt=0)
@@ -212,6 +214,7 @@ class B0Pipeline:
                         execution_status="error",
                         error_code=ErrorCode.GENERATION_INVALID,
                         error_message=str(exc),
+                        generation_diagnostics=diagnostics_dict(exc),
                         llm_generation_ms=llm_ms1,
                     )
                 return self._abstain_outcome(q_meta.id, str(exc), attempt=1)
@@ -372,7 +375,9 @@ class B0Pipeline:
                 try:
                     gen_results: list[Any] = self.generator.generate_batch(gen_inputs, options=self.options)
                     per_item_llm_ms0 = round(((time.perf_counter() - t_b0) * 1000.0) / max(len(valid_for_gen), 1), 2)
-                except Exception:
+                except Exception as batch_error:
+                    for entry in valid_for_gen:
+                        entry["batch_fallback_0"] = diagnostics_dict(batch_error)
                     gen_results = []
                     for entry in valid_for_gen:
                         try:
@@ -403,6 +408,8 @@ class B0Pipeline:
                             execution_status="error",
                             error_code=ErrorCode.GENERATION_INVALID,
                             error_message=str(gr),
+                            generation_diagnostics=diagnostics_dict(gr),
+                            batch_fallback_error=entry.get("batch_fallback_0"),
                             llm_generation_ms=llm_dur0,
                         )
                         entry["outcome"] = self._abstain_outcome(entry["q_meta"].id, str(gr), attempt=0)
@@ -415,6 +422,7 @@ class B0Pipeline:
                             gen_res=gr,
                             attempt=0,
                             llm_generation_ms=llm_dur0,
+                            batch_fallback_error=entry.get("batch_fallback_0"),
                             writer=writer,
                         )
                         entry["outcome"] = outcome_0
@@ -441,7 +449,9 @@ class B0Pipeline:
                     try:
                         repaired_results: list[Any] = self.generator.repair_batch(repair_inputs, options=self.options)
                         per_item_llm_ms1 = round(((time.perf_counter() - t_b1) * 1000.0) / max(len(repair_needed), 1), 2)
-                    except Exception:
+                    except Exception as batch_error:
+                        for entry in repair_needed:
+                            entry["batch_fallback_1"] = diagnostics_dict(batch_error)
                         repaired_results = []
                         for entry, r_inp in zip(repair_needed, repair_inputs):
                             try:
@@ -472,6 +482,8 @@ class B0Pipeline:
                                 execution_status="error",
                                 error_code=ErrorCode.GENERATION_INVALID,
                                 error_message=str(r_res),
+                                generation_diagnostics=diagnostics_dict(r_res),
+                                batch_fallback_error=entry.get("batch_fallback_1"),
                                 llm_generation_ms=llm_dur1,
                             )
                             entry["outcome"] = self._abstain_outcome(entry["q_meta"].id, str(r_res), attempt=1)
@@ -483,6 +495,7 @@ class B0Pipeline:
                                 gen_res=r_res,
                                 attempt=1,
                                 llm_generation_ms=llm_dur1,
+                                batch_fallback_error=entry.get("batch_fallback_1"),
                                 writer=writer,
                             )
                             entry["outcome"] = outcome_1
@@ -546,6 +559,7 @@ class B0Pipeline:
         gen_res: Text2SQLResult,
         attempt: int,
         llm_generation_ms: float | None = None,
+        batch_fallback_error: dict[str, Any] | None = None,
         writer: SubmissionWriter | None = None,
     ) -> GateOutcome:
         b05_gen = gen_res.to_b05_generation_result()
@@ -587,6 +601,8 @@ class B0Pipeline:
                 execution_ms=b05_exec.elapsed_ms,
                 row_count=b05_exec.row_count,
                 thinking=gen_res.thinking,
+                generation_diagnostics=diagnostics_dict(gen_res),
+                batch_fallback_error=batch_fallback_error,
                 assumptions=list(gen_res.assumptions) if gen_res.assumptions else None,
                 error_message=err_msg,
                 llm_generation_ms=llm_generation_ms,

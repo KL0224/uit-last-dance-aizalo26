@@ -28,6 +28,10 @@ temp
 artifacts
 data/train
 data/public_test
+data/test
+data
+notebooks
+
 
 # Logs & Outputs
 logs/
@@ -51,3 +55,4 @@ agent_code
 data/raw
 *.zip
 *.tar.gz
+

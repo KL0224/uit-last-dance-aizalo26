@@ -1,5 +1,6 @@
 """Offline vLLM backend: Python trực tiếp load weights, không dùng HTTP API."""
 
+from dataclasses import replace
 import json
 import os
 from typing import Any
@@ -7,8 +8,9 @@ from typing import Any
 os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
 
 from .base import BaseLLM
+from .diagnostics import exception_diagnostics
 from .errors import InferenceError, ModelLoadError, ModelNotLoadedError
-from .types import ChatMessage, GenerationOptions, GenerationResult, ModelConfig
+from .types import ChatMessage, GenerationDiagnostics, GenerationOptions, GenerationResult, ModelConfig
 
 
 class VLLMModel(BaseLLM):
@@ -26,6 +28,7 @@ class VLLMModel(BaseLLM):
         self.default_options = default_options or GenerationOptions()
         self._engine: Any = None
         self._sampling_params_class: Any = None
+        self._reasoning_configured = False
 
     @property
     def is_loaded(self) -> bool:
@@ -56,6 +59,24 @@ class VLLMModel(BaseLLM):
             # Lazy import: laptop không cài vLLM vẫn import được package llm.
             from vllm import LLM, SamplingParams
 
+            reasoning_kwargs = {}
+            if self.default_options.thinking_token_budget is not None:
+                try:
+                    from vllm.config import ReasoningConfig
+
+                    # Probe before allocating VRAM; old versions must fail clearly.
+                    SamplingParams(
+                        max_tokens=self.default_options.max_new_tokens,
+                        thinking_token_budget=self.default_options.thinking_token_budget,
+                    )
+                    reasoning_kwargs["reasoning_config"] = ReasoningConfig(
+                        reasoning_start_str="<think>", reasoning_end_str="</think>",
+                    )
+                except (ImportError, TypeError, ValueError) as exc:
+                    raise ModelLoadError(
+                        "Installed vLLM does not support thinking_token_budget / ReasoningConfig. "
+                        "Install a compatible vLLM version; budget will not be silently ignored."
+                    ) from exc
             engine = LLM(
                 model=str(model_path),
                 tokenizer=str(model_path),
@@ -68,7 +89,10 @@ class VLLMModel(BaseLLM):
                 # Không để generation_config của checkpoint âm thầm đổi
                 # sampling defaults mà ứng dụng đã khai báo.
                 generation_config="vllm",
+                **reasoning_kwargs,
             )
+        except ModelLoadError:
+            raise
         except ImportError as exc:
             raise ModelLoadError(
                 "Cannot import vLLM. Install the inference extra in a compatible GPU environment."
@@ -78,6 +102,7 @@ class VLLMModel(BaseLLM):
         # Chỉ đánh dấu loaded sau khi khởi tạo engine thành công.
         self._sampling_params_class = SamplingParams
         self._engine = engine
+        self._reasoning_configured = bool(reasoning_kwargs)
 
     def _require_loaded(self) -> None:
         if not self.is_loaded:
@@ -87,6 +112,13 @@ class VLLMModel(BaseLLM):
         selected = options if options is not None else self.default_options
         if selected.max_new_tokens >= self.config.max_model_len:
             raise ValueError("max_new_tokens must leave context space for input tokens")
+        budget_kwargs = {}
+        if selected.thinking_token_budget is not None:
+            if not self._reasoning_configured:
+                raise InferenceError(
+                    "Thinking budget requires loading the engine with a default thinking_token_budget."
+                )
+            budget_kwargs["thinking_token_budget"] = selected.thinking_token_budget
         return self._sampling_params_class(
             n=1,
             max_tokens=selected.max_new_tokens,
@@ -97,6 +129,7 @@ class VLLMModel(BaseLLM):
             presence_penalty=selected.presence_penalty,
             stop=list(selected.stop) or None,
             seed=selected.seed,
+            **budget_kwargs,
         )
 
     @staticmethod
@@ -131,14 +164,26 @@ class VLLMModel(BaseLLM):
             raise TypeError("prompts must be a list of strings")
         if not prompts:
             return []
-        params = self._sampling_params(options)
+        selected = options if options is not None else self.default_options
+        observed = GenerationDiagnostics(
+            thinking_enabled=self.config.chat_template_kwargs.get("enable_thinking"),
+            thinking_token_budget=selected.thinking_token_budget,
+            max_new_tokens=selected.max_new_tokens,
+        )
         try:
+            params = self._sampling_params(options)
             # vLLM tự scheduling batch và trả kết quả theo thứ tự prompts.
             # Không tự cắt/truncate prompt: context vượt giới hạn phải báo lỗi.
             outputs = self._engine.generate(prompts, sampling_params=params, use_tqdm=False)
-            return self._convert_outputs(outputs, expected=len(prompts))
+            results = self._convert_outputs(outputs, expected=len(prompts))
+            return [replace(result, diagnostics=replace(
+                observed, raw_response=result.text, input_tokens=result.input_tokens,
+                output_tokens=result.output_tokens, finish_reason=result.finish_reason,
+            )) for result in results]
         except Exception as exc:
-            raise InferenceError(f"Batch generation failed: {exc}") from exc
+            error = InferenceError(f"Batch generation failed: {exc}")
+            error.diagnostics = exception_diagnostics(exc, observed)
+            raise error from exc
 
     def chat(
         self, messages: list[ChatMessage], *, options: GenerationOptions | None = None
@@ -172,7 +217,16 @@ class VLLMModel(BaseLLM):
                     add_generation_prompt=True,
                     **template_kwargs,
                 )
-            except Exception:
+            except Exception as exc:
+                selected = options if options is not None else self.default_options
+                if selected.thinking_token_budget is not None:
+                    error = InferenceError(f"Chat template failed with thinking budget: {exc}")
+                    error.diagnostics = exception_diagnostics(exc, GenerationDiagnostics(
+                        thinking_enabled=template_kwargs.get("enable_thinking"),
+                        thinking_token_budget=selected.thinking_token_budget,
+                        max_new_tokens=selected.max_new_tokens,
+                    ))
+                    raise error from exc
                 rendered = tokenizer.apply_chat_template(
                     p,
                     tokenize=False,
