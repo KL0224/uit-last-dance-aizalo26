@@ -17,12 +17,49 @@ def classify_error(
         err_msg = (error_detail.message or "").lower()
         text = f"{err_type} {err_msg}"
 
-        if "security" in err_type or any(w in err_msg for w in ["forbidden", "drop ", "delete ", "update ", "insert ", "read-only"]):
+        is_known_recoverable_type = any(
+            k in err_type
+            for k in (
+                "binder",
+                "catalog",
+                "parser",
+                "syntax",
+                "conversion",
+                "dataerror",
+                "emptyquery",
+                "emptyresultwarning",
+            )
+        )
+
+        if (
+            "security" in err_type
+            or "permission" in err_type
+            or (
+                not is_known_recoverable_type
+                and any(w in err_msg for w in ["forbidden", "drop ", "delete ", "update ", "insert ", "read-only"])
+            )
+        ):
             return ErrorClassification(
                 code=ErrorCode.SECURITY_VIOLATION,
                 retryable=False,
                 evidence=error_detail.message,
                 safe_feedback="Security violation: only read-only SELECT queries are allowed.",
+            )
+
+        if "emptyresultwarning" in err_type or "all null values" in err_msg:
+            return ErrorClassification(
+                code=ErrorCode.NULL_RESULT,
+                retryable=True,
+                evidence=error_detail.message,
+                safe_feedback="Query returned NULL for aggregation. Check WHERE filter values (exact Vietnamese text or date format).",
+            )
+
+        if "conversion" in err_type or "dataerror" in err_type:
+            return ErrorClassification(
+                code=ErrorCode.SQL_TYPE_ERROR,
+                retryable=True,
+                evidence=error_detail.message,
+                safe_feedback="Fix type casting or operator mismatch in query.",
             )
 
         if (

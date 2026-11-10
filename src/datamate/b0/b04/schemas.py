@@ -53,6 +53,13 @@ class ExecutionRequest(BaseModel):
         """Tạo ExecutionRequest trực tiếp từ kết quả Text2SQLResult của B0.3."""
         sql = getattr(b03_result, "sql", None) or ""
         ans_type = getattr(b03_result, "answer_type", None)
+        if ans_type is not None:
+            try:
+                from datamate.b0.b03.parser import normalize_answer_type
+
+                ans_type = normalize_answer_type(ans_type, sql)
+            except Exception:
+                pass
         return cls(
             question_id=question_id,
             db_path=db_path,
