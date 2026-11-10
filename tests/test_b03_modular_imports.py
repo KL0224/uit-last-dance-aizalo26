@@ -90,3 +90,31 @@ def test_vllm_model_offline_lifecycle() -> None:
     with pytest.raises(ModelLoadError):
         model.load()
 
+
+def test_vllm_model_counts_chat_template_tokens() -> None:
+    """Token budgeting must use the checkpoint's actual chat template."""
+
+    class FakeTokenizer:
+        def apply_chat_template(
+            self, payload, *, tokenize, add_generation_prompt, **kwargs
+        ):
+            assert [message["role"] for message in payload] == ["system", "user"]
+            assert add_generation_prompt is True
+            return [11, 12, 13, 14] if tokenize else "rendered prompt"
+
+    class FakeEngine:
+        def get_tokenizer(self):
+            return FakeTokenizer()
+
+    config = ModelConfig(model_path=Path("/tmp/fake_model"))
+    model = VLLMModel(config)
+    model._engine = FakeEngine()
+
+    token_count = model.count_chat_tokens(
+        [
+            ChatMessage(role="system", content="system"),
+            ChatMessage(role="user", content="question"),
+        ]
+    )
+
+    assert token_count == 4
