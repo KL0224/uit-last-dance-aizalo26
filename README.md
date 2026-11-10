@@ -179,7 +179,6 @@ DATAMATE_TRAIN_DIR=data/train PYTHONPATH=src uv run --frozen python -m unittest 
 Nếu không có dataset, bỏ biến `DATAMATE_TRAIN_DIR` để chạy unit tests; các tests dữ liệu thật sẽ được skip. Các reader trong tests chỉ tạo metadata fixture, không thay thế ingestion production của team. Chưa có pipeline Text-to-SQL end-to-end hoặc benchmark PA.
 
 # ZAIC 2026 — Local LLM layer
-
 Interface Python dùng chung cho model local, backend đầu tiên là offline vLLM.
 Checkpoint mẫu: `Qwen/Qwen3.5-9B`. Model chỉ được load vào GPU khi gọi `load()`.
 
@@ -190,3 +189,28 @@ Checkpoint mẫu: `Qwen/Qwen3.5-9B`. Model chỉ được load vào GPU khi gọ
 
 Chưa chạy cài đặt, tải weights, inference hoặc test. Xem báo cáo trước khi
 chủ động chạy các lệnh trên server GPU.
+
+
+## Setup Virtual Env
+chmod +x setup_env.sh
+./setup_env.sh
+source .venv/bin/activate
+
+## Test Inference
+vllm serve Qwen/Qwen3.5-9B \
+  --dtype bfloat16 \
+  --max-model-len 8192 \
+  --max-num-seqs 4 \
+  --gpu-memory-utilization 0.90 \
+  --language-model-only \
+  --reasoning-parser qwen3
+
+
+## On 5090 Server
+uv python install 3.12
+uv venv --python 3.12 .venv
+
+source .venv/bin/activate
+
+uv pip install -r requirements-lock.txt \
+  --torch-backend=auto

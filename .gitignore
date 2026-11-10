@@ -28,6 +28,9 @@ temp
 artifacts
 data/train
 data/public_test
+notebooks
+benchmark_outputs
+synthetic_data
 
 # Logs & Outputs
 logs/
@@ -54,3 +57,4 @@ data/raw
 
 data/
 khoi_docs/
+
