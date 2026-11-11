@@ -22,12 +22,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 # Cài đặt thư viện Python
-COPY requirements.txt .
+COPY requirements.txt requirements-lock.txt ./
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir \
-    duckdb==1.1.3 sqlglot==25.29.0 pydantic>=2.7.0 \
-    pandas>=2.2.0 openpyxl>=3.1.2 pyarrow>=16.0.0 \
-    -r requirements.txt
+    pip install --no-cache-dir -r requirements-lock.txt
 
 # Tạo sẵn thư mục tạm spill cho sandbox DuckDB (tránh lỗi IOException khi root bị read-only)
 RUN mkdir -p /tmp/duckdb_spill && chmod -R 777 /tmp/duckdb_spill
