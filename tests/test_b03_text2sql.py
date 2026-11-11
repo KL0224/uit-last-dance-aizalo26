@@ -365,15 +365,12 @@ def test_parse_thinking_process_preamble():
 
 
 def test_parse_sql_block_inside_truncated_think():
-    """Verify parser salvages SQL when model opened <think> without closing </think>."""
+    """Output bị cắt trong <think> chỉ chứa SQL nháp -> phải bị từ chối (đi vào nhánh retry/abstain)."""
     raw = """<think>
     Let's check the schema.
     We need total revenue.
     ```sql
     SELECT SUM(amount) FROM orders WHERE status = 'completed'
     ```"""
-    res = parse_text2sql_response(raw)
-    assert res.status == "answerable"
-    assert "SUM(amount)" in res.sql
-    assert "orders" in res.tables_used
-
+    with pytest.raises(Text2SQLParseError):
+        parse_text2sql_response(raw)

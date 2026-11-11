@@ -237,9 +237,19 @@ class VLLMModel(BaseLLM):
         if any(not isinstance(message, ChatMessage) for message in messages):
             raise TypeError("Every message must be a ChatMessage")
         token_ids = self._apply_chat_template(messages, tokenize=True)
-        if not isinstance(token_ids, list):
-            raise InferenceError("Tokenizer returned an unexpected chat token shape")
-        return len(token_ids)
+        if hasattr(token_ids, "input_ids"):
+            token_ids = token_ids.input_ids
+        elif isinstance(token_ids, dict) and "input_ids" in token_ids:
+            token_ids = token_ids["input_ids"]
+        if hasattr(token_ids, "tolist"):
+            token_ids = token_ids.tolist()
+        if isinstance(token_ids, list):
+            if token_ids and isinstance(token_ids[0], list):
+                return len(token_ids[0])
+            return len(token_ids)
+        if hasattr(token_ids, "__len__"):
+            return len(token_ids)
+        raise InferenceError(f"Tokenizer returned an unexpected chat token shape: {type(token_ids)}")
 
     def chat_batch(
         self, messages_batch: list[list[ChatMessage]], *, options: GenerationOptions | None = None

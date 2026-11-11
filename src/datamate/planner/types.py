@@ -203,6 +203,10 @@ class Text2SQLResult:
         return build_evidence_proof(context, self.reason, self.missing_fields)
 
 
+    to_gate_generation_result = to_b05_generation_result
+    to_gate_evidence_proof = to_b05_evidence_proof
+
+
 _MONEY_PARTS = frozenset(
     "tien gia doanh_thu thu chi_phi phi lai no chiet khau amount cost price revenue profit".split()
 )

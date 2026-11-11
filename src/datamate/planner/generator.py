@@ -77,9 +77,16 @@ class Text2SQLGenerator:
         *,
         options: GenerationOptions | None = None,
         industry: str | None = None,
+        grounded_hint: str | None = None,
     ) -> Text2SQLResult:
         """Sinh câu truy vấn SQL từ câu hỏi và BusinessContext."""
-        messages = build_text2sql_messages(context, question, as_of_date, industry)
+        messages = build_text2sql_messages(
+            context=context,
+            question=question,
+            as_of_date=as_of_date,
+            industry=industry,
+            grounded_hint=grounded_hint,
+        )
         gen_result = self._chat(messages, options)
         return self._parse(gen_result, question, options)
 
@@ -93,6 +100,7 @@ class Text2SQLGenerator:
         *,
         options: GenerationOptions | None = None,
         industry: str | None = None,
+        grounded_hint: str | None = None,
     ) -> Text2SQLResult:
         """Thực hiện 1 lần Bounded Retry sửa lại câu SQL khi bước thực thi gặp lỗi."""
         messages = build_repair_messages(
@@ -102,6 +110,7 @@ class Text2SQLGenerator:
             previous_sql=previous_sql,
             error_message=error_message,
             industry=industry,
+            grounded_hint=grounded_hint,
         )
         gen_result = self._chat(messages, options)
         return self._parse(gen_result, question, options)
@@ -121,6 +130,7 @@ class Text2SQLGenerator:
                 it["question"],
                 it["as_of_date"],
                 it.get("industry"),
+                it.get("grounded_hint"),
             )
             for it in items
         ]
@@ -150,6 +160,7 @@ class Text2SQLGenerator:
                 previous_sql=it["previous_sql"],
                 error_message=it["error_message"],
                 industry=it.get("industry"),
+                grounded_hint=it.get("grounded_hint"),
             )
             for it in items
         ]

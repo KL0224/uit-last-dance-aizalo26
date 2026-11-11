@@ -34,6 +34,7 @@ _ANSWER_TYPE_ALIASES = {
     "array": "list",
     "rows": "table",
 }
+_MAX_BRACE_STARTS = 200
 _THINK_BLOCK = re.compile(r"<think>[\s\S]*?</think>", re.IGNORECASE)
 _NON_TABLE_FROM = re.compile(
     r"\b(?:EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\(\s*(?:\w+\s+)?(?:'[^']*'\s+)?FROM\b",
@@ -69,11 +70,8 @@ def strip_think_blocks(text: str) -> str:
     if "</think>" in text:
         return text.rsplit("</think>", 1)[1].strip()
     if "<think>" in text:
-        # Prompt hoặc model mở thẻ <think> nhưng bị cắt cụt token chưa đóng được
-        after_think = text.split("<think>", 1)[1]
-        m = re.search(r"```(?:json|sql)?|(?:\n\s*\{)", after_think)
-        if m:
-            return after_think[m.start():].strip()
+        # Thẻ <think> chưa đóng (bị cắt cụt token): toàn bộ nội dung là suy nghĩ dở dang,
+        # không chứa đáp án đã chốt. Tuyệt đối không lấy SQL nháp trong phần này.
         return ""
 
     cleaned = _THINK_BLOCK.sub("", text).strip()
@@ -128,12 +126,60 @@ def extract_tables_from_sql(sql: str) -> tuple[str, ...]:
     return tuple(cleaned)
 
 
+def _outer_select(sql: str) -> exp.Select | None:
+    """Trả về SELECT ngoài cùng (bỏ qua CTE/subquery); None nếu không phân tích được."""
+    try:
+        root = sqlglot.parse_one(sql, read="duckdb")
+    except Exception:
+        return None
+    set_op = (exp.Union, getattr(exp, "SetOperation", exp.Union))
+    while isinstance(root, set_op):
+        root = root.this
+    return root if isinstance(root, exp.Select) else None
+
+
+def _outer_limit(sql: str) -> int | None:
+    """LIMIT của SELECT ngoài cùng (không tính LIMIT trong CTE/subquery)."""
+    node = _outer_select(sql)
+    if node is None:
+        match = re.search(r"\bLIMIT\s+(\d+)\s*;?\s*$", sql, re.IGNORECASE)
+        return int(match.group(1)) if match else None
+    limit = node.args.get("limit")
+    if limit is None:
+        return None
+    expr = limit.args.get("expression")
+    return int(expr.name) if expr is not None and expr.name.isdigit() else None
+
+
+def _outer_has_aggregate_without_group(sql: str) -> bool:
+    node = _outer_select(sql)
+    if node is None or node.args.get("group") is not None:
+        return False
+    return any(proj.find(exp.AggFunc) for proj in node.expressions)
+
+
 def _extract_projection(sql: str) -> str:
-    """Trích xuất mệnh đề chiếu SELECT ... FROM, loại bỏ CTE nếu có."""
+    """Trích xuất danh sách cột chiếu của SELECT ngoài cùng (bỏ alias); fallback regex."""
+    node = _outer_select(sql)
+    if node is not None and node.expressions:
+        parts = []
+        for proj in node.expressions:
+            inner = proj.this if isinstance(proj, exp.Alias) else proj
+            parts.append(inner.sql(dialect="duckdb"))
+        return ", ".join(parts)
     parts = re.split(r"\bFROM\b", sql, maxsplit=1, flags=re.IGNORECASE)
     select_part = parts[0]
     m = re.search(r"\bSELECT\b\s+([\s\S]+)$", select_part, flags=re.IGNORECASE)
     return m.group(1).strip() if m else select_part.strip()
+
+
+_MINMAX_DATE = re.compile(r"\b(?:MAX|MIN)\s*\(\s*(?:\w+\.)?\w*(?:ngay|date)\w*\s*\)", re.IGNORECASE)
+
+
+def _looks_like_ratio(proj: str) -> bool:
+    """Projection là phép chia/tỷ lệ (mới nên coi là percent theo từ khóa câu hỏi)."""
+    low = proj.lower()
+    return "/" in low or "100" in low or bool(re.search(r"percent|pct|ty_le|ti_le|ratio|rate", low))
 
 
 def _has_multiple_columns(proj: str) -> bool:
@@ -165,11 +211,16 @@ def infer_answer_type_from_sql(sql: str) -> str:
         return "table"
 
     # Nếu có LIMIT > 1 với 1 cột chiếu (Top N) -> 'list'
-    if re.search(r"\bLIMIT\s+([2-9]|\d{2,})\b", sql_upper):
+    limit_n = _outer_limit(sql)
+    if limit_n is not None and limit_n > 1 and not _outer_has_aggregate_without_group(sql):
         return "list"
 
     # Nếu projection chứa hàm / cột ngày tháng -> 'date'
-    if re.search(r"\b(DATE|STRFTIME|STRPTIME)\b", proj_upper) or re.search(r"\b(ngay|date|time|thang)\b", proj, re.IGNORECASE):
+    if (
+        re.search(r"\b(DATE|STRFTIME|STRPTIME)\b", proj_upper)
+        or re.search(r"\b(ngay|date|time|thang)\b", proj, re.IGNORECASE)
+        or _MINMAX_DATE.search(proj)
+    ):
         if not re.search(r"\b(COUNT|SUM|AVG)\s*\(", proj_upper):
             return "date"
 
@@ -178,7 +229,7 @@ def infer_answer_type_from_sql(sql: str) -> str:
         return "number"
 
     # Nếu có LIMIT 1:
-    if re.search(r"\bLIMIT\s+1\b", sql_upper):
+    if limit_n == 1:
         if re.search(r"\b(ngay|date|time|thang)\b", proj, re.IGNORECASE):
             return "date"
         return "string"
@@ -204,19 +255,28 @@ def normalize_answer_type(raw: Any, sql: str | None, question: str | None = None
         is_multi_col = _has_multiple_columns(proj)
 
         # A. Cột chiếu đơn với LIMIT > 1 (ví dụ Top 3, Top 5) -> BẮT BUỘC là 'list'
-        if not is_multi_col and re.search(r"\bLIMIT\s+([2-9]|\d{2,})\b", sql_upper):
+        outer_limit = _outer_limit(sql)
+        if (
+            not is_multi_col
+            and proj != "*"
+            and outer_limit is not None
+            and outer_limit > 1
+            and not _outer_has_aggregate_without_group(sql)
+        ):
             return "list"
 
         # B. Cột chiếu ngày tháng (STRFTIME, DATE(col)) với LIMIT 1 hoặc không có aggregate số học -> BẮT BUỘC là 'date'
         if not is_multi_col:
             has_date_fn = bool(re.search(r"\b(DATE|STRFTIME|STRPTIME)\b", proj_upper))
-            has_date_col = bool(re.search(r"\b(ngay|date|time|thang)\b", proj, re.IGNORECASE))
+            has_date_col = bool(re.search(r"\b(ngay|date|time|thang)\b", proj, re.IGNORECASE)) or bool(
+                _MINMAX_DATE.search(proj)
+            )
             has_numeric_agg = bool(re.search(r"\b(COUNT|SUM|AVG)\s*\(", proj_upper))
             if (has_date_fn or has_date_col) and not has_numeric_agg:
                 return "date"
 
         # C. Cột chiếu tên thực thể (khách hàng, sản phẩm, mã) với LIMIT 1 và không có phép tính số -> BẮT BUỘC là 'string'
-        if not is_multi_col and re.search(r"\bLIMIT\s+1\b", sql_upper):
+        if not is_multi_col and _outer_limit(sql) == 1:
             if re.search(r"(ten_|khach_|san_pham|mat_hang|ma_|dia_chi|name|customer)", proj, re.IGNORECASE):
                 if not re.search(r"\b(COUNT|SUM|AVG|ROUND)\s*\(", proj_upper):
                     return "string"
@@ -227,7 +287,9 @@ def normalize_answer_type(raw: Any, sql: str | None, question: str | None = None
         percent_cues = ["%", "phần trăm", "phan tram", "tỉ lệ", "ti le", "tỷ lệ", "tỉ trọng", "ty trong"]
         if any(c in q_norm for c in percent_cues):
             if ans in ("number", "numeric", "decimal", "float", None):
-                return "percent"
+                # Chỉ đổi sang percent khi SQL thực sự tính tỷ lệ (hoặc không có SQL để đối chiếu)
+                if not sql or _looks_like_ratio(_extract_projection(sql)):
+                    return "percent"
 
     if ans is not None:
         return ans
@@ -321,14 +383,18 @@ def extract_json_contract_dict(text: str) -> dict[str, Any] | None:
         if obj and ("status" in obj or "sql" in obj or "missing_fields" in obj):
             return obj
 
-    # 2. Quét các khối ngoặc nhọn { ... } từ cuối chuỗi ngược lên đầu
-    brace_starts = [m.start() for m in re.finditer(r"\{", text)]
+    # 2. Quét các vị trí '{' từ cuối ngược lên đầu bằng raw_decode (tuyến tính theo số vị trí,
+    #    không thử mọi cặp {..}); giới hạn số vị trí để tránh chi phí bậc hai trên output dài.
+    decoder = json.JSONDecoder(strict=False)
+    brace_starts = [m.start() for m in re.finditer(r"\{", text)][-_MAX_BRACE_STARTS:]
     for start in reversed(brace_starts):
-        candidate = text[start:]
-        brace_ends = [m.end() for m in re.finditer(r"\}", candidate)]
-        for end in reversed(brace_ends):
-            obj = _try_load_json(candidate[:end])
-            if obj and ("status" in obj or "sql" in obj or "missing_fields" in obj):
+        tail = text[start:]
+        for source in (tail, re.sub(r",\s*([}\]])", r"\1", tail)):
+            try:
+                obj, _ = decoder.raw_decode(source)
+            except ValueError:
+                continue
+            if isinstance(obj, dict) and ("status" in obj or "sql" in obj or "missing_fields" in obj):
                 return obj
 
     # 3. Fallback cứu vãn nếu JSON bị cắt cụt do chạm trần token
@@ -348,6 +414,12 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
     if not raw_text or not raw_text.strip():
         raise Text2SQLParseError("Phản hồi từ LLM hoàn toàn rỗng.")
 
+    has_think_tags = "<think>" in raw_text or "</think>" in raw_text
+    if "<think>" in raw_text and "</think>" not in raw_text:
+        raise Text2SQLParseError(
+            "Phản hồi bị cắt cụt trong khối <think> (chưa có đáp án cuối): " + raw_text[:300]
+        )
+
     thinking = extract_think_blocks(raw_text)
     visible_text = strip_think_blocks(raw_text)
 
@@ -355,7 +427,8 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
     data: dict[str, Any] | None = None
     if visible_text:
         data = extract_json_contract_dict(visible_text)
-    if data is None:
+    if data is None and not has_think_tags:
+        # Có thẻ think thì raw_text chứa JSON nháp trong suy nghĩ -> không được dùng làm đáp án.
         data = extract_json_contract_dict(raw_text)
 
     if isinstance(data, dict):
@@ -468,8 +541,9 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
                         raw_response=raw_text,
                     )
 
-    # 2d. Fallback tìm block ```sql ... ``` trong raw_text (kể cả khi kẹt trong thinking block dở dang)
-    if "```sql" in raw_text:
+    # 2d. Fallback tìm block ```sql ... ``` trong raw_text (chỉ khi KHÔNG có thẻ think,
+    #     tránh lấy SQL nháp nằm trong phần suy nghĩ)
+    if "```sql" in raw_text and not has_think_tags:
         sql_block_raw = re.search(r"```sql\s*([\s\S]*?)(?:```|$)", raw_text, re.IGNORECASE)
         if sql_block_raw:
             cand = sql_block_raw.group(1).strip()
