@@ -14,6 +14,8 @@ enable_thinking = true
 
 [generation]
 max_new_tokens = 8192
+# Ép đóng thinking để dành phần output còn lại cho JSON/SQL cuối.
+thinking_token_budget = 4096
 temperature = 0.0
 top_p = 1.0
 top_k = -1

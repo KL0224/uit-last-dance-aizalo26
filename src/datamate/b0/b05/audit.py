@@ -37,6 +37,8 @@ class AuditLogger:
         assumptions: Optional[List[str]] = None,
         error_message: Optional[str] = None,
         llm_generation_ms: Optional[float] = None,
+        generation_diagnostics: Optional[Dict[str, Any]] = None,
+        batch_fallback_error: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record attempt trace in history (including LLM thinking and assumptions)."""
         if question_id not in self._history:
@@ -58,6 +60,10 @@ class AuditLogger:
             entry["assumptions"] = list(assumptions)
         if error_message is not None:
             entry["error_message"] = error_message
+        if generation_diagnostics is not None:
+            entry["generation_diagnostics"] = generation_diagnostics
+        if batch_fallback_error is not None:
+            entry["batch_fallback_error"] = batch_fallback_error
         self._history[question_id].append(entry)
 
     def write_log(

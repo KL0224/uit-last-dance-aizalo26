@@ -26,6 +26,7 @@ from .prompt import (
 )
 from .types import (
     ChatMessage,
+    GenerationDiagnostics,
     GenerationOptions,
     GenerationResult,
     ModelConfig,
@@ -40,6 +41,7 @@ __all__ = [
     "load_config",
     # Dataclasses & Types
     "ChatMessage",
+    "GenerationDiagnostics",
     "GenerationOptions",
     "GenerationResult",
     "ModelConfig",

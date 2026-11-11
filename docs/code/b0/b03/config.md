@@ -56,3 +56,50 @@ def load_config(path: str | Path) -> tuple[ModelConfig, GenerationOptions]:
 * Toàn bộ các thông số kỹ thuật (độ dài ngữ cảnh, GPU memory utilization, tensor parallelism, temperature, max tokens) sẽ phải hardcode cứng trong mã nguồn Python.
 * Việc thay đổi mô hình thử nghiệm hoặc tinh chỉnh siêu tham số khi triển khai trên các server GPU khác nhau sẽ đòi hỏi phải chỉnh sửa trực tiếp vào mã nguồn, vi phạm nguyên tắc Twelve-Factor App.
 
+
+## Thinking budget cho Qwen3.5
+
+Cấu hình `configs/qwen3_5_9b.toml` bật thinking và đặt
+`thinking_token_budget = 4096`, nằm trong `max_new_tokens = 8192`.
+Backend offline dùng `ReasoningConfig` (`<think>` / `</think>`) và
+`SamplingParams.thinking_token_budget` để đóng reasoning khi chạm budget,
+sau đó tiếp tục sinh final. Không dùng `stop=["</think>"]` vì sẽ dừng cả final.
+Phần output còn lại có thể dùng cho JSON/SQL; đây không phải bảo đảm final đúng
+hoặc luôn hoàn chỉnh. Tổng input và output vẫn phải nằm trong 32.768 token.
+
+Budget phải là số nguyên dương, nhỏ hơn `max_new_tokens`. Bỏ khóa này để giữ
+hành vi cũ. Khởi tạo `VLLMModel(config, options)` với options đã đọc từ TOML;
+reasoning phải được cấu hình lúc load engine. Sau đó mỗi request có thể dùng
+budget khác thông qua `GenerationOptions`. Nếu engine được load không có
+budget, yêu cầu budget sau đó bị từ chối rõ ràng thay vì bị bỏ qua.
+
+Cần vLLM hỗ trợ cả `ReasoningConfig` và `thinking_token_budget` (lockfile hiện
+chọn 0.30.0). Backend kiểm tra hỗ trợ trước khi cấp phát engine; khi template
+lỗi và budget đang bật, request báo lỗi thay vì bỏ qua tùy chọn template.
+Sampling và logic retry giữ nguyên.
+
+Trên máy GPU đã cài inference dependencies và tải checkpoint, chạy:
+
+```bash
+python scripts/check_thinking_budget.py --budgets 32 4096
+```
+
+Smoke test load engine một lần, dùng chat template thực tế, kiểm tra model
+đóng reasoning và sinh SQL parse được với budget nhỏ rồi với budget 4.096.
+Nó in raw response và diagnostics dưới dạng JSON; exit code khác 0 khi lỗi,
+không có dấu đóng thinking, hoặc hết token. Kiểm thử mock chỉ xác nhận wiring,
+không thay thế kiểm chứng hành vi model thật trên GPU.
+
+Với `scripts/run_b0_pipeline.py --api-base ...`, client cũng truyền
+`thinking_token_budget` và `chat_template_kwargs` lên server. Server vLLM phải
+hỗ trợ budget và bật ranh giới reasoning, ví dụ:
+
+```bash
+vllm serve Qwen/Qwen3.5-9B --max-model-len 32768 \
+  --reasoning-parser qwen3 \
+  --reasoning-config '{"reasoning_start_str":"<think>","reasoning_end_str":"</think>"}'
+```
+
+Client chỉ biết cấu hình đã gửi; smoke test với model thật vẫn cần thiết để
+xác nhận server thực thi budget. Nếu server không cung cấp usage, diagnostics
+để số token là null.

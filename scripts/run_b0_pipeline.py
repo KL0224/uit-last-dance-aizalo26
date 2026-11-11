@@ -32,6 +32,7 @@ from datamate.b0 import B0Pipeline
 from datamate.b0.b03 import (
     BaseLLM,
     ChatMessage,
+    GenerationDiagnostics,
     GenerationOptions,
     GenerationResult,
     Text2SQLGenerator,
@@ -51,12 +52,29 @@ class OpenAICompatibleLLM(BaseLLM):
         api_key: str = "EMPTY",
         timeout: float = 120.0,
         default_options: GenerationOptions | None = None,
+        chat_template_kwargs: dict[str, Any] | None = None,
     ) -> None:
         from openai import OpenAI
 
         self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout)
         self.model_name = model_name
         self.default_options = default_options or GenerationOptions()
+        self.chat_template_kwargs = dict(chat_template_kwargs or {})
+
+    def load(self) -> None:
+        """The remote server owns model loading."""
+
+    def generate(
+        self, prompt: str, *, options: GenerationOptions | None = None,
+    ) -> GenerationResult:
+        return self.chat([ChatMessage(role="user", content=prompt)], options=options)
+
+    def generate_batch(
+        self, prompts: list[str], *, options: GenerationOptions | None = None,
+    ) -> list[GenerationResult]:
+        return self.chat_batch(
+            [[ChatMessage(role="user", content=prompt)] for prompt in prompts], options=options,
+        )
 
     def chat(
         self,
@@ -65,6 +83,12 @@ class OpenAICompatibleLLM(BaseLLM):
     ) -> GenerationResult:
         opts = options or self.default_options
         payload = [{"role": m.role, "content": m.content} for m in messages]
+        extra_body = {}
+        if opts.thinking_token_budget is not None:
+            extra_body["thinking_token_budget"] = opts.thinking_token_budget
+        if self.chat_template_kwargs:
+            extra_body["chat_template_kwargs"] = self.chat_template_kwargs
+        request_kwargs = {"extra_body": extra_body} if extra_body else {}
         try:
             resp = self.client.chat.completions.create(
                 model=self.model_name,
@@ -74,22 +98,40 @@ class OpenAICompatibleLLM(BaseLLM):
                 max_tokens=opts.max_new_tokens,
                 presence_penalty=opts.presence_penalty,
                 stop=list(opts.stop) if opts.stop else None,
+                **request_kwargs,
             )
         except Exception as exc:
-            raise InferenceError(f"OpenAI API inference failed: {exc}") from exc
+            from datamate.b0.b03.diagnostics import exception_diagnostics
+
+            error = InferenceError(f"OpenAI API inference failed: {exc}")
+            error.diagnostics = exception_diagnostics(exc, GenerationDiagnostics(
+                thinking_enabled=self.chat_template_kwargs.get("enable_thinking"),
+                thinking_token_budget=opts.thinking_token_budget,
+                max_new_tokens=opts.max_new_tokens,
+            ))
+            raise error from exc
 
         choice = resp.choices[0]
         msg = choice.message
         content = msg.content or ""
-        reasoning = getattr(msg, "reasoning_content", None)
+        reasoning = getattr(msg, "reasoning_content", None) or getattr(msg, "reasoning", None)
         if reasoning and "<think>" not in content:
             content = f"<think>{reasoning}</think>\n{content}"
         usage = resp.usage
         return GenerationResult(
             text=content,
-            input_tokens=usage.prompt_tokens if usage else 0,
-            output_tokens=usage.completion_tokens if usage else 0,
+            input_tokens=usage.prompt_tokens if usage else None,
+            output_tokens=usage.completion_tokens if usage else None,
             finish_reason=choice.finish_reason,
+            diagnostics=GenerationDiagnostics(
+                raw_response=content,
+                input_tokens=usage.prompt_tokens if usage else None,
+                output_tokens=usage.completion_tokens if usage else None,
+                finish_reason=choice.finish_reason,
+                thinking_enabled=self.chat_template_kwargs.get("enable_thinking"),
+                thinking_token_budget=opts.thinking_token_budget,
+                max_new_tokens=opts.max_new_tokens,
+            ),
         )
 
     def chat_batch(
@@ -384,6 +426,7 @@ def run_pipeline_cli(
             base_url=api_base,
             model_name=resolved_name,
             default_options=gen_opts,
+            chat_template_kwargs=model_cfg.chat_template_kwargs,
         )
     else:
         print(
