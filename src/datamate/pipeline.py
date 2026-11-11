@@ -1,15 +1,33 @@
-"""End-to-End Orchestrator for DataMate 2026 B0 Baseline (B0.1 -> B0.2 -> B0.3 -> B0.4 -> B0.5)."""
+"""End-to-End Orchestrator for DataMate 2026.
+
+Canonical Pipeline Architecture:
+Business Context (A/B) -> Question Grounding (C) -> Agent Planner (D)
+-> Safe Execution (E) -> Verification & Bounded Repair (F)
+-> Decision & Output Gate (G) -> Telemetry & Audit Logs (H).
+"""
 
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 import time
 from typing import Any, Mapping, Sequence
 
+from datamate.context.runtime import (
+    BusinessContextRuntimeLoader,
+    BusinessRuntimeContext,
+    enrich_context_from_duckdb,
+)
+from datamate.grounding import (
+    BusinessContextAdapter,
+    GroundedQuestion,
+    GroundingToPlannerAdapter,
+    QuestionGroundingRuntime,
+    QuestionGroundingRuntimeError,
+)
 from datamate.ingestion.ingestion import PreparedBusinessArtifacts, prepare_business
 from datamate.planner.diagnostics import diagnostics_dict
-from datamate.planner.errors import LLMError
 from datamate.planner.generator import Text2SQLGenerator
 from datamate.planner.types import GenerationOptions, Text2SQLResult
 from datamate.execution import ExecutionRequest, execute_query
@@ -17,6 +35,7 @@ from datamate.gate import SubmissionWriter, evaluate_gate
 from datamate.gate.contracts import (
     AnswerType,
     Decision,
+    EvidenceProof,
     ExecutionResult,
     FinalAnswer,
     GateAction,
@@ -27,9 +46,11 @@ from datamate.gate.contracts import (
 )
 from datamate.gate.errors import ErrorCode
 
+logger = logging.getLogger(__name__)
 
-class B0Pipeline:
-    """Điều phối luồng B0 End-to-End: B0.1/B0.2 -> B0.3 -> B0.4 -> B0.5 (với 1 lần Bounded Retry)."""
+
+class DataMatePipeline:
+    """Điều phối toàn trình DataMate: Context -> Grounding -> Planner -> Executor -> Gate."""
 
     def __init__(
         self,
@@ -38,11 +59,23 @@ class B0Pipeline:
         timeout_sec: float = 10.0,
         max_rows: int = 10000,
         options: GenerationOptions | None = None,
+        enable_grounding: bool = True,
+        gate_contract_version: str = "b05.v1",
+        grounding_runtime: QuestionGroundingRuntime | None = None,
+        context_loader: BusinessContextRuntimeLoader | None = None,
     ) -> None:
         self.generator = generator
         self.timeout_sec = timeout_sec
         self.max_rows = max_rows
         self.options = options
+        self.enable_grounding = enable_grounding
+        self.gate_contract_version = gate_contract_version
+        self.grounding_runtime = (
+            grounding_runtime if grounding_runtime is not None else QuestionGroundingRuntime()
+        )
+        self.context_loader = (
+            context_loader if context_loader is not None else BusinessContextRuntimeLoader()
+        )
 
     @staticmethod
     def prepare_bundle(
@@ -54,7 +87,7 @@ class B0Pipeline:
         relationships: str | Path | None = None,
         config: Any = None,
     ) -> PreparedBusinessArtifacts:
-        """Chuẩn bị bundle B0.1 + B0.2 cho một thư mục doanh nghiệp."""
+        """Chuẩn bị bundle dữ liệu và ngữ nghĩa cho một thư mục doanh nghiệp."""
         return prepare_business(
             business_dir=business_dir,
             output_dir=output_dir,
@@ -64,72 +97,150 @@ class B0Pipeline:
             config=config,
         )
 
-    @staticmethod
-    def load_context(bundle_dir: str | Path) -> dict[str, Any]:
-        """Đọc business_context.json từ thư mục bundle và bổ sung profiling + join graph nếu có data.duckdb."""
-        bundle_path = Path(bundle_dir)
-        context_path = bundle_path / "business_context.json"
-        ctx = json.loads(context_path.read_text(encoding="utf-8"))
-        db_path = bundle_path / "data.duckdb"
-        if db_path.is_file():
-            try:
-                import duckdb
-                with duckdb.connect(str(db_path), read_only=True) as con:
-                    cat_samples: dict[str, dict[str, list[Any]]] = {}
-                    tables = [r[0] for r in con.execute("SHOW TABLES").fetchall()]
-                    cols_by_tbl: dict[str, list[str]] = {}
-                    for tname in tables:
-                        cat_samples[tname] = {}
-                        cols = con.execute(f"DESCRIBE {tname}").fetchall()
-                        cols_by_tbl[tname] = [c[0] for c in cols]
-                        for cname, ctype, *_ in cols:
-                            if cname.startswith("__dm_"):
-                                continue
-                            if ctype in ("VARCHAR", "BOOLEAN") or "INT" in ctype:
-                                try:
-                                    cnt = con.execute(f'SELECT COUNT(DISTINCT "{cname}") FROM {tname}').fetchone()[0]
-                                    if 0 < cnt <= 12:
-                                        vals = [r[0] for r in con.execute(f'SELECT DISTINCT "{cname}" FROM {tname} WHERE "{cname}" IS NOT NULL LIMIT 12').fetchall()]
-                                        cat_samples[tname][cname] = vals
-                                except Exception:
-                                    pass
-                    ctx["categorical_samples"] = cat_samples
+    @classmethod
+    def load_runtime_context(
+        cls,
+        bundle_dir: str | Path,
+        *,
+        expected_business_id: str | None = None,
+        loader: BusinessContextRuntimeLoader | None = None,
+    ) -> BusinessRuntimeContext:
+        """Load đối tượng BusinessRuntimeContext chứa cả planner_context và grounding_context."""
+        active_loader = loader if loader is not None else BusinessContextRuntimeLoader()
+        return active_loader.load(bundle_dir, expected_business_id=expected_business_id)
 
-                    schema_cat = ctx.get("schema_catalog", {})
-                    existing_edges = schema_cat.get("join_graph") or schema_cat.get("join_edges") or []
-                    if not existing_edges:
-                        discovered_edges = []
-                        id_keywords = ("id", "ma_", "so_", "sku", "code", "hd")
-                        for i, t1 in enumerate(tables):
-                            for c1 in cols_by_tbl[t1]:
-                                if c1.startswith("__dm_") or not any(k in c1.lower() for k in id_keywords):
-                                    continue
-                                for t2 in tables[i + 1:]:
-                                    for c2 in cols_by_tbl[t2]:
-                                        if c2.startswith("__dm_") or not any(k in c2.lower() for k in id_keywords):
-                                            continue
-                                        try:
-                                            overlap = con.execute(
-                                                f'SELECT COUNT(*) FROM {t1} JOIN {t2} ON {t1}."{c1}" = {t2}."{c2}"'
-                                            ).fetchone()[0]
-                                            if overlap > 0:
-                                                discovered_edges.append({
-                                                    "left_table": t1,
-                                                    "left_column": c1,
-                                                    "right_table": t2,
-                                                    "right_column": c2,
-                                                    "cardinality": "many_to_one",
-                                                    "status": "validated",
-                                                    "confidence": 0.9,
-                                                    "overlap": overlap,
-                                                })
-                                        except Exception:
-                                            pass
-                        discovered_edges.sort(key=lambda x: -x["overlap"])
-                        schema_cat["join_graph"] = discovered_edges
-            except Exception:
-                pass
-        return ctx
+    @classmethod
+    def load_context(cls, bundle_dir: str | Path) -> dict[str, Any]:
+        """Load context định dạng dictionary tương thích với Planner."""
+        return BusinessContextRuntimeLoader().load(bundle_dir).planner_context
+
+    @staticmethod
+    def _enrich_context_from_duckdb(ctx: dict[str, Any], db_path: Path) -> None:
+        """Compatibility wrapper for callers using the former pipeline helper."""
+        enrich_context_from_duckdb(ctx, db_path)
+
+    @staticmethod
+    def _build_grounding_summary(
+        grounded: GroundedQuestion | None,
+        elapsed_ms: float | None = None,
+        error: str | None = None,
+    ) -> dict[str, Any] | None:
+        if grounded is None:
+            if error is not None:
+                return {
+                    "status": "error",
+                    "error": error,
+                    "elapsed_ms": elapsed_ms,
+                }
+            return None
+
+        intent = grounded.intent
+        return {
+            "status": "ok",
+            "operation": (
+                intent.operation.value
+                if (intent and hasattr(intent.operation, "value"))
+                else str(getattr(intent, "operation", ""))
+            ),
+            "target_metrics": list(intent.target_metrics) if intent else [],
+            "entities": list(intent.entities) if intent else [],
+            "filters": [
+                {
+                    "column": getattr(f, "field_hint", getattr(f, "column", "")),
+                    "op": getattr(f, "operator", getattr(f, "op", "")),
+                    "value": getattr(f, "raw_value", getattr(f, "value", "")),
+                    "grounded_column": getattr(f, "grounded_column", None),
+                    "grounded_value": getattr(f, "grounded_value", None),
+                }
+                for f in (intent.filters if intent else ())
+            ],
+            "group_by": list(intent.group_by) if intent else [],
+            "top_k": intent.top_k if intent else None,
+            "sort_order": intent.sort_order if intent else None,
+            "used_llm_fallback": intent.used_llm_fallback if intent else False,
+            "fallback_reasons": list(intent.fallback_reasons) if intent else [],
+            "primary_table": grounded.selected_schema.primary_table if grounded.selected_schema else None,
+            "tables": [getattr(t, "table_name", t) for t in grounded.selected_schema.tables] if grounded.selected_schema else [],
+            "coverage_status": (
+                grounded.coverage_status.value
+                if (grounded.coverage_status and hasattr(grounded.coverage_status, "value"))
+                else str(grounded.coverage_status)
+            ),
+            "is_directly_unanswerable": grounded.is_directly_unanswerable,
+            "missing_evidence_proof": (
+                {
+                    "capability_key": grounded.missing_evidence_proof.capability_key,
+                    "missing_fields": list(grounded.missing_evidence_proof.missing_fields),
+                    "checked_tables": list(grounded.missing_evidence_proof.checked_tables),
+                    "reason": grounded.missing_evidence_proof.reason,
+                }
+                if grounded.missing_evidence_proof
+                else None
+            ),
+            "resolved_time_ranges": [
+                {
+                    "raw": tr.raw_expression,
+                    "role": tr.date_role.value if hasattr(tr.date_role, "value") else str(tr.date_role),
+                    "start": tr.start_date,
+                    "end": tr.end_date,
+                }
+                for tr in grounded.resolved_time_ranges
+            ],
+            "matched_values": [
+                {
+                    "raw_text": getattr(mv, "raw_text", ""),
+                    "table_name": getattr(mv, "table_name", ""),
+                    "column_name": getattr(mv, "column_name", ""),
+                    "matched_db_value": getattr(mv, "matched_db_value", None),
+                    "match_type": getattr(mv, "match_type", ""),
+                    "confidence": getattr(mv, "confidence", 1.0),
+                }
+                for mv in grounded.matched_values
+            ],
+            "applicable_rules": list(grounded.applicable_rules),
+            "risk_flags": list(grounded.risk_flags),
+            "elapsed_ms": elapsed_ms,
+            "error": error,
+        }
+
+    @staticmethod
+    def _record_grounding_trace(
+        output_dir: str | Path | None,
+        grounded: GroundedQuestion | None,
+        outcome: GateOutcome | None = None,
+        elapsed_ms: float | None = None,
+    ) -> None:
+        if output_dir is None or grounded is None:
+            return
+        try:
+            trace_path = Path(output_dir) / "grounding_trace.jsonl"
+            trace_entry = {
+                "question_id": grounded.question_id,
+                "business_id": grounded.business_id,
+                "coverage_status": grounded.coverage_status.value,
+                "is_directly_unanswerable": grounded.is_directly_unanswerable,
+                "operation": grounded.intent.operation.value,
+                "target_metrics": list(grounded.intent.target_metrics),
+                "primary_table": grounded.selected_schema.primary_table,
+                "tables": [t.table_name for t in grounded.selected_schema.tables],
+                "resolved_time_ranges": [
+                    {
+                        "raw": tr.raw_expression,
+                        "role": tr.date_role.value,
+                        "start": tr.start_date,
+                        "end": tr.end_date,
+                    }
+                    for tr in grounded.resolved_time_ranges
+                ],
+                "matched_values_count": len(grounded.matched_values),
+                "grounding_elapsed_ms": elapsed_ms,
+                "decision": outcome.decision if outcome else None,
+                "reason_code": outcome.reason_code if outcome else None,
+            }
+            with trace_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(trace_entry, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            logger.debug("Failed to record grounding trace: %s", exc)
 
     def answer_question(
         self,
@@ -139,8 +250,9 @@ class B0Pipeline:
         context: Mapping[str, Any] | None = None,
         industry: str | None = None,
         writer: SubmissionWriter | None = None,
+        runtime_context: BusinessRuntimeContext | None = None,
     ) -> GateOutcome:
-        """Chạy trọn vẹn 1 câu hỏi từ B0.3 -> B0.4 -> B0.5 (kèm tối đa 1 lần retry)."""
+        """Chạy trọn vẹn 1 câu hỏi qua Grounding -> Planner -> Executor -> Gate (với tối đa 1 retry)."""
         if isinstance(question, QuestionMeta):
             q_meta = question
         else:
@@ -152,9 +264,92 @@ class B0Pipeline:
             )
 
         bundle_path = Path(bundle_dir)
-        ctx = dict(context) if context is not None else self.load_context(bundle_path)
+
+        # 1. Tải ngữ nghĩa nghiệp vụ (Context)
+        grounding_ctx = None
+        if runtime_context is not None:
+            ctx = dict(context) if context is not None else runtime_context.planner_context
+            grounding_ctx = runtime_context.grounding_context
+        elif context is not None:
+            ctx = dict(context)
+            try:
+                rt = self.load_runtime_context(bundle_path, expected_business_id=q_meta.business_id or None)
+                grounding_ctx = rt.grounding_context
+            except Exception:
+                try:
+                    grounding_ctx = BusinessContextAdapter.from_dict(ctx)
+                except Exception:
+                    grounding_ctx = None
+        else:
+            try:
+                rt = self.load_runtime_context(bundle_path, expected_business_id=q_meta.business_id or None)
+                ctx = rt.planner_context
+                grounding_ctx = rt.grounding_context
+            except Exception:
+                ctx = self.load_context(bundle_path)
+                grounding_ctx = None
+
         resolved_industry = industry or (ctx.get("business_metadata") or {}).get("industry")
 
+        # 2. Phân tích câu hỏi và liên kết dữ liệu (Grounding C1-C5)
+        grounded: GroundedQuestion | None = None
+        grounded_hint: str | None = None
+        grounding_ms: float = 0.0
+        grounding_error: str | None = None
+
+        if self.enable_grounding and grounding_ctx is not None:
+            t_g0 = time.perf_counter()
+            try:
+                grounded = self.grounding_runtime.ground_question(
+                    question_id=q_meta.id,
+                    business_id=q_meta.business_id,
+                    question=q_meta.question,
+                    as_of_date=q_meta.as_of_date,
+                    context=grounding_ctx,
+                )
+                grounded_hint = GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded)
+            except Exception as g_exc:
+                grounding_error = str(g_exc)
+                logger.warning("Grounding failed for %s: %s; falling back to ungrounded planner", q_meta.id, g_exc)
+            grounding_ms = round((time.perf_counter() - t_g0) * 1000.0, 2)
+
+        if writer is not None:
+            g_summary = self._build_grounding_summary(grounded, grounding_ms, error=grounding_error)
+            writer.record_grounding(q_meta.id, g_summary)
+
+        # Fast-Path: Nếu Grounding C5 xác nhận thiếu dữ liệu không thể trả lời -> đi thẳng vào Gate
+        if (
+            grounded is not None
+            and grounded.is_directly_unanswerable
+            and grounded.missing_evidence_proof is not None
+        ):
+            evidence = GroundingToPlannerAdapter.to_gate_evidence_proof(grounded)
+            gate_exec = ExecutionResult(status="not_executed")
+            gate_req = GateRequest(
+                contract_version=self.gate_contract_version,
+                question=q_meta,
+                generation=None,
+                execution=gate_exec,
+                evidence=evidence,
+                attempt=0,
+            )
+            outcome = evaluate_gate(gate_req)
+            if writer is not None:
+                writer.record_attempt(
+                    question_id=q_meta.id,
+                    attempt=0,
+                    sql="",
+                    execution_status="not_executed",
+                    error_code=ErrorCode.CONFIRMED_MISSING_EVIDENCE,
+                    error_message=grounded.missing_evidence_proof.reason,
+                    llm_generation_ms=0.0,
+                )
+                out_dir = getattr(writer, "output_dir", None)
+                if out_dir:
+                    self._record_grounding_trace(out_dir, grounded, outcome, grounding_ms)
+            return outcome
+
+        # 3. Lập kế hoạch và sinh câu truy vấn SQL (Planner D)
         t_llm0 = time.perf_counter()
         try:
             gen_res = self.generator.generate(
@@ -163,6 +358,7 @@ class B0Pipeline:
                 as_of_date=q_meta.as_of_date,
                 options=self.options,
                 industry=resolved_industry,
+                grounded_hint=grounded_hint,
             )
             llm_ms0 = round((time.perf_counter() - t_llm0) * 1000.0, 2)
         except Exception as exc:
@@ -180,6 +376,7 @@ class B0Pipeline:
                 )
             return self._abstain_outcome(q_meta.id, str(exc), attempt=0)
 
+        # 4. Thực thi và Đánh giá (Execution E -> Gate F/G)
         outcome = self._evaluate_attempt(
             q_meta=q_meta,
             bundle_path=bundle_path,
@@ -187,9 +384,11 @@ class B0Pipeline:
             gen_res=gen_res,
             attempt=0,
             llm_generation_ms=llm_ms0,
+            grounded=grounded,
             writer=writer,
         )
 
+        # 5. Sửa lỗi có giới hạn (Bounded Repair - tối đa 1 retry)
         if outcome.action == GateAction.RETRY and outcome.repair_request is not None:
             repair_req = outcome.repair_request
             error_feedback = f"[{repair_req.error_type}] {repair_req.error_message}"
@@ -205,6 +404,7 @@ class B0Pipeline:
                     error_message=error_feedback,
                     options=self.options,
                     industry=resolved_industry,
+                    grounded_hint=grounded_hint,
                 )
                 llm_ms1 = round((time.perf_counter() - t_llm1) * 1000.0, 2)
             except Exception as exc:
@@ -229,9 +429,12 @@ class B0Pipeline:
                 gen_res=repaired_res,
                 attempt=1,
                 llm_generation_ms=llm_ms1,
+                grounded=grounded,
                 writer=writer,
             )
 
+        if writer is not None and getattr(writer, "output_dir", None):
+            self._record_grounding_trace(writer.output_dir, grounded, outcome, grounding_ms)
         return outcome
 
     def run_questions(
@@ -245,14 +448,29 @@ class B0Pipeline:
     ) -> list[GateOutcome]:
         """Chạy danh sách câu hỏi và ghi kết quả ra submission.jsonl + logs/*.json + detailed_logs.jsonl.
 
-        Hỗ trợ batch_size > 1 để thực hiện suy luận song song (batch inference) trên GPU lớn như A100.
+        Hỗ trợ batch_size > 1 để thực hiện suy luận song song (batch inference) trên GPU.
         """
         out_path = Path(output_dir)
         writer = SubmissionWriter(out_path)
         detailed_log_path = out_path / "detailed_logs.jsonl"
+        grounding_trace_path = out_path / "grounding_trace.jsonl"
+        if not writer.seen_ids:
+            if detailed_log_path.exists():
+                detailed_log_path.unlink()
+            if grounding_trace_path.exists():
+                grounding_trace_path.unlink()
+
         context_cache: dict[str, dict[str, Any]] = {}
+        runtime_context_cache: dict[str, BusinessRuntimeContext | None] = {}
         outcomes: list[GateOutcome] = []
         total_q = len(questions)
+
+        def finalize_submission() -> None:
+            expected_ids = [
+                str(item.id if isinstance(item, QuestionMeta) else item.get("id", ""))
+                for item in questions
+            ]
+            writer.finalize(outcomes, expected_ids=expected_ids)
 
         if batch_size <= 1 or total_q <= 1:
             for idx, item in enumerate(questions, start=1):
@@ -272,20 +490,36 @@ class B0Pipeline:
                     outcome = self._abstain_outcome(q_id, f"Missing bundle for business_id={biz_id}", attempt=0)
                 else:
                     bundle_key = str(bundle_dir)
+                    if bundle_key not in runtime_context_cache:
+                        try:
+                            runtime_context_cache[bundle_key] = self.load_runtime_context(
+                                bundle_dir, expected_business_id=biz_id or None
+                            )
+                        except Exception:
+                            runtime_context_cache[bundle_key] = None
+
+                    rt_ctx = runtime_context_cache[bundle_key]
                     if bundle_key not in context_cache:
-                        context_cache[bundle_key] = self.load_context(bundle_dir)
+                        context_cache[bundle_key] = rt_ctx.planner_context if rt_ctx else self.load_context(bundle_dir)
+
                     outcome = self.answer_question(
                         question=item,
                         bundle_dir=bundle_dir,
                         context=context_cache[bundle_key],
+                        runtime_context=rt_ctx,
                         writer=writer,
                     )
                 elapsed_ms = round((time.perf_counter() - t0) * 1000.0, 2)
+                g_summary = writer.audit_logger.get_grounding(q_id)
                 writer.write_final(
                     outcome,
-                    trace_meta={"business_id": biz_id, "total_elapsed_ms": elapsed_ms},
+                    trace_meta={
+                        "business_id": biz_id,
+                        "total_elapsed_ms": elapsed_ms,
+                        "grounding": g_summary,
+                    },
                 )
-                attempts_history = writer.audit_logger._history.get(q_id, [])
+                attempts_history = writer.audit_logger.get_history(q_id)
                 if verbose:
                     for att in attempts_history:
                         att_no = att.get("attempt", 0)
@@ -312,12 +546,14 @@ class B0Pipeline:
                     "retry_count": outcome.retry_count,
                     "total_elapsed_ms": elapsed_ms,
                     "final_answer": outcome.final_answer.to_submission_dict() if outcome.final_answer else None,
+                    "grounding": g_summary,
                     "attempts": attempts_history,
                 }
                 with detailed_log_path.open("a", encoding="utf-8") as df:
                     df.write(json.dumps(detailed_entry, ensure_ascii=False) + "\n")
                 outcomes.append(outcome)
 
+            finalize_submission()
             return outcomes
 
         # === Chế độ Batch Processing trên GPU (batch_size > 1) ===
@@ -343,26 +579,98 @@ class B0Pipeline:
                         "bundle_path": None,
                         "context": None,
                         "industry": None,
+                        "grounded": None,
+                        "grounded_hint": None,
+                        "grounding_ms": 0.0,
                         "outcome": self._abstain_outcome(q_meta.id, f"Missing bundle for business_id={biz_id}", attempt=0),
                         "t0": time.perf_counter(),
                     })
                 else:
                     bundle_path = Path(bundle_dir)
                     bundle_key = str(bundle_dir)
+                    if bundle_key not in runtime_context_cache:
+                        try:
+                            runtime_context_cache[bundle_key] = self.load_runtime_context(
+                                bundle_dir, expected_business_id=biz_id or None
+                            )
+                        except Exception:
+                            runtime_context_cache[bundle_key] = None
+
+                    rt_ctx = runtime_context_cache[bundle_key]
                     if bundle_key not in context_cache:
-                        context_cache[bundle_key] = self.load_context(bundle_dir)
+                        context_cache[bundle_key] = rt_ctx.planner_context if rt_ctx else self.load_context(bundle_dir)
+
                     ctx = context_cache[bundle_key]
+                    grounding_ctx = rt_ctx.grounding_context if rt_ctx else None
                     resolved_ind = (ctx.get("business_metadata") or {}).get("industry")
+
+                    # Chạy Grounding C1-C5
+                    grounded_res: GroundedQuestion | None = None
+                    grounded_hint_str: str | None = None
+                    g_ms: float = 0.0
+                    g_err_msg: str | None = None
+                    fast_outcome: GateOutcome | None = None
+
+                    if self.enable_grounding and grounding_ctx is not None:
+                        t_g0 = time.perf_counter()
+                        try:
+                            grounded_res = self.grounding_runtime.ground_question(
+                                question_id=q_meta.id,
+                                business_id=q_meta.business_id,
+                                question=q_meta.question,
+                                as_of_date=q_meta.as_of_date,
+                                context=grounding_ctx,
+                            )
+                            grounded_hint_str = GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded_res)
+                        except Exception as g_err:
+                            g_err_msg = str(g_err)
+                            logger.warning("Grounding failed for %s: %s", q_meta.id, g_err)
+                        g_ms = round((time.perf_counter() - t_g0) * 1000.0, 2)
+
+                    g_summary = self._build_grounding_summary(grounded_res, g_ms, error=g_err_msg)
+                    writer.record_grounding(q_meta.id, g_summary)
+
+                    # Fast-path check unanswerable
+                    if (
+                        grounded_res is not None
+                        and grounded_res.is_directly_unanswerable
+                        and grounded_res.missing_evidence_proof is not None
+                    ):
+                        evidence = GroundingToPlannerAdapter.to_gate_evidence_proof(grounded_res)
+                        gate_exec = ExecutionResult(status="not_executed")
+                        gate_req = GateRequest(
+                            contract_version=self.gate_contract_version,
+                            question=q_meta,
+                            generation=None,
+                            execution=gate_exec,
+                            evidence=evidence,
+                            attempt=0,
+                        )
+                        fast_outcome = evaluate_gate(gate_req)
+                        writer.record_attempt(
+                            question_id=q_meta.id,
+                            attempt=0,
+                            sql="",
+                            execution_status="not_executed",
+                            error_code=ErrorCode.CONFIRMED_MISSING_EVIDENCE,
+                            error_message=grounded_res.missing_evidence_proof.reason,
+                            llm_generation_ms=0.0,
+                        )
+
                     chunk_prepared.append({
                         "q_meta": q_meta,
                         "bundle_path": bundle_path,
                         "context": ctx,
                         "industry": resolved_ind,
-                        "outcome": None,
+                        "grounded": grounded_res,
+                        "grounded_hint": grounded_hint_str,
+                        "grounding_ms": g_ms,
+                        "grounding_summary": g_summary,
+                        "outcome": fast_outcome,
                         "t0": time.perf_counter(),
                     })
 
-            # 1. Batch Generation: Attempt 0
+            # 1. Batch Generation: Attempt 0 (cho những câu chưa giải bằng fast-path)
             valid_for_gen = [entry for entry in chunk_prepared if entry["outcome"] is None]
             if valid_for_gen:
                 gen_inputs = [
@@ -371,12 +679,14 @@ class B0Pipeline:
                         "question": entry["q_meta"].question,
                         "as_of_date": entry["q_meta"].as_of_date,
                         "industry": entry["industry"],
+                        "grounded_hint": entry.get("grounded_hint"),
                     }
                     for entry in valid_for_gen
                 ]
                 t_b0 = time.perf_counter()
                 try:
                     gen_results: list[Any] = self.generator.generate_batch(gen_inputs, options=self.options)
+                    gen_results = self._pad_batch_results(gen_results, len(valid_for_gen))
                     per_item_llm_ms0 = round(((time.perf_counter() - t_b0) * 1000.0) / max(len(valid_for_gen), 1), 2)
                 except Exception as batch_error:
                     for entry in valid_for_gen:
@@ -391,6 +701,7 @@ class B0Pipeline:
                                 as_of_date=entry["q_meta"].as_of_date,
                                 options=self.options,
                                 industry=entry["industry"],
+                                grounded_hint=entry.get("grounded_hint"),
                             )
                             entry["indiv_llm_ms"] = round((time.perf_counter() - t_indiv) * 1000.0, 2)
                             gen_results.append(gr)
@@ -415,7 +726,6 @@ class B0Pipeline:
                             batch_fallback_error=entry.get("batch_fallback_0"),
                             llm_generation_ms=llm_dur0,
                         )
-                        # Cho phép Bounded Retry (Attempt 1) để cứu vãn lỗi parse
                         repair_req = RepairRequest(
                             attempt=1,
                             failed_sql="",
@@ -447,6 +757,7 @@ class B0Pipeline:
                             attempt=0,
                             llm_generation_ms=llm_dur0,
                             batch_fallback_error=entry.get("batch_fallback_0"),
+                            grounded=entry.get("grounded"),
                             writer=writer,
                         )
                         entry["outcome"] = outcome_0
@@ -469,10 +780,12 @@ class B0Pipeline:
                             "previous_sql": prev_sql,
                             "error_message": error_feedback,
                             "industry": entry["industry"],
+                            "grounded_hint": entry.get("grounded_hint"),
                         })
                     t_b1 = time.perf_counter()
                     try:
                         repaired_results: list[Any] = self.generator.repair_batch(repair_inputs, options=self.options)
+                        repaired_results = self._pad_batch_results(repaired_results, len(repair_needed))
                         per_item_llm_ms1 = round(((time.perf_counter() - t_b1) * 1000.0) / max(len(repair_needed), 1), 2)
                     except Exception as batch_error:
                         for entry in repair_needed:
@@ -489,6 +802,7 @@ class B0Pipeline:
                                     error_message=r_inp["error_message"],
                                     options=self.options,
                                     industry=r_inp["industry"],
+                                    grounded_hint=r_inp.get("grounded_hint"),
                                 )
                                 entry["indiv_llm_ms1"] = round((time.perf_counter() - t_indiv1) * 1000.0, 2)
                                 repaired_results.append(r_res)
@@ -521,6 +835,7 @@ class B0Pipeline:
                                 attempt=1,
                                 llm_generation_ms=llm_dur1,
                                 batch_fallback_error=entry.get("batch_fallback_1"),
+                                grounded=entry.get("grounded"),
                                 writer=writer,
                             )
                             entry["outcome"] = outcome_1
@@ -529,12 +844,25 @@ class B0Pipeline:
             for entry in chunk_prepared:
                 q_meta = entry["q_meta"]
                 outcome = entry["outcome"]
+                if outcome is None:
+                    outcome = self._abstain_outcome(q_meta.id, "Không có kết quả xử lý", attempt=0, code=ErrorCode.UNKNOWN_ERROR)
                 elapsed_ms = round((time.perf_counter() - entry["t0"]) * 1000.0, 2)
+                g_summary = entry.get("grounding_summary") or writer.audit_logger.get_grounding(q_meta.id)
                 writer.write_final(
                     outcome,
-                    trace_meta={"business_id": q_meta.business_id, "total_elapsed_ms": elapsed_ms},
+                    trace_meta={
+                        "business_id": q_meta.business_id,
+                        "total_elapsed_ms": elapsed_ms,
+                        "grounding": g_summary,
+                    },
                 )
-                attempts_history = writer.audit_logger._history.get(q_meta.id, [])
+                self._record_grounding_trace(
+                    out_path,
+                    entry.get("grounded"),
+                    outcome,
+                    entry.get("grounding_ms"),
+                )
+                attempts_history = writer.audit_logger.get_history(q_meta.id)
                 if verbose:
                     global_idx = len(outcomes) + 1
                     print(
@@ -567,15 +895,44 @@ class B0Pipeline:
                     "retry_count": outcome.retry_count,
                     "total_elapsed_ms": elapsed_ms,
                     "final_answer": outcome.final_answer.to_submission_dict() if outcome.final_answer else None,
+                    "grounding": g_summary,
                     "attempts": attempts_history,
                 }
                 with detailed_log_path.open("a", encoding="utf-8") as df:
                     df.write(json.dumps(detailed_entry, ensure_ascii=False) + "\n")
                 outcomes.append(outcome)
 
+        finalize_submission()
         return outcomes
 
     def _evaluate_attempt(
+        self,
+        *,
+        q_meta: QuestionMeta,
+        attempt: int,
+        writer: SubmissionWriter | None = None,
+        **kwargs: Any,
+    ) -> GateOutcome:
+        """Đánh giá 1 attempt; mọi ngoại lệ ngoài dự kiến được chuyển thành abstain thay vì làm sập cả lượt chạy."""
+        try:
+            return self._evaluate_attempt_unsafe(q_meta=q_meta, attempt=attempt, writer=writer, **kwargs)
+        except Exception as exc:
+            logger.exception("Lỗi nội bộ khi đánh giá %s (attempt %s)", q_meta.id, attempt)
+            if writer is not None:
+                try:
+                    writer.record_attempt(
+                        question_id=q_meta.id,
+                        attempt=attempt,
+                        sql="",
+                        execution_status="error",
+                        error_code=ErrorCode.UNKNOWN_ERROR,
+                        error_message=f"{type(exc).__name__}: {exc}",
+                    )
+                except Exception:
+                    logger.exception("Không ghi được attempt lỗi cho %s", q_meta.id)
+            return self._abstain_outcome(q_meta.id, f"{type(exc).__name__}: {exc}", attempt=attempt, code=ErrorCode.UNKNOWN_ERROR)
+
+    def _evaluate_attempt_unsafe(
         self,
         *,
         q_meta: QuestionMeta,
@@ -585,46 +942,50 @@ class B0Pipeline:
         attempt: int,
         llm_generation_ms: float | None = None,
         batch_fallback_error: dict[str, Any] | None = None,
+        grounded: GroundedQuestion | None = None,
         writer: SubmissionWriter | None = None,
     ) -> GateOutcome:
-        b05_gen = gen_res.to_b05_generation_result()
-        evidence = gen_res.to_b05_evidence_proof(context)
-
+        gate_gen = gen_res.to_gate_generation_result()
         if gen_res.status == "unanswerable":
-            b05_exec = ExecutionResult(status="not_executed")
+            gate_exec = ExecutionResult(status="not_executed")
+            evidence = gen_res.to_gate_evidence_proof(context)
         else:
+            if grounded is not None:
+                evidence = GroundingToPlannerAdapter.to_gate_evidence_proof(grounded)
+            else:
+                evidence = gen_res.to_gate_evidence_proof(context)
             exec_req = ExecutionRequest(
                 question_id=q_meta.id,
                 db_path=str(bundle_path),
                 sql_query=gen_res.sql or "",
-                answer_type=b05_gen.answer_type,
+                answer_type=gate_gen.answer_type,
                 retry_count=attempt,
                 max_retries=1,
                 timeout_sec=self.timeout_sec,
                 max_rows=self.max_rows,
             )
             exec_resp = execute_query(exec_req)
-            b05_exec = exec_resp.to_b05_execution_result()
+            gate_exec = exec_resp.to_gate_execution_result()
 
         gate_req = GateRequest(
-            contract_version="b05.v1",
+            contract_version=self.gate_contract_version,
             question=q_meta,
-            generation=b05_gen,
-            execution=b05_exec,
+            generation=gate_gen,
+            execution=gate_exec,
             evidence=evidence,
             attempt=attempt,
         )
         outcome = evaluate_gate(gate_req)
         if writer is not None:
-            err_msg = b05_exec.error.message if b05_exec.error else (gen_res.reason if gen_res.status == "unanswerable" else None)
+            err_msg = gate_exec.error.message if gate_exec.error else (gen_res.reason if gen_res.status == "unanswerable" else None)
             writer.record_attempt(
                 question_id=q_meta.id,
                 attempt=attempt,
                 sql=gen_res.sql or "",
-                execution_status=b05_exec.status,
+                execution_status=gate_exec.status,
                 error_code=outcome.reason_code if outcome.decision != Decision.ANSWER else None,
-                execution_ms=b05_exec.elapsed_ms,
-                row_count=b05_exec.row_count,
+                execution_ms=gate_exec.elapsed_ms,
+                row_count=gate_exec.row_count,
                 thinking=gen_res.thinking,
                 generation_diagnostics=diagnostics_dict(gen_res),
                 batch_fallback_error=batch_fallback_error,
@@ -635,8 +996,18 @@ class B0Pipeline:
         return outcome
 
     @staticmethod
-    def _abstain_outcome(question_id: str, error_detail: str, attempt: int) -> GateOutcome:
-        code = ErrorCode.RETRY_EXHAUSTED if attempt >= 1 else ErrorCode.GENERATION_INVALID
+    def _pad_batch_results(results: list[Any], expected: int) -> list[Any]:
+        """Đảm bảo số kết quả batch khớp số đầu vào (tránh `zip` âm thầm cắt bớt câu hỏi)."""
+        results = list(results)
+        if len(results) != expected:
+            logger.error("Batch trả về %d kết quả cho %d đầu vào", len(results), expected)
+        if len(results) < expected:
+            results += [RuntimeError("Batch inference trả thiếu kết quả")] * (expected - len(results))
+        return results[:expected]
+
+    @staticmethod
+    def _abstain_outcome(question_id: str, error_detail: str, attempt: int, code: str | None = None) -> GateOutcome:
+        code = code or (ErrorCode.RETRY_EXHAUSTED if attempt >= 1 else ErrorCode.GENERATION_INVALID)
         return GateOutcome(
             action=GateAction.FINAL,
             question_id=question_id,
@@ -649,6 +1020,11 @@ class B0Pipeline:
         )
 
 
-Pipeline = B0Pipeline
+B0Pipeline = DataMatePipeline
+Pipeline = DataMatePipeline
 
-__all__ = ["Pipeline", "B0Pipeline"]
+__all__ = [
+    "DataMatePipeline",
+    "Pipeline",
+    "B0Pipeline",
+]

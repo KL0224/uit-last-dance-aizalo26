@@ -70,6 +70,14 @@ class SubmissionWriter:
             batch_fallback_error=batch_fallback_error,
         )
 
+    def record_grounding(
+        self,
+        question_id: str,
+        grounding_data: Optional[Dict[str, Any]],
+    ) -> None:
+        """Record grounding trace into audit logger history."""
+        self.audit_logger.record_grounding(question_id, grounding_data)
+
     def write_final(
         self,
         outcome: GateOutcome,
@@ -115,6 +123,7 @@ class SubmissionWriter:
                 total_elapsed_ms=meta.get("total_elapsed_ms"),
                 model_version=str(meta.get("model_version", "default")),
                 prompt_version=str(meta.get("prompt_version", "default")),
+                grounding=meta.get("grounding"),
             )
         except Exception as exc:
             raise OutputWriteError(f"Failed to write audit log for {q_id}: {exc}")

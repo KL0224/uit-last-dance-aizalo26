@@ -248,8 +248,8 @@ def adapt_gate_request(raw: Dict[str, Any]) -> GateRequest:
         raise ContractError("Request payload must be a JSON object / dictionary")
 
     version = raw.get("contract_version")
-    if version not in ("b05.v1", "b05.v2"):
-        raise ContractError(f"Unsupported contract_version '{version}'. Expected 'b05.v1' or 'b05.v2'")
+    if version not in ("b05.v1", "b05.v2", "gate.v2"):
+        raise ContractError(f"Unsupported contract_version '{version}'. Expected 'b05.v1', 'b05.v2' or 'gate.v2'")
 
     q_raw = raw.get("question")
     if not isinstance(q_raw, dict):

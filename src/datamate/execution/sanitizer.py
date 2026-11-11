@@ -1,5 +1,4 @@
 import re
-from typing import Optional
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ParseError

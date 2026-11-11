@@ -13,7 +13,7 @@ from datamate import (
     pipeline,
     planner,
 )
-from datamate.pipeline import B0Pipeline, Pipeline
+from datamate.pipeline import B0Pipeline, DataMatePipeline, Pipeline
 
 __all__ = [
     "context",
@@ -23,6 +23,7 @@ __all__ = [
     "ingestion",
     "pipeline",
     "planner",
+    "DataMatePipeline",
     "Pipeline",
     "B0Pipeline",
 ]

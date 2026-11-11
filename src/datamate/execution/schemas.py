@@ -69,6 +69,9 @@ class ExecutionRequest(BaseModel):
             timeout_sec=timeout_sec,
         )
 
+    # Canonical semantic alias for from_b03
+    from_planner = from_b03
+
 
 class ExecutionResponse(BaseModel):
     question_id: str
@@ -113,6 +116,8 @@ class ExecutionResponse(BaseModel):
                     message=self.error_message or "Execution failed",
                 ),
             )
+
+    to_gate_execution_result = to_b05_execution_result
 
 
 def normalize_value(val: Any) -> Any:

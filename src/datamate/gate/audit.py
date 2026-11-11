@@ -17,6 +17,20 @@ class AuditLogger:
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         # In-memory attempts history to merge across retry attempts
         self._history: Dict[str, List[Dict[str, Any]]] = {}
+        # In-memory grounding results per question
+        self._grounding: Dict[str, Optional[Dict[str, Any]]] = {}
+
+    def get_history(self, question_id: str) -> List[Dict[str, Any]]:
+        """Trả về bản sao danh sách các attempt đã ghi cho một câu hỏi."""
+        return list(self._history.get(question_id, []))
+
+    def record_grounding(self, question_id: str, grounding_data: Optional[Dict[str, Any]]) -> None:
+        """Lưu vết kết quả grounding cho câu hỏi."""
+        self._grounding[question_id] = grounding_data
+
+    def get_grounding(self, question_id: str) -> Optional[Dict[str, Any]]:
+        """Trả về kết quả grounding đã lưu cho câu hỏi."""
+        return self._grounding.get(question_id)
 
     def _safe_filename(self, question_id: str) -> str:
         """Generate safe, collision-resistant filename without path traversal."""
@@ -74,12 +88,14 @@ class AuditLogger:
         total_elapsed_ms: Optional[float] = None,
         model_version: str = "default",
         prompt_version: str = "default",
+        grounding: Optional[Dict[str, Any]] = None,
     ) -> Path:
         """Write complete audit log for question to JSON file."""
         q_id = outcome.question_id
         filepath = self.logs_dir / self._safe_filename(q_id)
 
         attempts = self._history.get(q_id, [])
+        grounding_data = grounding if grounding is not None else self._grounding.get(q_id)
 
         final_ans_dict = None
         if outcome.final_answer:
@@ -92,6 +108,7 @@ class AuditLogger:
             "final_decision": outcome.decision,
             "reason_code": outcome.reason_code,
             "final_answer": final_ans_dict,
+            "grounding": grounding_data,
             "attempts": attempts,
             "checks": outcome.validation.get("errors", []),
             "warnings": outcome.validation.get("warnings", []),

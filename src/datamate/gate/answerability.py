@@ -12,7 +12,10 @@ def evaluate_answerability(request: GateRequest) -> Tuple[bool, Optional[str]]:
     Returns:
         (is_unanswerable: bool, reason: Optional[str])
     """
-    if request.contract_version == "b05.v2":
+    if request.contract_version in ("b05.v2", "gate.v2") and (
+        request.capability_proof.capability_ids
+        or request.capability_proof.status != CapabilityStatus.UNKNOWN
+    ):
         proof = request.capability_proof
         if proof.status != CapabilityStatus.UNSUPPORTED or not capability_proof_complete(request):
             return False, None

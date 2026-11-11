@@ -1,7 +1,7 @@
 """Execution and Result Validator for B0.5 Basic Output Gate (DataMate 2026)."""
 
 import math
-from typing import Any, Dict, List
+from typing import List
 
 from .contracts import AnswerType, ExecutionStatus, GateRequest, ValidationResult
 from .errors import ErrorCode

@@ -1,7 +1,6 @@
 """Error taxonomy and custom exceptions for B0.5 Basic Output Gate."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 # Standard Error & Reason Codes (B0.5 Specification §5, §11)
