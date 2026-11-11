@@ -8,9 +8,9 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
-from datamate.b0.b01.ingestion.models import SourceTable
-from datamate.b0.b01.relationship_evidence import relationship_fingerprint
+from datamate.ingestion.contracts import JoinEdge, RelationshipEvidence
+from datamate.ingestion.ingestion.models import SourceTable
+from datamate.ingestion.relationship_evidence import relationship_fingerprint
 
 
 class ReviewedRelationships:

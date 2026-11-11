@@ -55,8 +55,7 @@ class ExecutionRequest(BaseModel):
         ans_type = getattr(b03_result, "answer_type", None)
         if ans_type is not None:
             try:
-                from datamate.b0.b03.parser import normalize_answer_type
-
+                from datamate.planner.parser import normalize_answer_type
                 ans_type = normalize_answer_type(ans_type, sql)
             except Exception:
                 pass
@@ -86,7 +85,7 @@ class ExecutionResponse(BaseModel):
 
     def to_b05_execution_result(self) -> Any:
         """Chuyển đổi sang ExecutionResult của B0.5 Basic Output Gate."""
-        from datamate.b0.b05.contracts import ExecutionErrorDetail, ExecutionResult
+        from datamate.gate.contracts import ExecutionErrorDetail, ExecutionResult
 
         if self.is_valid and self.route == "yes":
             cols = self.columns or []

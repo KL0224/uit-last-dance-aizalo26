@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from datamate.b0.b01.metadata_adapter import BaseMetadataProvider
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion.metadata_adapter import BaseMetadataProvider
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 from .contracts import BusinessContext, ContractBuilder
 from .rule_compiler import BusinessRuleCompiler

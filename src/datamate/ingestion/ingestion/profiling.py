@@ -11,15 +11,15 @@ from typing import Any
 
 import duckdb
 
-from datamate.b0.b01.contracts import (
+from datamate.ingestion.contracts import (
     ColumnMetadata,
     JoinEdge,
     JoinStatistics,
     KeyCandidate,
     TableMetadata,
 )
-from datamate.b0.b01.metadata_adapter import BaseMetadataProvider, FoundationMetadata
-from datamate.b0.b01.relationship_evidence import trusted_relationship
+from datamate.ingestion.metadata_adapter import BaseMetadataProvider, FoundationMetadata
+from datamate.ingestion.relationship_evidence import trusted_relationship
 from .models import PreparationConfig
 from .readers import quote
 
@@ -105,7 +105,7 @@ class DuckDBProfileProvider(BaseProfileProvider):
         overlap = self.connection.execute(
             f"SELECT COUNT(*) FROM (SELECT DISTINCT {keys} FROM ({lsql}) INTERSECT SELECT DISTINCT {keys} FROM ({rsql}))"
         ).fetchone()[0]
-        from datamate.b0.b01.schema_catalog import _cardinality
+        from datamate.ingestion.schema_catalog import _cardinality
 
         observed = _cardinality(lcount == ldistinct, rcount == rdistinct)
         edge = replace(

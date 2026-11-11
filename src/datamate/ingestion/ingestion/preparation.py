@@ -18,12 +18,12 @@ from typing import Any
 import duckdb
 import openpyxl
 
-from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
-from datamate.b0.b01.relationship_evidence import relationship_fingerprint
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
-from datamate.b0.b02.context_service import BusinessContextService
-from datamate.b0.b02.contracts import ContractBuilder
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.contracts import JoinEdge, RelationshipEvidence
+from datamate.ingestion.relationship_evidence import relationship_fingerprint
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
+from datamate.context.context_service import BusinessContextService
+from datamate.context.contracts import ContractBuilder
+from datamate.context.rule_compiler import BusinessRuleCompiler
 from .models import (
     PARSER_VERSION,
     PreparationConfig,

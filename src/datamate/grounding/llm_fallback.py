@@ -337,7 +337,7 @@ def create_qwen3b_vllm_parser(
     The import stays local so importing ``datamate.grounding`` on a CPU-only
     machine does not import vLLM, PyTorch, or allocate GPU memory.
     """
-    from datamate.b0.b03 import ChatMessage, VLLMModel, load_config
+    from datamate.planner import ChatMessage, VLLMModel, load_config
 
     model_config, generation_options = load_config(config_path)
     model = VLLMModel(model_config, default_options=generation_options)

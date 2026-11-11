@@ -156,7 +156,7 @@ class Text2SQLResult:
 
     def to_b05_generation_result(self) -> Any:
         """Chuyển đổi sang GenerationResult của B0.5 Basic Output Gate."""
-        from datamate.b0.b05.contracts import AnswerSemantics, GenerationResult as B05GenerationResult
+        from datamate.gate.contracts import AnswerSemantics, GenerationResult as B05GenerationResult
 
         if self.status == "unanswerable":
             return B05GenerationResult(
@@ -197,7 +197,7 @@ class Text2SQLResult:
         from .evidence import build_evidence_proof
 
         if self.status != "unanswerable":
-            from datamate.b0.b05.contracts import EvidenceProof
+            from datamate.gate.contracts import EvidenceProof
 
             return EvidenceProof()
         return build_evidence_proof(context, self.reason, self.missing_fields)

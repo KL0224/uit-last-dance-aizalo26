@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
-from datamate.b0.b02.contracts import BusinessContext, BusinessRule, RuleCatalog
-from datamate.b0.b05.contracts import EvidenceProof
+from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
+from datamate.context.contracts import BusinessContext, BusinessRule, RuleCatalog
+from datamate.gate.contracts import EvidenceProof
 
 from .contracts import GroundedQuestion
 from .protocols import (

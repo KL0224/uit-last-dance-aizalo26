@@ -132,7 +132,7 @@ class BusinessContextSchemaReader:
 
     def read(self, payload: Any) -> SchemaCatalog:
         """Preserve edge statuses; reject validated claims without scoped provenance."""
-        from datamate.b0.b02.contracts import ContractBuilder, RuleCatalog
+        from datamate.context.contracts import ContractBuilder, RuleCatalog
 
         if not isinstance(payload, dict) or payload.get("contract_version") not in {
             "1.0",

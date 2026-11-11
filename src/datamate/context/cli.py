@@ -6,11 +6,11 @@ import argparse
 import json
 import sys
 
-from datamate.b0.b01.metadata_adapter import JSONMetadataProvider
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
-from datamate.b0.b02.context_service import BusinessContextService
-from datamate.b0.b02.contracts import ContractBuilder
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.metadata_adapter import JSONMetadataProvider
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
+from datamate.context.context_service import BusinessContextService
+from datamate.context.contracts import ContractBuilder
+from datamate.context.rule_compiler import BusinessRuleCompiler
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def prepare_main(argv: list[str]) -> int:
-    from datamate.b0.b01.ingestion import PreparationConfig, prepare_business
+    from datamate.ingestion.ingestion import PreparationConfig, prepare_business
 
     parser = argparse.ArgumentParser(
         description="Prepare raw business files into DuckDB and context JSON"

@@ -7,14 +7,14 @@ from pathlib import Path
 import time
 from typing import Any, Mapping, Sequence
 
-from datamate.b0.b01.ingestion import PreparedBusinessArtifacts, prepare_business
-from datamate.b0.b03.diagnostics import diagnostics_dict
-from datamate.b0.b03.errors import LLMError
-from datamate.b0.b03.generator import Text2SQLGenerator
-from datamate.b0.b03.types import GenerationOptions, Text2SQLResult
-from datamate.b0.b04 import ExecutionRequest, execute_query
-from datamate.b0.b05 import SubmissionWriter, evaluate_gate
-from datamate.b0.b05.contracts import (
+from datamate.ingestion.ingestion import PreparedBusinessArtifacts, prepare_business
+from datamate.planner.diagnostics import diagnostics_dict
+from datamate.planner.errors import LLMError
+from datamate.planner.generator import Text2SQLGenerator
+from datamate.planner.types import GenerationOptions, Text2SQLResult
+from datamate.execution import ExecutionRequest, execute_query
+from datamate.gate import SubmissionWriter, evaluate_gate
+from datamate.gate.contracts import (
     AnswerType,
     Decision,
     ExecutionResult,
@@ -25,7 +25,7 @@ from datamate.b0.b05.contracts import (
     QuestionMeta,
     RepairRequest,
 )
-from datamate.b0.b05.errors import ErrorCode
+from datamate.gate.errors import ErrorCode
 
 
 class B0Pipeline:
@@ -647,3 +647,8 @@ class B0Pipeline:
             retry_count=attempt,
             repair_request=None,
         )
+
+
+Pipeline = B0Pipeline
+
+__all__ = ["Pipeline", "B0Pipeline"]

@@ -10,7 +10,7 @@ import hashlib
 import json
 import re
 
-from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
+from datamate.ingestion.contracts import JoinEdge, RelationshipEvidence
 
 
 def relationship_fingerprint(edge: JoinEdge, business_id: str) -> str:

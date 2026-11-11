@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from datamate.b0.b03 import (
+from datamate.planner import (
     ChatMessage,
     Text2SQLGenerator,
     VLLMModel,

@@ -6,7 +6,7 @@ import re
 import unicodedata
 from typing import Any, Mapping, Sequence
 
-from datamate.b0.b05.contracts import EvidenceProof
+from datamate.gate.contracts import EvidenceProof
 
 
 def _fold_token(value: str) -> str:
