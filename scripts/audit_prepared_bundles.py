@@ -10,8 +10,8 @@ from typing import Any
 
 import duckdb
 
-from datamate.b0.b01.ingestion.profiling import DuckDBProfileProvider
-from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
+from datamate.ingestion.ingestion.profiling import DuckDBProfileProvider
+from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
 
 
 def quote(name):

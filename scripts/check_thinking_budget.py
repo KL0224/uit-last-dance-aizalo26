@@ -17,14 +17,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from datamate.b0.b03 import (
+from datamate.planner import (
     ChatMessage,
     GenerationOptions,
     ModelConfig,
     VLLMModel,
     load_config,
 )
-from datamate.b0.b03.parser import parse_text2sql_response
+from datamate.planner.parser import parse_text2sql_response
 
 
 def main() -> int:

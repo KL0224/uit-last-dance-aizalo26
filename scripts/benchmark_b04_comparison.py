@@ -23,13 +23,13 @@ if str(PROJECT_ROOT / "src") not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 import duckdb
-from datamate.b0.b04 import (
+from datamate.execution import (
     ExecutionRequest,
     execute_query,
     extract_clean_sql,
     validate_read_only_sql,
 )
-from datamate.b0.b04.schemas import SecurityViolation
+from datamate.execution.schemas import SecurityViolation
 
 
 def build_temporary_benchmark_db(db_path: str):

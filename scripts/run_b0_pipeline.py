@@ -28,8 +28,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR / "src") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from datamate.b0 import B0Pipeline
-from datamate.b0.b03 import (
+from datamate.pipeline import Pipeline, B0Pipeline
+from datamate.planner import (
     BaseLLM,
     ChatMessage,
     GenerationDiagnostics,
@@ -39,7 +39,7 @@ from datamate.b0.b03 import (
     VLLMModel,
     load_config,
 )
-from datamate.b0.b03.errors import InferenceError
+from datamate.planner.errors import InferenceError
 
 
 class OpenAICompatibleLLM(BaseLLM):
@@ -101,7 +101,7 @@ class OpenAICompatibleLLM(BaseLLM):
                 **request_kwargs,
             )
         except Exception as exc:
-            from datamate.b0.b03.diagnostics import exception_diagnostics
+            from datamate.planner.diagnostics import exception_diagnostics
 
             error = InferenceError(f"OpenAI API inference failed: {exc}")
             error.diagnostics = exception_diagnostics(exc, GenerationDiagnostics(

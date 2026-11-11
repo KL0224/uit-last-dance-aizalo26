@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--jobs", type=int, default=1)
     args = parser.parse_args()
     if args.worker:
-        from datamate.b0.b01.ingestion import prepare_business
+        from datamate.ingestion.ingestion import prepare_business
 
         started = time.monotonic()
         result = prepare_business(

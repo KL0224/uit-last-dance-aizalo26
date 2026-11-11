@@ -12,12 +12,12 @@ from typing import Any
 
 import duckdb
 
-from datamate.b0.b01.contracts import SchemaCatalog
-from datamate.b0.b02.contracts import BusinessRule, ContractBuilder, RuleCatalog
-from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b02.rule_resolver import RuleResolver
+from datamate.ingestion.contracts import SchemaCatalog
+from datamate.context.contracts import BusinessRule, ContractBuilder, RuleCatalog
+from datamate.ingestion.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.context.rule_resolver import RuleResolver
 
 
 def resolve_table(
