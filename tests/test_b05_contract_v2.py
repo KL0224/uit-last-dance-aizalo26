@@ -2,13 +2,13 @@
 
 import pytest
 
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.contracts import (
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.contracts import (
     CapabilityStatus,
     PolicyMode,
     ProofStatus,
 )
-from datamate.b0.b05.errors import ContractError
+from datamate.gate.errors import ContractError
 
 
 def _request_v2() -> dict:

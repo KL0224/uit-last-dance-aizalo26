@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from datamate.b0.b01.contracts import (
+from datamate.ingestion.contracts import (
     ColumnMetadata,
     JoinEdge,
     JoinStatistics,
@@ -14,9 +14,9 @@ from datamate.b0.b01.contracts import (
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.b0.b01.relationship_evidence import relationship_fingerprint
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
-from datamate.b0.b02.contracts import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
+from datamate.ingestion.relationship_evidence import relationship_fingerprint
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
+from datamate.context.contracts import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
 from datamate.grounding import (
     B02ContextAdapter,
     CoverageStatus,

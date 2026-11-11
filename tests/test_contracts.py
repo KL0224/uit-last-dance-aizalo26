@@ -1,9 +1,9 @@
 """Tests for GateRequest contract adapter and input validation."""
 
 import pytest
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.contracts import AnswerType, ExecutionStatus, GateRequest
-from datamate.b0.b05.errors import ContractError, ErrorCode
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.contracts import AnswerType, ExecutionStatus, GateRequest
+from datamate.gate.errors import ContractError, ErrorCode
 
 
 def test_valid_gate_request():

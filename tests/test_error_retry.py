@@ -1,10 +1,10 @@
 """Tests for Error Classifier and Bounded Retry Controller."""
 
 import pytest
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.contracts import ExecutionErrorDetail, GateAction, GateRequest
-from datamate.b0.b05.errors import ErrorCode
-from datamate.b0.b05.retry import classify_error, decide_retry
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.contracts import ExecutionErrorDetail, GateAction, GateRequest
+from datamate.gate.errors import ErrorCode
+from datamate.gate.retry import classify_error, decide_retry
 
 
 def make_error_request(error_type: str, error_msg: str, attempt: int = 0) -> GateRequest:

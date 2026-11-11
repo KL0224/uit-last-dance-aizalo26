@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from datamate.b0.b05.contracts import AnswerType, FinalAnswer, GateAction, GateOutcome
-from datamate.b0.b05.errors import OutputWriteError
-from datamate.b0.b05.finalizer import SubmissionFinalizer
+from datamate.gate.contracts import AnswerType, FinalAnswer, GateAction, GateOutcome
+from datamate.gate.errors import OutputWriteError
+from datamate.gate.finalizer import SubmissionFinalizer
 
 
 def _outcome(question_id: str, answer: int) -> GateOutcome:

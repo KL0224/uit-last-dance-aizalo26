@@ -1,10 +1,10 @@
-"""Unit tests for B0.3 Text-to-SQL LLM module contracts and offline behavior."""
+"""Unit tests for datamate.planner Text-to-SQL LLM module contracts and offline behavior."""
 
 from pathlib import Path
 import tempfile
 import pytest
 
-from datamate.b0.b03 import (
+from datamate.planner import (
     BaseLLM,
     ChatMessage,
     GenerationOptions,
@@ -20,7 +20,7 @@ from datamate.b0.b03 import (
 
 
 def test_b03_exports() -> None:
-    """Ensure all required symbols are exported from datamate.b0.b03."""
+    """Ensure all required symbols are exported from datamate.planner."""
     assert issubclass(VLLMModel, BaseLLM)
     assert issubclass(ModelNotLoadedError, LLMError)
     assert issubclass(ModelLoadError, LLMError)

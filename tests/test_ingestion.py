@@ -18,15 +18,15 @@ from unittest.mock import patch
 import duckdb
 from openpyxl import Workbook
 
-from datamate.b0.b01.ingestion import PreparationConfig, PreparationError, prepare_business
-from datamate.b0.b01.ingestion.normalization import (
+from datamate.ingestion.ingestion import PreparationConfig, PreparationError, prepare_business
+from datamate.ingestion.ingestion.normalization import (
     ColumnParser,
     parse_date,
     parse_number,
     role_for,
 )
-from datamate.b0.b01.ingestion.readers import CSVReader, XLSXReader
-from datamate.b0.b01.metadata_adapter import JSONMetadataProvider
+from datamate.ingestion.ingestion.readers import CSVReader, XLSXReader
+from datamate.ingestion.metadata_adapter import JSONMetadataProvider
 
 RULES = """## 8. Cách ghi trong file
 | Hai dòng của **cùng một đơn** giống nhau ở mọi ô | lỗi xuất file, tính một lần |

@@ -12,13 +12,13 @@ from pathlib import Path
 
 from relationship_fixtures import reviewed_edge
 
-from datamate.b0.b02.cli import main
-from datamate.b0.b02.context_service import BusinessContextService
-from datamate.b0.b02.contracts import ContractBuilder
-from datamate.b0.b01.contracts import JoinEdge
-from datamate.b0.b01.metadata_adapter import JSONMetadataProvider
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.context.cli import main
+from datamate.context.context_service import BusinessContextService
+from datamate.context.contracts import ContractBuilder
+from datamate.ingestion.contracts import JoinEdge
+from datamate.ingestion.metadata_adapter import JSONMetadataProvider
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 def _payload() -> dict:

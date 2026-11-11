@@ -1,9 +1,9 @@
 """Tests for Execution Validator."""
 
 import pytest
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.errors import ErrorCode
-from datamate.b0.b05.validators import validate_execution
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.errors import ErrorCode
+from datamate.gate.validators import validate_execution
 
 
 def make_request(answer_type: str, status: str, columns: list, rows: list, truncated: bool = False, error: dict = None, semantics: dict = None):

@@ -9,18 +9,18 @@ from dataclasses import replace
 import duckdb
 from relationship_fixtures import reviewed_edge
 
-from datamate.b0.b01.contracts import (
+from datamate.ingestion.contracts import (
     ColumnMetadata,
     JoinEdge,
     TableMetadata,
 )
-from datamate.b0.b02.contracts import (
+from datamate.context.contracts import (
     ContractBuilder,
     RuleCatalog,
 )
-from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class DownstreamJoinTests(unittest.TestCase):

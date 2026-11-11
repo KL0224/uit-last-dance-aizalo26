@@ -1,8 +1,8 @@
 """Tests for Evidence-Based Answerability Decision."""
 
 import pytest
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.answerability import evaluate_answerability
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.answerability import evaluate_answerability
 
 
 def test_confirmed_unanswerable_with_trusted_proof():

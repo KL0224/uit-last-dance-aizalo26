@@ -2,7 +2,7 @@ import os
 import pytest
 import duckdb
 
-from datamate.b0.b04 import (
+from datamate.execution import (
     ExecutionRequest,
     ExecutionResponse,
     execute_query,
@@ -339,7 +339,7 @@ def test_13_adapter_to_b05_execution_result():
 
 def test_14_from_b03_adapter():
     """Scenario 14: Verifies ExecutionRequest creation from B0.3 Text2SQLResult."""
-    from datamate.b0.b03.types import Text2SQLResult
+    from datamate.planner.types import Text2SQLResult
 
     b03_res = Text2SQLResult(
         status="answerable",
@@ -462,7 +462,7 @@ def test_18_directory_caching_and_temp_directory_sandbox():
     Scenario 18: Repeated queries on a directory without data.duckdb use the cached .duckdb
     in /tmp (or system temp dir) and execute cleanly under sandbox constraints.
     """
-    from datamate.b0.b04.engine import _get_or_build_cached_dir_db
+    from datamate.execution.engine import _get_or_build_cached_dir_db
 
     cached_path = _get_or_build_cached_dir_db(MOCK_FOLDER_PATH)
     assert cached_path is not None

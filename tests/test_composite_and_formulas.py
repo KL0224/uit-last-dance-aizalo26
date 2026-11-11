@@ -8,7 +8,7 @@ from dataclasses import replace
 
 from relationship_fixtures import reviewed_edge
 
-from datamate.b0.b02.contracts import (
+from datamate.context.contracts import (
     ColumnMetadata,
     ContractBuilder,
     JoinEdge,
@@ -16,9 +16,9 @@ from datamate.b0.b02.contracts import (
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class CompositeJoinTests(unittest.TestCase):

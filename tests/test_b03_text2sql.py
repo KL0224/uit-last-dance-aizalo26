@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from datamate.b0.b01 import ColumnMetadata, SchemaCatalogBuilder, TableMetadata
-from datamate.b0.b02 import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
-from datamate.b0.b03 import (
+from datamate.ingestion import ColumnMetadata, SchemaCatalogBuilder, TableMetadata
+from datamate.context import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
+from datamate.planner import (
     BaseLLM,
     ChatMessage,
     GenerationOptions,
@@ -21,7 +21,7 @@ from datamate.b0.b03 import (
     infer_answer_type_from_sql,
     parse_text2sql_response,
 )
-from datamate.b0.b05.contracts import GenerationResult as B05GenerationResult
+from datamate.gate.contracts import GenerationResult as B05GenerationResult
 
 
 class MockLLM(BaseLLM):

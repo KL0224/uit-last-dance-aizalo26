@@ -9,16 +9,16 @@ from pathlib import Path
 
 from relationship_fixtures import reviewed_edge
 
-from datamate.b0.b02.contracts import (
+from datamate.context.contracts import (
     BusinessRule,
     ColumnMetadata,
     JoinEdge,
     RuleCatalog,
     TableMetadata,
 )
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b02.rule_resolver import RuleResolver
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.context.rule_resolver import RuleResolver
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class KeyEvidenceTests(unittest.TestCase):

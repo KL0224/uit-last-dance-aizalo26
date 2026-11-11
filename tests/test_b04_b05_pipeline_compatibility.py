@@ -7,13 +7,13 @@ from pathlib import Path
 
 import duckdb
 
-from datamate.b0 import B0Pipeline
-from datamate.b0.b01.ingestion import prepare_business
-from datamate.b0.b03 import Text2SQLGenerator
-from datamate.b0.b03.types import GenerationResult as LLMGenerationResult, Text2SQLResult
-from datamate.b0.b04 import ExecutionRequest, execute_query
-from datamate.b0.b05 import evaluate_gate
-from datamate.b0.b05.contracts import (
+from datamate.pipeline import B0Pipeline, Pipeline
+from datamate.ingestion.ingestion import prepare_business
+from datamate.planner import Text2SQLGenerator
+from datamate.planner.types import GenerationResult as LLMGenerationResult, Text2SQLResult
+from datamate.execution import ExecutionRequest, execute_query
+from datamate.gate import evaluate_gate
+from datamate.gate.contracts import (
     AnswerType,
     Decision,
     ExecutionErrorDetail,
@@ -22,8 +22,8 @@ from datamate.b0.b05.contracts import (
     GenerationResult as B05GenerationResult,
     QuestionMeta,
 )
-from datamate.b0.b05.errors import ErrorCode
-from datamate.b0.b05.retry import classify_error
+from datamate.gate.errors import ErrorCode
+from datamate.gate.retry import classify_error
 
 
 def _create_sample_db(tmp_path: Path) -> str:

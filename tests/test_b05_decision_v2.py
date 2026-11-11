@@ -4,11 +4,11 @@ import copy
 import json
 from pathlib import Path
 
-from datamate.b0.b05.adapters import adapt_gate_request
-from datamate.b0.b05.contracts import Decision, GateAction, ReleaseStatus
-from datamate.b0.b05.errors import ErrorCode
-from datamate.b0.b05.gate import evaluate_gate
-from datamate.b0.b05.writer import SubmissionWriter
+from datamate.gate.adapters import adapt_gate_request
+from datamate.gate.contracts import Decision, GateAction, ReleaseStatus
+from datamate.gate.errors import ErrorCode
+from datamate.gate.gate import evaluate_gate
+from datamate.gate.writer import SubmissionWriter
 
 
 def _raw_v2(*, mode: str = "enforce", attempt: int = 0) -> dict:

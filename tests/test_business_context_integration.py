@@ -15,12 +15,12 @@ from pathlib import Path
 
 import duckdb
 
-from datamate.b0.b01.ingestion import prepare_business
-from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.b0.b01.metadata_adapter import BusinessContextSchemaReader
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b02.rule_resolver import RuleResolver
-from datamate.b0.b02.rule_templates import RuleTemplateBinder
+from datamate.ingestion.ingestion import prepare_business
+from datamate.ingestion.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.context.rule_resolver import RuleResolver
+from datamate.context.rule_templates import RuleTemplateBinder
 from scripts.audit_prepared_bundles import audit
 from scripts.demo_join_graph import read_rule_catalog, run_demo
 

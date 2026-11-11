@@ -13,26 +13,26 @@ from decimal import Decimal
 import duckdb
 import pytest
 
-from datamate.b0.b01.contracts import (
+from datamate.ingestion.contracts import (
     ColumnMetadata,
     JoinEdge,
     KeyCandidate,
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.b0.b01.ingestion.normalization import parse_date
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b03.parser import (
+from datamate.ingestion.ingestion.normalization import parse_date
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.planner.parser import (
     extract_tables_from_sql,
     infer_answer_type_from_sql,
     parse_text2sql_response,
 )
-from datamate.b0.b03.prompt import format_context_for_prompt
-from datamate.b0.b03.types import Text2SQLResult
-from datamate.b0.b04 import ExecutionRequest, execute_query, normalize_value
-from datamate.b0.b04.sanitizer import validate_read_only_sql
-from datamate.b0.b04.schemas import SecurityViolation
-from datamate.b0.b05.formatter import format_answer, format_date
+from datamate.planner.prompt import format_context_for_prompt
+from datamate.planner.types import Text2SQLResult
+from datamate.execution import ExecutionRequest, execute_query, normalize_value
+from datamate.execution.sanitizer import validate_read_only_sql
+from datamate.execution.schemas import SecurityViolation
+from datamate.gate.formatter import format_answer, format_date
 
 
 # --------------------------------------------------------------- B0.1 BUG-03
@@ -345,7 +345,7 @@ def test_format_date_accepts_iso_timestamps(value):
 
 
 def test_format_date_still_rejects_garbage():
-    from datamate.b0.b05.errors import FormattingError
+    from datamate.gate.errors import FormattingError
 
     with pytest.raises(FormattingError):
         format_date("15/03/2026", {})
@@ -365,7 +365,7 @@ def test_format_list_and_table_normalize_scalars():
 # --------------------------------------------------------------- E2E-05 & E2E-08
 def test_e2e05_full_table_join_discovered_when_first_5_rows_disjoint(tmp_path):
     """When first 5 rows have 0 overlap on ma_khach but full table has >=80% overlap, join is discovered."""
-    from datamate.b0.b01.ingestion import prepare_business
+    from datamate.ingestion.ingestion import prepare_business
 
     biz = tmp_path / "in" / "biz_join"
     biz.mkdir(parents=True)
@@ -390,7 +390,7 @@ def test_e2e05_full_table_join_discovered_when_first_5_rows_disjoint(tmp_path):
 
 
 def test_e2e08_synthetic_header_column_1_not_dropped_as_repeated_header(tmp_path):
-    from datamate.b0.b01.ingestion.readers import CSVReader
+    from datamate.ingestion.ingestion.readers import CSVReader
 
     csv_file = tmp_path / "single.csv"
     csv_file.write_text(",b\ncolumn_1,b\nreal_value,other\n", encoding="utf-8")
@@ -478,9 +478,9 @@ def test_e2e07_select_star_hides_internal_dm_row_id_column(tmp_path):
 
 # --------------------------------------------------------------- E2E-03 & E2E-04
 def test_e2e03_b05_retry_recognizes_catalog_data_and_empty_query_errors():
-    from datamate.b0.b05.contracts import ExecutionErrorDetail
-    from datamate.b0.b05.errors import ErrorCode
-    from datamate.b0.b05.retry import classify_error
+    from datamate.gate.contracts import ExecutionErrorDetail
+    from datamate.gate.errors import ErrorCode
+    from datamate.gate.retry import classify_error
 
     cat = classify_error(
         ExecutionErrorDetail(
@@ -525,8 +525,8 @@ def test_e2e04_infer_money_numeric_kind_from_sql():
 
 # --------------------------------------------------------------- E2E-02
 def test_e2e02_evidence_proof_verifies_missing_field_and_rejects_existing_field():
-    from datamate.b0.b05.contracts import ExecutionResult, GateRequest, QuestionMeta
-    from datamate.b0.b05.gate import evaluate_gate
+    from datamate.gate.contracts import ExecutionResult, GateRequest, QuestionMeta
+    from datamate.gate.gate import evaluate_gate
 
     ctx = _context_dict()
     # Case 1: Truly missing field "chi_phi_quang_cao" -> verified unanswerable

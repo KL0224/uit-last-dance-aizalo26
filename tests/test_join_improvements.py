@@ -13,16 +13,16 @@ from pathlib import Path
 import duckdb
 from relationship_fixtures import reviewed_edge
 
-from datamate.b0.b01.contracts import (
+from datamate.ingestion.contracts import (
     ColumnMetadata,
     JoinEdge,
     JoinStatistics,
     KeyCandidate,
     TableMetadata,
 )
-from datamate.b0.b01.ingestion import prepare_business
-from datamate.b0.b01.ingestion.profiling import DuckDBProfileProvider
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion.ingestion import prepare_business
+from datamate.ingestion.ingestion.profiling import DuckDBProfileProvider
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class FullTableDiscoveryTests(unittest.TestCase):

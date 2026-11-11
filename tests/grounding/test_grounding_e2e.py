@@ -6,8 +6,8 @@ import time
 
 import pytest
 
-from datamate.b0.b01.contracts import ColumnMetadata, JoinEdge, SchemaCatalog, TableMetadata
-from datamate.b0.b02.contracts import BusinessContext, BusinessRule, RuleCatalog
+from datamate.ingestion.contracts import ColumnMetadata, JoinEdge, SchemaCatalog, TableMetadata
+from datamate.context.contracts import BusinessContext, BusinessRule, RuleCatalog
 from datamate.grounding.adapters import B02ContextAdapter, GroundingToPlannerAdapter
 from datamate.grounding.contracts import (
     AnswerTypeHint,

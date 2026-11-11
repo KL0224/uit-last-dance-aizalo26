@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from datamate.b0.b03 import ChatMessage, GenerationResult
+from datamate.planner import ChatMessage, GenerationResult
 from datamate.grounding.contracts import OperationKind, QuestionRequest
 from datamate.grounding.engine import QuestionGroundingEngine
 from datamate.grounding.llm_fallback import (
@@ -81,7 +81,7 @@ stop = []
         encoding="utf-8",
     )
     FakeVLLMModel.instances.clear()
-    monkeypatch.setattr("datamate.b0.b03.VLLMModel", FakeVLLMModel)
+    monkeypatch.setattr("datamate.planner.VLLMModel", FakeVLLMModel)
 
     parser = create_qwen3b_vllm_parser(config_path)
     intent = parser.extract_intent(

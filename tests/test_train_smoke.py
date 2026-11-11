@@ -15,11 +15,11 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from datamate.b0.b02.contracts import ColumnMetadata, ContractBuilder, TableMetadata
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b02.rule_resolver import RuleResolver
-from datamate.b0.b02.rule_templates import RuleTemplateBinder
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.context.contracts import ColumnMetadata, ContractBuilder, TableMetadata
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.context.rule_resolver import RuleResolver
+from datamate.context.rule_templates import RuleTemplateBinder
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 def _csv_metadata(path: Path) -> TableMetadata:

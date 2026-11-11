@@ -3,8 +3,8 @@
 from dataclasses import replace
 from hashlib import sha256
 
-from datamate.b0.b01.contracts import JoinEdge, RelationshipEvidence
-from datamate.b0.b01.relationship_evidence import relationship_fingerprint
+from datamate.ingestion.contracts import JoinEdge, RelationshipEvidence
+from datamate.ingestion.relationship_evidence import relationship_fingerprint
 
 
 def reviewed_edge(edge: JoinEdge, business_id: str = "fixture") -> JoinEdge:

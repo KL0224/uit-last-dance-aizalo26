@@ -9,8 +9,8 @@ import tempfile
 from typing import Any
 import pytest
 
-from datamate.b0 import B0Pipeline
-from datamate.b0.b03 import (
+from datamate.pipeline import B0Pipeline, Pipeline
+from datamate.planner import (
     BaseLLM,
     ChatMessage,
     GenerationDiagnostics,
@@ -22,9 +22,9 @@ from datamate.b0.b03 import (
     VLLMModel,
     load_config,
 )
-from datamate.b0.b03.diagnostics import exception_diagnostics, diagnostics_dict
-from datamate.b0.b03.errors import InferenceError, ModelLoadError
-from datamate.b0.b05.contracts import Decision, QuestionMeta
+from datamate.planner.diagnostics import exception_diagnostics, diagnostics_dict
+from datamate.planner.errors import InferenceError, ModelLoadError
+from datamate.gate.contracts import Decision, QuestionMeta
 
 
 def test_generation_options_thinking_budget_validation():
@@ -207,7 +207,7 @@ def test_pipeline_e2e_records_generation_diagnostics(tmp_path: Path):
     (biz / "orders.csv").write_text("id,amount\n1,100\n", encoding="utf-8")
     (biz / "README.md").write_text("# Biz Diag\n", encoding="utf-8")
 
-    from datamate.b0.b01.ingestion import prepare_business
+    from datamate.ingestion.ingestion import prepare_business
     artifacts = prepare_business(biz, tmp_path / "out")
     context = json.loads((artifacts.bundle_dir / "business_context.json").read_text(encoding="utf-8"))
     table = next(t["name"] for t in context["schema_catalog"]["tables"] if t["name"].startswith("orders"))

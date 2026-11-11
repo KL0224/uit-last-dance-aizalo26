@@ -1,6 +1,6 @@
-"""Verify that modular imports directly from datamate.b0.b01 and datamate.b0.b02 work seamlessly."""
+"""Verify that modular imports directly from datamate.ingestion and datamate.context work seamlessly."""
 
-from datamate.b0.b01 import (
+from datamate.ingestion import (
     BaseMetadataProvider,
     ColumnMetadata,
     FoundationMetadata,
@@ -13,7 +13,7 @@ from datamate.b0.b01 import (
     SchemaCatalogBuilder,
     TableMetadata,
 )
-from datamate.b0.b02 import (
+from datamate.context import (
     CONTRACT_VERSION,
     BusinessContext,
     BusinessContextService,
@@ -29,7 +29,7 @@ from datamate.b0.b02 import (
 
 
 def test_b01_exports() -> None:
-    from datamate.b0.b01 import prepare_business, PreparationConfig
+    from datamate.ingestion import prepare_business, PreparationConfig
     assert callable(prepare_business)
     assert PreparationConfig is not None
 
