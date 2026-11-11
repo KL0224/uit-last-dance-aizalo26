@@ -439,3 +439,45 @@ class TestQuestionIntentParser:
                 available_metrics=("revenue",),
                 available_tables=("orders",),
             )
+
+    def test_commission_metric_is_accepted_when_available(self) -> None:
+        fake_client = Fake3BModelClient(
+            """{
+              "operation": "sum",
+              "target_metrics": ["commission"],
+              "entities": ["Đoàn Bảo Phúc"],
+              "answer_type_hint": "number"
+            }"""
+        )
+        parser = StructuredLLMParser(chat_fn=fake_client)
+        intent = parser.extract_intent(
+            question="Tháng 8/2025 thợ Đoàn Bảo Phúc lãnh bao nhiêu tiền huê hồng?",
+            as_of_date="2026-08-31",
+            available_metrics=("revenue", "order_count", "commission"),
+            available_tables=("so_sua_xe", "danh_sach_tho"),
+        )
+        assert intent.used_llm_fallback is True
+        assert intent.target_metrics == ("commission",)
+        assert "Đoàn Bảo Phúc" in intent.entities
+
+    def test_adhoc_sum_with_entity_passes_validation(self) -> None:
+        fake_client = Fake3BModelClient(
+            """{
+              "operation": "sum",
+              "target_metrics": [],
+              "entities": ["Đàm Lan An"],
+              "answer_type_hint": "number"
+            }"""
+        )
+        parser = QuestionIntentParser(
+            llm_fallback=StructuredLLMParser(chat_fn=fake_client),
+            fallback_threshold=0.9,
+        )
+        intent = parser.parse(
+            "Thợ Đàm Lan An kiếm được bao nhiêu tiền?",
+            as_of_date="2026-08-31",
+            context=MockBusinessContextProvider.create_fnb_context(),
+        )
+        assert intent.used_llm_fallback is True
+        assert intent.operation == OperationKind.SUM
+        assert "Đàm Lan An" in intent.entities

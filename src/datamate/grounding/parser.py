@@ -6,6 +6,7 @@ import logging
 import re
 import unicodedata
 from dataclasses import dataclass, replace
+from typing import Any
 
 from .contracts import OperationKind, QuestionIntent
 from .protocols import BusinessContextProtocol, LLMParserProtocol
@@ -72,6 +73,13 @@ class QuestionIntentParser:
         self._rule_matcher = rule_matcher or VietnameseRuleMatcher()
         self._llm_fallback = llm_fallback
         self._fallback_threshold = fallback_threshold
+
+    @property
+    def chat_fn(self) -> Any | None:
+        """Return the underlying 3B chat function if loaded."""
+        if self._llm_fallback is not None:
+            return getattr(self._llm_fallback, "_chat_fn", None)
+        return None
 
     @staticmethod
     def _has_unresolved_symbol(
@@ -159,10 +167,17 @@ class QuestionIntentParser:
     @staticmethod
     def _validate_llm_intent(intent: QuestionIntent) -> None:
         """Reject structurally valid JSON that is still semantically incomplete."""
-        if intent.operation in _METRIC_REQUIRED_OPERATIONS and not intent.target_metrics:
+        if (
+            intent.operation in _METRIC_REQUIRED_OPERATIONS
+            and not intent.target_metrics
+            and not intent.entities
+            and not intent.filters
+        ):
             raise ValueError(
                 f"LLM intent for {intent.operation.value} requires at least one metric"
             )
+        if intent.operation == OperationKind.PERCENT_CHANGE and not intent.target_metrics:
+            raise ValueError("LLM intent for percent_change requires at least one metric to compare")
         if intent.operation == OperationKind.TOP_K and intent.top_k is None:
             raise ValueError("LLM top_k intent requires a positive top_k value")
         if intent.sort_order not in {"asc", "desc"}:
@@ -204,12 +219,27 @@ class QuestionIntentParser:
                         "event": "grounding_llm_fallback_failed",
                         "fallback_reasons": decision.reasons,
                         "error_type": type(exc).__name__,
+                        "error_message": str(exc),
                     },
+                )
+                _LOGGER.warning(
+                    "Grounding 3B fallback rejected for question %r: %s: %s",
+                    question,
+                    type(exc).__name__,
+                    exc,
+                )
+                _LOGGER.debug(
+                    "grounding_llm_fallback_detail: %s: %s",
+                    type(exc).__name__,
+                    exc,
                 )
                 # Safe degradation: return deterministic rule_intent if LLM fallback fails
                 return replace(
                     rule_intent,
-                    fallback_reasons=decision.reasons + ("LLM_FALLBACK_FAILED",),
+                    fallback_reasons=decision.reasons + (
+                        "LLM_FALLBACK_FAILED",
+                        f"LLM_ERROR:{type(exc).__name__}:{exc}",
+                    ),
                 )
 
         return replace(rule_intent, fallback_reasons=decision.reasons)

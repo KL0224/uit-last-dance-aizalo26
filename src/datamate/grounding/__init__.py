@@ -1,6 +1,10 @@
 """Component C: Question Grounding package for DataMate 2026."""
 
-from .adapters import B02ContextAdapter, GroundingToPlannerAdapter
+from .adapters import (
+    B02ContextAdapter,
+    BusinessContextAdapter,
+    GroundingToPlannerAdapter,
+)
 from .answerability import AnswerabilityPrechecker
 from .contracts import (
     AnswerTypeHint,
@@ -38,6 +42,14 @@ from .protocols import (
     TableSpec,
 )
 from .rules_matcher import VietnameseRuleMatcher
+from .runtime import (
+    GROUNDING_BUSINESS_MISMATCH,
+    GROUNDING_CONTEXT_INVALID,
+    GROUNDING_FAILED,
+    GROUNDING_REQUEST_INVALID,
+    QuestionGroundingRuntime,
+    QuestionGroundingRuntimeError,
+)
 from .schema_grounder import SchemaGrounder
 from .temporal import QuestionTemporalResolver
 from .value_grounder import ValueGrounder
@@ -79,6 +91,13 @@ __all__ = [
     "ValueGrounder",
     "AnswerabilityPrechecker",
     "QuestionGroundingEngine",
+    "GROUNDING_BUSINESS_MISMATCH",
+    "GROUNDING_CONTEXT_INVALID",
+    "GROUNDING_FAILED",
+    "GROUNDING_REQUEST_INVALID",
+    "QuestionGroundingRuntime",
+    "QuestionGroundingRuntimeError",
     "B02ContextAdapter",
+    "BusinessContextAdapter",
     "GroundingToPlannerAdapter",
 ]

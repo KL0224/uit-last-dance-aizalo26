@@ -12,6 +12,11 @@ from .contracts import (
 from .rule_compiler import BusinessRuleCompiler
 from .rule_resolver import PRECEDENCE, ResolvedRules, RuleResolver
 from .rule_templates import RuleTemplateBinder
+from .semantic_extractor import (
+    LLMSemanticExtractor,
+    RuleSchemaMatcher,
+    create_semantic_extractor,
+)
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -25,5 +30,8 @@ __all__ = [
     "ResolvedRules",
     "RuleResolver",
     "RuleTemplateBinder",
+    "LLMSemanticExtractor",
+    "RuleSchemaMatcher",
+    "create_semantic_extractor",
     "main",
 ]

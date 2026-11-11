@@ -285,6 +285,10 @@ def prepare_business(
         with duckdb.connect(str(work / "data.duckdb"), read_only=True) as connection:
             connection.execute("SET threads=?", [config.threads])
             connection.execute("SET memory_limit=?", [config.memory_limit])
+            extractor = getattr(config, "semantic_extractor", None)
+            if extractor is None:
+                from datamate.context.semantic_extractor import create_semantic_extractor
+                extractor = create_semantic_extractor(model_path=getattr(config, "semantic_model_path", None))
             service = BusinessContextService(
                 provider,
                 SchemaCatalogBuilder(
@@ -300,6 +304,7 @@ def prepare_business(
                 ),
                 BusinessRuleCompiler(),
                 ContractBuilder(),
+                semantic_extractor=extractor,
             )
             context = service.prepare(root.name, documents)
         _json(work / "business_context.json", context.to_dict())

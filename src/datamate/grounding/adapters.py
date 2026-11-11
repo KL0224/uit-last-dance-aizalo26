@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Sequence
 
 from datamate.ingestion.metadata_adapter import BusinessContextSchemaReader
@@ -17,6 +18,8 @@ from .protocols import (
     MetricSpec,
     TableSpec,
 )
+
+logger = logging.getLogger(__name__)
 
 _ROLE_MAP: dict[str, str] = {
     "identifier": "id",
@@ -102,6 +105,7 @@ class B02ContextAdapter(BusinessContextProtocol):
             business_metadata=payload.get("business_metadata"),
             answerability_constraints=payload.get("answerability_constraints"),
             normalized_data_handle=payload.get("normalized_data_handle"),
+            semantic_catalog=payload.get("semantic_catalog"),
         )
         return cls(ctx)
 
@@ -244,46 +248,51 @@ class B02ContextAdapter(BusinessContextProtocol):
     def _build_metrics(self) -> tuple[MetricSpec, ...]:
         metrics: list[MetricSpec] = []
         seen_ids: set[str] = set()
-        table_names = {t.name for t in self._tables}
 
-        # 1. Derive metrics from BusinessRule bindings in RuleCatalog
-        for rule in self._ctx.rule_catalog.rules:
-            txt_l = f"{rule.topic or ''} {rule.text}".lower()
-            m_id = None
-            aliases: tuple[str, ...] = ()
-            if "doanh thu" in txt_l:
-                m_id = "revenue"
-                aliases = ("doanh thu", "tổng tiền bán")
-            elif "thực thu" in txt_l or "tiền thu" in txt_l:
-                m_id = "cash_collected"
-                aliases = ("thực thu", "tiền thu")
-            elif "giá vốn" in txt_l or "chi phí" in txt_l:
-                m_id = "cost"
-                aliases = ("giá vốn", "chi phí")
-
-            if m_id and m_id not in seen_ids:
-                pref_table = None
-                req_cols: list[str] = []
-                for field_ref in rule.required_fields:
-                    if "." in field_ref:
-                        t_ref, c_ref = field_ref.split(".", 1)
-                        if t_ref in table_names:
-                            pref_table = pref_table or t_ref
-                            req_cols.append(c_ref)
-                if pref_table:
+        # 1. Ưu tiên nạp từ SemanticCatalog nếu đã được biên dịch lúc prepare_bundle
+        raw_semantic = getattr(self._ctx, "semantic_catalog", None)
+        if isinstance(raw_semantic, dict) and raw_semantic.get("metrics"):
+            for m_dict in raw_semantic["metrics"]:
+                m_id = m_dict.get("metric_id")
+                if m_id and m_id not in seen_ids:
                     seen_ids.add(m_id)
                     metrics.append(
                         MetricSpec(
                             metric_id=m_id,
-                            aliases=aliases,
-                            preferred_table=pref_table,
-                            required_columns=tuple(req_cols),
-                            formula_hint=rule.text,
-                            unit="VND",
+                            aliases=tuple(m_dict.get("aliases") or (m_id,)),
+                            preferred_table=m_dict.get("preferred_table") or "",
+                            required_columns=tuple(m_dict.get("required_columns") or ()),
+                            formula_hint=m_dict.get("formula_hint") or "",
+                            unit=m_dict.get("unit") or "VND",
                         )
                     )
 
-        # 2. Fallback heuristic on money columns if 'revenue' is not yet bound
+        # 2. Dynamic Discovery qua RuleSchemaMatcher nếu chưa có trong context
+        if not metrics:
+            try:
+                from datamate.context.semantic_extractor import RuleSchemaMatcher
+                catalog = RuleSchemaMatcher().extract_semantic_catalog(
+                    business_id=getattr(self._ctx, "business_id", ""),
+                    schema=self._ctx.schema_catalog,
+                    rules=self._ctx.rule_catalog.rules,
+                )
+                for m in catalog.metrics:
+                    if m.metric_id not in seen_ids:
+                        seen_ids.add(m.metric_id)
+                        metrics.append(
+                            MetricSpec(
+                                metric_id=m.metric_id,
+                                aliases=m.aliases,
+                                preferred_table=m.preferred_table,
+                                required_columns=m.required_columns,
+                                formula_hint=m.formula_hint,
+                                unit=m.unit,
+                            )
+                        )
+            except Exception as exc:
+                logger.debug("RuleSchemaMatcher failed: %s; falling back to basic heuristics", exc)
+
+        # 3. Fallback an toàn cho revenue & order_count nếu không tìm thấy gì
         if "revenue" not in seen_ids:
             for tbl in self._tables:
                 money_cols = [
@@ -292,7 +301,7 @@ class B02ContextAdapter(BusinessContextProtocol):
                     if c.role == "money"
                     or any(
                         k in c.name.lower()
-                        for k in ("tong_tien", "thanh_tien", "doanh_thu")
+                        for k in ("tong_tien", "thanh_tien", "doanh_thu", "tien", "amount")
                     )
                 ]
                 if money_cols:
@@ -304,6 +313,28 @@ class B02ContextAdapter(BusinessContextProtocol):
                             preferred_table=tbl.name,
                             required_columns=(money_cols[0],),
                             unit="VND",
+                        )
+                    )
+                    break
+
+        if "order_count" not in seen_ids:
+            worker_tables = {
+                t.name for t in self._tables
+                if any(k in t.name.lower() for k in ("tho", "nhan_vien", "employee", "worker", "danh_sach"))
+            }
+            for tbl in self._tables:
+                if tbl.name in worker_tables or tbl.name == "calendar":
+                    continue
+                date_cols = [c.name for c in tbl.columns if c.role == "date" or "ngay" in c.name.lower()]
+                if date_cols:
+                    seen_ids.add("order_count")
+                    metrics.append(
+                        MetricSpec(
+                            metric_id="order_count",
+                            aliases=("số đơn", "số lượt", "lượt xe", "phiếu", "số phiếu", "bao nhiêu đơn"),
+                            preferred_table=tbl.name,
+                            required_columns=(date_cols[0],),
+                            unit="count",
                         )
                     )
                     break
@@ -449,9 +480,13 @@ class GroundingToPlannerAdapter:
             proof="Verified by Component C Answerability Precheck",
         )
 
+    to_gate_evidence_proof = to_b05_evidence_proof
+
+
+BusinessContextAdapter = B02ContextAdapter
 
 __all__ = [
     "B02ContextAdapter",
+    "BusinessContextAdapter",
     "GroundingToPlannerAdapter",
 ]
-

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Self
+from typing import Any, Self
 
 from .answerability import AnswerabilityPrechecker
 from .contracts import (
@@ -43,17 +43,31 @@ class QuestionGroundingEngine:
             answerability_prechecker or AnswerabilityPrechecker()
         )
 
+    @property
+    def chat_fn(self) -> Any | None:
+        """Return the underlying 3B chat function if loaded."""
+        if self._intent_parser is not None:
+            return getattr(self._intent_parser, "chat_fn", None)
+        return None
+
     @classmethod
     def from_qwen3b_vllm(
         cls,
         config_path: str | Path,
         *,
         fallback_threshold: float = 0.7,
+        model_path_override: str | Path | None = None,
     ) -> Self:
         """Build an engine whose C1 fallback is a local Qwen 3B vLLM model."""
         from .llm_fallback import create_qwen3b_vllm_parser
 
-        llm_fallback = create_qwen3b_vllm_parser(config_path)
+        if model_path_override is not None:
+            llm_fallback = create_qwen3b_vllm_parser(
+                config_path,
+                model_path_override=model_path_override,
+            )
+        else:
+            llm_fallback = create_qwen3b_vllm_parser(config_path)
         return cls(
             intent_parser=QuestionIntentParser(
                 llm_fallback=llm_fallback,

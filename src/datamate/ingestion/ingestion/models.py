@@ -15,6 +15,8 @@ class PreparationConfig:
     threads: int = 2
     batch_size: int = 10_000
     source_overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    semantic_extractor: Any | None = None
+    semantic_model_path: str | Path | None = None
 
     def __post_init__(self) -> None:
         if not self.memory_limit or self.threads < 1 or self.batch_size < 1:

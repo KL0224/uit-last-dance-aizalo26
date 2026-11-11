@@ -39,6 +39,33 @@ class BusinessRule:
 
 
 @dataclass(frozen=True)
+class MetricDefinition:
+    """Explicit business metric contract discovered from rules and schema."""
+
+    metric_id: str
+    name: str = ""
+    aliases: tuple[str, ...] = ()
+    preferred_table: str = ""
+    required_columns: tuple[str, ...] = ()
+    formula_hint: str = ""
+    unit: str = "VND"
+    applicable_rule_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class SemanticCatalog:
+    """Catalog of business-grounded metrics, join hints, and capability constraints."""
+
+    business_id: str
+    metrics: tuple[MetricDefinition, ...] = ()
+    suggested_joins: tuple[dict[str, Any], ...] = ()
+    unsupported_capabilities: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class RuleCatalog:
     """Catalog of extracted or parsed business rules."""
 
@@ -58,8 +85,8 @@ class BusinessContext:
     data_profiling: dict[str, Any] | None = None
     business_metadata: dict[str, Any] | None = None
     answerability_constraints: dict[str, Any] | None = None
-
     normalized_data_handle: dict[str, Any] | None = None
+    semantic_catalog: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable contract with explicit contract version."""
@@ -73,6 +100,9 @@ class BusinessContext:
                     edge.pop(optional)
         if self.normalized_data_handle is None:
             payload.pop("normalized_data_handle", None)
+        if self.semantic_catalog is None:
+            payload.pop("semantic_catalog", None)
+        return payload
         return payload
 
 
@@ -88,6 +118,7 @@ class ContractBuilder:
         business_metadata: dict[str, Any] | None = None,
         answerability_constraints: dict[str, Any] | None = None,
         normalized_data_handle: dict[str, Any] | None = None,
+        semantic_catalog: SemanticCatalog | dict[str, Any] | None = None,
     ) -> BusinessContext:
         """Build a business-scoped context and validate its internal references."""
         if not business_id.strip():
@@ -176,6 +207,11 @@ class ContractBuilder:
             business_metadata=business_metadata,
             answerability_constraints=answerability_constraints,
             normalized_data_handle=normalized_data_handle,
+            semantic_catalog=(
+                semantic_catalog.to_dict()
+                if hasattr(semantic_catalog, "to_dict")
+                else semantic_catalog
+            ),
         )
 
 
@@ -185,6 +221,8 @@ __all__ = [
     "RuleCatalog",
     "BusinessContext",
     "ContractBuilder",
+    "MetricDefinition",
+    "SemanticCatalog",
     # re-export B01 schema contracts for unified access
     "ColumnMetadata",
     "TableMetadata",
