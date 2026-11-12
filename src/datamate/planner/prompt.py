@@ -40,7 +40,13 @@ QUY TRÌNH XỬ LÝ & NGUYÊN TẮC BẮT BUỘC:
    - BÍ DANH (ALIAS) & CTE:
      + Dùng bí danh an toàn: `t1`, `t2`, `sub`. CẤM dùng từ khóa SQL dự trữ làm alias (`ON`, `AS`, `IN`, `WHERE`, `ORDER`, `GROUP`).
      + DuckDB không có bảng `dual`. Khi dùng CTE, câu lệnh SELECT cuối cùng bắt buộc phải có `FROM`.
-   - CỘT NULL TRONG WHERE: Khi lọc loại trừ trên cột có thể NULL, dùng: `(col IS NULL OR LOWER(col) NOT LIKE '%từ%')`.
+   - CỘT NULL TRONG WHERE: Khi lọc loại trừ trên cột có thể NULL, TUYỆT ĐỐI KHÔNG dùng `LOWER(col) NOT IN (...)` đơn thuần (vì trong SQL, `NULL NOT IN (...)` trả về UNKNOWN khiến toàn bộ dòng có col IS NULL bị loại bỏ oan uổng!). BẮT BUỘC dùng: `(col IS NULL OR LOWER(col) NOT IN (...))` hoặc `(col IS NULL OR LOWER(col) NOT LIKE '%từ%')`.
+   - QUY ĐỔI ĐƠN VỊ TÍNH (UNIT CONVERSIONS):
+     + Nếu có bảng `unit_conversions` hoặc cột quy đổi: Khi câu hỏi hỏi bán được bao nhiêu <đơn vị cơ bản> (ví dụ hỏi bao nhiêu 'cây' mà bảng bán hàng ghi 'bó'): BẮT BUỘC áp dụng nhân hệ số quy đổi.
+   - DOANH THU THEO TÀI LIỆU (REVENUE METRIC):
+     + Nếu schema có cột `gia_tri_hang` và Rulebook quy định doanh thu bán hàng tính theo giá trị hàng (như đơn hàng sàn TMĐT có giảm giá/phí ship riêng): BẮT BUỘC dùng `SUM(gia_tri_hang)` làm doanh thu thay vì `tong_tien`.
+   - SO SÁNH CÁC THÁNG (WHICH MONTH):
+     + Khi câu hỏi yêu cầu so sánh các tháng xem 'tháng nào bán được nhiều tiền nhất / ít tiền nhất': answer_type là 'date', kết quả trả về đúng định dạng 'YYYY-MM' (ví dụ '2025-05'). TUYỆT ĐỐI KHÔNG trả về chữ văn xuôi 'Tháng 5/2025'.
 
 3. ĐỊNH DẠNG ĐÁP ÁN (ANSWER TYPES & SHAPE):
    - 'number', 'percent', 'date', 'string', 'boolean': Kết quả trả về phải là SCALAR (đúng 1 dòng và 1 cột).

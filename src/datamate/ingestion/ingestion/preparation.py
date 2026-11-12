@@ -498,7 +498,7 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                             } or marker.startswith("ghi chu ")
 
                             # Check whether any cell is a summary or footer marker
-                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ')
+                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ', 'CỘNG NGÀY')
                             summary_col_idx = None
                             summary_markers_exact = {
                                 "tong",
@@ -509,6 +509,9 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong so",
                                 "tong don hang",
                                 "tong doanh thu",
+                                "cong",
+                                "cong ngay",
+                                "cong thang",
                                 "subtotal",
                                 "total",
                                 "grand total",
@@ -522,6 +525,9 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong don hang ",
                                 "tong don ",
                                 "tong doanh thu ",
+                                "cong ngay ",
+                                "cong thang ",
+                                "cong ",
                                 "ghi chu ",
                                 "subtotal ",
                                 "grand total ",
@@ -534,6 +540,14 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                         break
 
                             is_non_data = False
+                            # Detect unlabeled or labeled subtotal/footer rows
+                            has_identities = any(
+                                values[i] is not None
+                                and str(values[i]).strip()
+                                and fold(str(values[i])).strip() not in summary_markers_exact
+                                and not fold(str(values[i])).strip().startswith(summary_prefixes)
+                                for i in set(orders + products)
+                            )
                             if (
                                 roles[0] == "date"
                                 and footer_marker
@@ -541,18 +555,16 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                             ):
                                 is_non_data = True
                                 log_col = columns[0]
-                            elif (
-                                summary_col_idx is not None
-                                and not any(
-                                    values[i] is not None
-                                    and str(values[i]).strip()
-                                    and fold(str(values[i])).strip() not in summary_markers_exact
-                                    and not fold(str(values[i])).strip().startswith(summary_prefixes)
-                                    for i in set(orders + products)
-                                )
-                            ):
+                            elif summary_col_idx is not None and not has_identities:
                                 is_non_data = True
                                 log_col = columns[summary_col_idx]
+                            elif bool(orders or products) and not has_identities and any(
+                                roles[i] in {"money", "quantity"} and values[i] is not None and str(values[i]).strip()
+                                for i in range(len(values))
+                            ):
+                                # In tables with order or product lines, a row with no identity but having money/quantity is an unlabeled subtotal
+                                is_non_data = True
+                                log_col = columns[0]
 
                             if is_non_data:
                                 report["excluded_non_data_rows"] += 1

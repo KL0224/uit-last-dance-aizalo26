@@ -145,9 +145,16 @@ def is_order_key(header: str, description: str = "") -> bool:
                 "ma chung tu",
                 "so ct",
                 "so hd",
+                "don so",
+                "so don",
+                "hd",
+                "phieu thu",
+                "so phieu",
+                "stt",
             )
         )
         or "mahoadon" in compact
+        or fold(header) in {"hd", "so hd", "don so", "so don", "stt"}
     )
 
 
@@ -158,7 +165,12 @@ def is_product(header: str, description: str = "") -> bool:
         or "ten san pham" in text
         or "ma hang" in text
         or "ma san pham" in text
-        or fold(header) in {"hang", "noi dung", "mat hang", "san pham", "product"}
+        or "hang hoa" in text
+        or "hang ban" in text
+        or "ten may" in text
+        or "dong may" in text
+        or "ten thuoc" in text
+        or fold(header) in {"hang", "noi dung", "mat hang", "san pham", "product", "hang hoa", "hang ban"}
     )
 
 
@@ -314,12 +326,16 @@ _STATUS = {
     "returned": "returned",
     "tra hang": "returned",
     "da tra hang": "returned",
+    "khach tra": "returned",
+    "khach tra hang": "returned",
     "hoan tra": "returned",
     "doi tra": "returned",
     "hang tra ve": "returned",
     "delivering": "delivering",
     "dang giao": "delivering",
     "dang giao hang": "delivering",
+    "dang ship": "delivering",
+    "khong giao duoc": "cancelled",
 }
 
 

@@ -285,17 +285,22 @@ class RuleSchemaMatcher:
 
 
 SEMANTIC_DISCOVERY_SYSTEM_PROMPT = """Bạn là chuyên gia phân tích ngữ nghĩa cơ sở dữ liệu doanh nghiệp và trích xuất chỉ số kinh doanh (Semantic Discovery).
-Nhiệm vụ: Đối chiếu LƯỢC ĐỒ DỮ LIỆU với các QUY TẮC NGHIỆP VỤ của doanh nghiệp để tìm ra:
+Nhiệm vụ: Đối chiếu LƯỢC ĐỒ DỮ LIỆU với các QUY TẮC NGHIỆP VỤ & TÀI LIỆU README của doanh nghiệp để tìm ra:
 1. Danh sách CHỈ SỐ KINH DOANH (Metrics):
    - metric_id: mã định danh chỉ số (ví dụ: revenue, order_count, commission, warranty_count, cost, sold_qty...).
    - name: tên tiếng Việt chuẩn của chỉ số.
    - aliases: các từ đồng nghĩa hoặc cách gọi trong tiếng Việt.
    - preferred_table: bảng dữ liệu chính để tính toán (BẮT BUỘC tồn tại trong lược đồ).
    - required_columns: các cột bắt buộc dùng (BẮT BUỘC tồn tại trong preferred_table).
-   - formula_hint: công thức SQL gợi ý (ví dụ: SUM(tien), COUNT(*), SUM(tien * CAST(hoa_hong AS DOUBLE)/100)...).
+   - formula_hint: công thức SQL gợi ý (ví dụ: SUM(tien), COUNT(*), SUM(gia_tri_hang)... Nếu tài liệu quy định cột tính doanh thu riêng như gia_tri_hang thì ưu tiên cột đó).
    - unit: đơn vị (VND, count, qty, percent).
 2. QUAN HỆ LIÊN KẾT BẢNG (suggested_joins):
    - left_table, left_column, right_table, right_column, join_type (exact, name_suffix_match), description.
+3. QUY ĐỔI ĐƠN VỊ TÍNH (unit_conversions):
+   - Trích xuất mọi quy đổi đơn vị trong tài liệu README/quy tắc (ví dụ: 1 bó = 10 cây, 1 lốc = 6 lon, 1 thùng = 24 lon...).
+   - item_name, from_unit, to_unit, factor (số lượng quy đổi).
+4. KHẢ NĂNG KHÔNG THỂ TRẢ LỜI (unsupported_capabilities):
+   - Liệt kê các trường thông tin hoặc phân loại mà dữ liệu KHÔNG CÓ (ví dụ: "nhóm hàng / danh mục hàng", "độ nhiệt tình / thân thiện nhân viên", "địa chỉ đường phố của khách").
 
 QUY TẮC NGHIÊM NGẶT:
 - Mọi bảng và cột BẮT BUỘC phải tồn tại thật trong LƯỢC ĐỒ DỮ LIỆU. TUYỆT ĐỐI KHÔNG tự bịa bảng hoặc cột.
@@ -305,7 +310,7 @@ QUY TẮC NGHIÊM NGẶT:
     {
       "metric_id": "revenue",
       "name": "Doanh thu",
-      "aliases": ["doanh thu", "tổng tiền", "tiền bán"],
+      "aliases": ["doanh thu", "tổng tiền", "tiền bán", "tiệm mình"],
       "preferred_table": "bang_giao_dich",
       "required_columns": ["tien"],
       "formula_hint": "SUM(tien)",
@@ -321,6 +326,18 @@ QUY TẮC NGHIÊM NGẶT:
       "join_type": "exact",
       "description": "Liên kết giao dịch với danh mục khách hàng"
     }
+  ],
+  "unit_conversions": [
+    {
+      "item_name": "Ống PVC Bình Minh D50",
+      "from_unit": "bó",
+      "to_unit": "cây",
+      "factor": 10
+    }
+  ],
+  "unsupported_capabilities": [
+    "nhóm hàng",
+    "độ thân thiện của nhân viên"
   ]
 }
 """
@@ -496,11 +513,19 @@ class LLMSemanticExtractor:
                     if not any((x.get("left_table"), x.get("left_column"), x.get("right_table"), x.get("right_column")) == pair_key for x in validated_joins):
                         validated_joins.append(j)
 
+        # Cập nhật danh mục quy đổi đơn vị và unsupported capabilities
+        raw_units = list(llm_data.get("unit_conversions") or [])
+        clean_units = [u for u in raw_units if isinstance(u, dict) and u.get("item_name") and u.get("factor")]
+
+        raw_unsupported = list(llm_data.get("unsupported_capabilities") or []) + list(base.unsupported_capabilities or [])
+        clean_unsupported = tuple(sorted({str(x).strip() for x in raw_unsupported if str(x).strip()}))
+
         return SemanticCatalog(
             business_id=business_id,
             metrics=tuple(discovered.values()),
             suggested_joins=tuple(validated_joins),
-            unsupported_capabilities=base.unsupported_capabilities,
+            unsupported_capabilities=clean_unsupported,
+            unit_conversions=tuple(clean_units),
         )
 
 
