@@ -101,8 +101,27 @@ class AuditLogger:
         if outcome.final_answer:
             final_ans_dict = outcome.final_answer.to_submission_dict()
 
+        # BTC Guidelines Section 3.3 required fields: id, answer, elapsed_ms, thinking, code, output
+        thinking_val: Optional[Any] = None
+        code_val: Optional[str] = None
+        output_val: Optional[Any] = None
+        if attempts:
+            thinkings = [a.get("thinking") for a in attempts if a.get("thinking")]
+            if len(thinkings) == 1:
+                thinking_val = thinkings[0]
+            elif len(thinkings) > 1:
+                thinking_val = thinkings
+            last_attempt = attempts[-1]
+            code_val = last_attempt.get("sql")
+            output_val = last_attempt.get("result_sample") or (final_ans_dict.get("answer") if final_ans_dict else None)
+
         log_payload = {
             "id": q_id,
+            "answer": final_ans_dict,
+            "elapsed_ms": int(round(total_elapsed_ms or 0)),
+            "thinking": thinking_val,
+            "code": code_val,
+            "output": output_val,
             "business_id": business_id,
             "contract_version": contract_version,
             "final_decision": outcome.decision,

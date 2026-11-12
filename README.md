@@ -214,3 +214,57 @@ source .venv/bin/activate
 
 uv pip install -r requirements-lock.txt \
   --torch-backend=auto
+
+---
+
+## 8. Quy Cách Đóng Gói Docker & Khai Báo Theo Quy Định BTC
+
+> Tuân thủ 100% tài liệu **Docker Submission Guide - Zalo AI Challenge 2026 (DataMate)**.
+
+### 8.1. Phương Pháp Tiếp Cận (Approach)
+Giải pháp **DataMate** của đội **UIT Last Dance** là một luồng Agentic AI tích hợp đa tầng, hoạt động hoàn toàn offline:
+1. **Data Ingestion & Normalization (`src/datamate/ingestion/`)**: Đọc các tệp bảng biểu đa định dạng (CSV, XLSX, SQLite) của từng doanh nghiệp trong `/data/data/<business_id>`, chuẩn hóa kiểu dữ liệu, giải quyết xung đột mã hóa và tự động phát hiện liên kết khóa nối (Join Graph).
+2. **Business Context & Rule Compiler (`src/datamate/context/`)**: Phân tích luật kinh doanh từ `README.md` của từng shop và `rulebook.md`, trích xuất các điều kiện nghiệp vụ cốt lõi (doanh thu thực, điều kiện loại trừ đơn hủy, hoàn trả, quà tặng 0đ).
+3. **Question Grounding (`src/datamate/grounding/`)**: Phân tích câu hỏi tiếng Việt, nhận diện ý định (Intent C1), thời gian (Temporal C2), liên kết cột/bảng (Schema C3), nhận diện giá trị (Value C4) và phân loại tính khả thi (Answerability C5).
+4. **Agent Planner Text-to-SQL (`src/datamate/planner/`)**: Sử dụng LLM cục bộ (vLLM offline) sinh truy vấn DuckDB SQL có cấu trúc, tích hợp ngữ cảnh grounding và cơ chế sinh suy nghĩ (`thinking`).
+5. **Safe Sandbox Execution (`src/datamate/execution/`)**: Thực thi truy vấn trong môi trường DuckDB tối ưu bộ nhớ, tự động gỡ lỗi cú pháp qua AST parser, bổ sung schema hints khi retry và bẫy lỗi tràn bộ nhớ/spill disk vào `/tmp/duckdb_spill`.
+6. **Risk-Policy Gate (`src/datamate/gate/`)**: Thẩm định kết quả theo chính sách rủi ro chặt chẽ. Áp dụng chiến lược **Aggressive Abstain** (không chắc chắn thì bỏ qua để nhận 0 điểm, tránh bị trừ -1 điểm theo luật BTC). Ghi kết quả lập tức vào `/result/submission.jsonl` và log chi tiết vào `/result/logs/`.
+
+### 8.2. Khai Báo Mô Hình (Model Declarations)
+* **Mô hình chính (Primary Planner LLM):**
+  - **Tên:** `Qwen/Qwen3.5-9B`
+  - **Nguồn công khai:** [https://huggingface.co/Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)
+  - **Revision:** `main` (cố định)
+  - **Ngày phát hành gốc:** Tháng 10/2024 (trước mốc quy định 26/10/2026)
+  - **Giấy phép:** Apache 2.0 (cho phép sử dụng thương mại và nghiên cứu)
+  - **Số lượng tham số:** 9.0B tham số (thỏa mãn tổng số tham số suy luận $\le$ 15B)
+* **Mô hình phụ trợ Grounding Fallback (Tùy chọn):**
+  - **Tên:** `Qwen/Qwen2.5-3B-Instruct`
+  - **Nguồn công khai:** [https://huggingface.co/Qwen/Qwen2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
+  - **Ngày phát hành gốc:** 19/09/2024 (trước 26/10/2026)
+  - **Giấy phép:** Apache 2.0
+  - **Số lượng tham số:** 3.0B tham số
+* **Tổng tham số toàn bộ hệ thống suy luận:** 9.0B + 3.0B = 12.0B $\le$ 15B (Hợp lệ Rule 2).
+
+### 8.3. Dữ Liệu & Huấn Luyện (Data & Training Declaration)
+* **Dữ liệu sử dụng:** Bộ dữ liệu `train` chính thức do BTC Zalo AI Challenge 2026 cung cấp. Không sử dụng dữ liệu public test hay private test để huấn luyện (Tuân thủ Rule 6).
+* **Khai báo huấn luyện (Training Declaration):** Giải pháp vận hành theo kiến trúc zero-shot / few-shot text-to-SQL và suy luận agentic cục bộ dựa trên trọng số gốc nguồn mở đã công bố. Không thực hiện fine-tuning can thiệp trực tiếp lên bộ trọng số gốc trên dữ liệu bài thi.
+* **Mã nguồn huấn luyện:** Toàn bộ cấu trúc thư mục `/code/training_code/`, cấu hình, kịch bản kiểm chứng và tệp kê khai `data_manifest.json` được đóng gói đầy đủ trong Docker image theo Mục 4 & Mục 8 của hướng dẫn BTC.
+
+### 8.4. Hướng Dẫn Chạy & Kiểm Thử Docker Image
+* **Tên Image chuẩn hóa:** `zaic2026_datamate_uit_last_dance:final`
+* **Lệnh chạy chấm điểm của BTC (Scoring Command):**
+  ```bash
+  docker run --rm --gpus '"device=0,1"' --network none --shm-size=16g \
+    --entrypoint bash \
+    -v /path/to/public_test:/data:ro \
+    -v /path/to/output:/result \
+    zaic2026_datamate_uit_last_dance:final /code/predict.sh
+  ```
+* **Lệnh đóng gói & xuất bản nộp bài:**
+  ```bash
+  set -o pipefail
+  docker save zaic2026_datamate_uit_last_dance:final | gzip > zaic2026_datamate_uit_last_dance.tar.gz
+  gzip -dc zaic2026_datamate_uit_last_dance.tar.gz | wc -c
+  md5sum zaic2026_datamate_uit_last_dance.tar.gz > zaic2026_datamate_uit_last_dance.tar.gz.md5
+  ```

@@ -1,0 +1,2 @@
+# Placeholder for offline model weights inside container
+# Expected location: /code/models/qwen3_5_9b or custom checkpoints

@@ -61,7 +61,7 @@ def test_create_qwen3b_vllm_parser_loads_model_and_calls_chat(
     config_path.write_text(
         f"""
 [model]
-model_path = "{model_dir}"
+model_path = "{model_dir.as_posix()}"
 dtype = "bfloat16"
 max_model_len = 4096
 gpu_memory_utilization = 0.35

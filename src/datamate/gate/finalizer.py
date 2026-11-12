@@ -66,11 +66,15 @@ class SubmissionFinalizer:
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temp_path, path)
-            directory_fd = os.open(path.parent, os.O_RDONLY)
-            try:
-                os.fsync(directory_fd)
-            finally:
-                os.close(directory_fd)
+            if os.name != "nt":
+                try:
+                    directory_fd = os.open(path.parent, os.O_RDONLY)
+                    try:
+                        os.fsync(directory_fd)
+                    finally:
+                        os.close(directory_fd)
+                except OSError:
+                    pass
         finally:
             if temp_path.exists():
                 temp_path.unlink()
