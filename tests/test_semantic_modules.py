@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from datamate.b0.b02.contracts import (
+from datamate.context.contracts import (
     BusinessRule,
     ColumnMetadata,
     ContractBuilder,
@@ -16,8 +16,8 @@ from datamate.b0.b02.contracts import (
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class SchemaCatalogTests(unittest.TestCase):

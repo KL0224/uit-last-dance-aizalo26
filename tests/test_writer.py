@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 import pytest
-from datamate.b0.b05.contracts import AnswerType, FinalAnswer, GateAction, GateOutcome
-from datamate.b0.b05.writer import SubmissionWriter
+from datamate.gate.contracts import AnswerType, FinalAnswer, GateAction, GateOutcome
+from datamate.gate.writer import SubmissionWriter
 
 
 def test_writer_creates_valid_jsonl(tmp_path: Path):

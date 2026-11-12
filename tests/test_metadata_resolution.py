@@ -7,16 +7,18 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from datamate.b0.b02.contracts import (
+from relationship_fixtures import reviewed_edge
+
+from datamate.context.contracts import (
     BusinessRule,
     ColumnMetadata,
     JoinEdge,
     RuleCatalog,
     TableMetadata,
 )
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b02.rule_resolver import RuleResolver
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.context.rule_resolver import RuleResolver
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class KeyEvidenceTests(unittest.TestCase):
@@ -103,15 +105,17 @@ class KeyEvidenceTests(unittest.TestCase):
             profile_is_complete=True,
             profile_rows=({"order_ref": "a"}, {"order_ref": "a"}, {"order_ref": "b"}),
         )
-        declared = JoinEdge(
-            "payments",
-            "order_ref",
-            "orders",
-            "id",
-            "many_to_one",
-            "candidate",
-            0.9,
-            ("README:4 FK mapping",),
+        declared = reviewed_edge(
+            JoinEdge(
+                "payments",
+                "order_ref",
+                "orders",
+                "id",
+                "many_to_one",
+                "candidate",
+                0.9,
+                ("README:4 FK mapping",),
+            )
         )
         valid = SchemaCatalogBuilder().build([child, parent], [declared]).join_graph[0]
         self.assertEqual(valid.status, "validated")
@@ -130,7 +134,7 @@ class KeyEvidenceTests(unittest.TestCase):
             .status,
             "invalid",
         )
-        mismatch = replace(declared, cardinality="one_to_one")
+        mismatch = reviewed_edge(replace(declared, cardinality="one_to_one"))
         self.assertEqual(
             SchemaCatalogBuilder()
             .build([child, parent], [mismatch])

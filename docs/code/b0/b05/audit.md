@@ -84,3 +84,24 @@ return f"{slug}_{q_hash}.json"
 
 * Toàn bộ quá trình chạy sẽ trở thành một "hộp đen". Nếu kết quả nộp bài bị điểm thấp, cả nhóm sẽ hoàn toàn không biết lỗi xảy ra ở khâu nào (do LLM viết SQL sai, do DuckDB lỗi timeout, hay do Gate từ chối) và không thể cải tiến mô hình cho các vòng sau.
 
+
+## Diagnostics generation
+
+Mỗi attempt từ Text2SQLGenerator bổ sung `generation_diagnostics` trong audit
+log từng câu và `detailed_logs.jsonl` của pipeline. Định dạng submission và
+logic retry không đổi. Các trường gồm:
+
+- `raw_response`: completion đầy đủ, không bị cắt ở 300 ký tự.
+- `input_tokens`, `output_tokens`, `finish_reason`: số liệu engine cung cấp.
+- `thinking_enabled`, `thinking_token_budget`, `max_new_tokens`: cấu hình request.
+- `parse_success`: true/false, hoặc null nếu chưa có kết quả để parse.
+- `failure_kind`: `inference_error`, `parse_error`, hoặc
+  `parse_error_after_length_limit` khi parse thất bại với finish_reason="length".
+- `error_type`, `error_message`, `traceback`: lỗi và chuỗi nguyên nhân gốc.
+
+Dữ liệu không nhận được từ backend là null, không đoán token usage hoặc lỗi
+thiếu VRAM. `length` với final parse được vẫn đi qua kiểm tra SQL như trước.
+`GENERATION_INVALID` vẫn là mã chung của pipeline; diagnostics cung cấp
+nguyên nhân chi tiết mà không thay đổi quyết định gate. Nếu lỗi batch kích
+hoạt fallback đơn hiện có, `batch_fallback_error` giữ lại diagnostics của lỗi
+batch trên từng attempt bị ảnh hưởng, kể cả khi fallback thành công.

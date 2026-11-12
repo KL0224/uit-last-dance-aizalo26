@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import json
 
-from datamate.b0.b01.ingestion import prepare_business
-from datamate.b0.b03.parser import parse_text2sql_response
-from datamate.b0.b03.prompt import build_text2sql_messages
-from datamate.b0.b04 import ExecutionRequest, execute_query
-from datamate.b0.b05 import SubmissionWriter, evaluate_gate
-from datamate.b0.b05.contracts import GateAction, GateRequest, QuestionMeta
+from datamate.ingestion.ingestion import prepare_business
+from datamate.planner.parser import parse_text2sql_response
+from datamate.planner.prompt import build_text2sql_messages
+from datamate.execution import ExecutionRequest, execute_query
+from datamate.gate import SubmissionWriter, evaluate_gate
+from datamate.gate.contracts import GateAction, GateRequest, QuestionMeta
 
 
 def _bundle(tmp_path):
@@ -117,7 +117,7 @@ class _ScriptedLLM:
         self.calls: list[list] = []
 
     def chat(self, messages, options=None):
-        from datamate.b0.b03.types import GenerationResult
+        from datamate.planner.types import GenerationResult
 
         self.calls.append(messages)
         text = self._responses.pop(0)
@@ -126,8 +126,8 @@ class _ScriptedLLM:
 
 def test_b0_pipeline_end_to_end_orchestration(tmp_path):
     """Verify B0Pipeline connects B0.1 -> B0.2 -> B0.3 -> B0.4 -> B0.5 including bounded retry and unanswerable verification."""
-    from datamate.b0 import B0Pipeline
-    from datamate.b0.b03 import Text2SQLGenerator
+    from datamate.pipeline import B0Pipeline, Pipeline
+    from datamate.planner import Text2SQLGenerator
 
     artifacts = _bundle(tmp_path)
     context = json.loads((artifacts.bundle_dir / "business_context.json").read_text())
@@ -256,8 +256,8 @@ def test_b0_pipeline_end_to_end_orchestration(tmp_path):
 
 def test_b0_pipeline_batch_mode_parallel(tmp_path: Path):
     """Verify that batch processing (batch_size=2) produces identical correct results and audit trails."""
-    from datamate.b0 import B0Pipeline
-    from datamate.b0.b03 import Text2SQLGenerator
+    from datamate.pipeline import B0Pipeline, Pipeline
+    from datamate.planner import Text2SQLGenerator
 
     data_dir = tmp_path / "in"
     biz_dir = data_dir / "biz_batch"

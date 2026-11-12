@@ -48,13 +48,26 @@ Tệp `contracts.py` định nghĩa "Bản hợp đồng dữ liệu" (Data Cont
 * **Mục đích**: Mô tả mối quan hệ giữa 2 bảng.
 * **Các trường**:
   * `left_table`, `left_column`, `right_table`, `right_column`.
-  * `cardinality`: Bản số (`one_to_one`, `one_to_many`, `many_to_many`).
-  * `status`: `candidate` hoặc `validated`.
-  * `fanout_warning`: `True` nếu là quan hệ N-N có nguy cơ nhân bản dòng kết quả.
-  * `additional_key_pairs`: Lưu các cặp cột bổ sung đối với quan hệ khóa ghép.
+  * `cardinality`: Bản số (`one_to_one`, `one_to_many`, `many_to_one`, `many_to_many`).
+  * `status`: Trạng thái kiểm chứng (`validated`, `uncertain`, `candidate`, `invalid`). Chỉ cạnh `validated` mới được các module downstream tin dùng.
+  * `confidence`: Điểm tin cậy (0.0 đến 1.0).
+  * `evidence`: Bằng chứng thống kê hoặc nguồn trích xuất.
+  * `fanout_warning`: `True` nếu là quan hệ N-N hoặc 1-N có nguy cơ nhân bản dòng kết quả.
+  * `additional_key_pairs`: Lưu các cặp cột bổ sung đối với quan hệ khóa ghép (composite key).
+  * `statistics`: Thống kê toàn bảng `JoinStatistics` (nếu có).
+  * `relationship_evidence`: Bằng chứng xác nhận `RelationshipEvidence` gắn với chữ ký số (sha256).
   * Thuộc tính `key_pairs`: Trả về toàn bộ danh sách cặp cột `(left_col, right_col)`.
 
-### 2.5. `SchemaCatalog`
+### 2.5. `JoinStatistics`
+* **Mục đích**: Lưu trữ thống kê quan sát SQL thực tế trên toàn bộ bảng dữ liệu.
+* **Các trường**: `left_rows`, `right_rows`, `left_null_rows`, `right_null_rows`, `left_distinct`, `right_distinct`, `matched_distinct`, `left_coverage`, `right_coverage`, `observed_cardinality`.
+* **Ý nghĩa**: Cung cấp bằng chứng thực tế về tỷ lệ phủ khóa và cảnh báo các cột có chứa giá trị `NULL`.
+
+### 2.6. `RelationshipEvidence`
+* **Mục đích**: Chứng từ xác thực quan hệ được gắn với một doanh nghiệp cụ thể và file manifest đã duyệt.
+* **Các trường**: `origin`, `business_id`, `source`, `source_sha256`, `statement`, `review_status` (`approved`), `reviewed_by`, `relationship_sha256`.
+
+### 2.7. `SchemaCatalog`
 * **Mục đích**: Vỏ bọc tổng hợp chứa danh sách tất cả các bảng, các khóa ứng viên và đồ thị join của một doanh nghiệp.
 
 ---
@@ -71,7 +84,8 @@ Tệp `contracts.py` định nghĩa "Bản hợp đồng dữ liệu" (Data Cont
 ## 4. Ý Nghĩa & Ảnh Hưởng Đến Các Module Khác
 
 * **Module B0.2**: Lớp `ContractBuilder` của B0.2 sử dụng `SchemaCatalog` để kiểm tra chéo: các trường yêu cầu trong Business Rule có tồn tại trong các bảng của SchemaCatalog hay không.
-* **Module B0.3**: Cung cấp cấu trúc bảng và đường join chính xác để LLM viết đúng cú pháp SQL.
+* **Component C (Question Grounding)**: Lớp `B02ContextAdapter` đọc trực tiếp `SchemaCatalog` để chuyển đổi sang `BusinessContextProtocol`, lọc các cạnh JOIN đã `validated`, nhận diện khóa composite và phát hiện rủi ro rơi dòng do khóa NULL.
+* **Module B0.3 / Component D (Planner)**: Cung cấp cấu trúc bảng và đường join chính xác để LLM viết đúng cú pháp SQL.
 
 ---
 

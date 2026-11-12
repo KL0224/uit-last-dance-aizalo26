@@ -3,7 +3,11 @@
 model_path = "../.models/Qwen3.5-9B"
 dtype = "bfloat16"
 max_model_len = 32768
-gpu_memory_utilization = 0.9
+# Cấu hình tối ưu cho Single GPU A100 40GB chạy song song 2 model vLLM:
+# Model 3B (Grounding): 0.22 (~8.8 GB VRAM)
+# Model 9B (Planner):   0.68 (~27.2 GB VRAM)
+# Tổng VRAM vLLM: 0.90 (36.0 GB / 40.0 GB), chừa 4.0 GB an toàn tránh OOM.
+gpu_memory_utilization = 0.68
 tensor_parallel_size = 1
 max_num_seqs = 16
 trust_remote_code = false
@@ -14,6 +18,8 @@ enable_thinking = true
 
 [generation]
 max_new_tokens = 8192
+# Ép đóng thinking để dành phần output còn lại cho JSON/SQL cuối.
+thinking_token_budget = 4096
 temperature = 0.0
 top_p = 1.0
 top_k = -1

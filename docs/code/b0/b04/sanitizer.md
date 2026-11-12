@@ -37,25 +37,26 @@ FORBIDDEN_FUNCTIONS = {
 * Ngăn chặn người dùng hoặc mô hình LLM khai thác tính năng mạnh mẽ của DuckDB để đọc các file nhạy cảm trong hệ điều hành (ví dụ: `SELECT * FROM read_csv('/etc/passwd')`).
 
 ### 2.3. Hàm `extract_clean_sql(raw_sql: str) -> str`
-* Sử dụng Regex `r"```(?:sql)?\s*([\s\S]*?)\s*```"` để bóc tách nội dung câu SQL nằm bên trong các block markdown do LLM sinh ra.
-* Gỡ bỏ các dấu chấm phẩy thừa (`r";+\s*$"`) ở cuối câu.
+* Xóa bỏ các khối suy luận `<think>...</think>` nếu còn sót lại trong chuỗi đầu vào.
+* Sử dụng `re.findall(r"```(?:sql)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)` và lấy **khối markdown cuối cùng (`matches[-1]`)** để tránh chạy nhầm khối SQL nháp khi LLM sinh nhiều đoạn code giải thích.
+* Gỡ bỏ các comment cuối câu (`/* ... */`, `-- ...`) trước và sau khi cắt dấu chấm phẩy thừa (`r";+\s*$"`).
 * Ném `EmptyQueryError` nếu sau khi bóc tách chuỗi rỗng.
 
 ### 2.4. Hàm `validate_read_only_sql(sql: str) -> str`
-Quy trình kiểm tra an toàn tĩnh gồm 4 bước:
+Quy trình kiểm tra an toàn tĩnh gồm 5 bước:
 
-1. **Kiểm tra rỗng:** Gọi `extract_clean_sql(sql)`.
-2. **Kiểm tra Multi-statement Injection:**
-   * Sử dụng `sqlglot.parse(cleaned, read="duckdb")`.
-   * Nếu danh sách statements trả về có độ dài `> 1` (ví dụ: `SELECT 1; DROP TABLE customers;`), ném ngay `SecurityViolation: Multiple statements are not permitted`.
-3. **Kiểm tra Node Gốc (Root Node):**
-   * Câu lệnh gốc bắt buộc phải là một trong các dạng truy vấn dữ liệu: `exp.Select`, `exp.Union`, `exp.Intersect`, `exp.Except`.
-4. **Quét sâu đệ quy cây cú pháp (AST Traversal):**
-   * Duyệt qua toàn bộ các node con (`expression.find_all(exp.Expression)`):
+1. **Làm sạch & che mặt nạ chuỗi literal (`_mask_literals_and_comments`):** Gọi `extract_clean_sql(sql)` và tạo bản sao đã xóa nội dung bên trong dấu nháy đơn `'...'`, nháy kép `"..."` và comment để không bao giờ chặn nhầm các từ khóa nhạy cảm nằm trong chuỗi lọc dữ liệu (ví dụ `WHERE trang_thai = 'update'`).
+2. **Phân tích AST trước & Kiểm tra Multi-statement Injection:**
+   * Sử dụng `sqlglot.parse(cleaned_sql, read="duckdb")`.
+   * Nếu danh sách statements trả về có độ dài `> 1` (ví dụ: `SELECT 1; DROP TABLE customers;`), ném ngay `SecurityViolation`.
+3. **Kiểm tra Node Gốc (`ALLOWED_ROOT_NODES` & `SYNTAX_FRAGMENT_NODES`):**
+   * Câu lệnh gốc phải thuộc `ALLOWED_ROOT_NODES` (`Select`, `Union`, `Intersect`, `Except`, `Subquery`) hoặc `SYNTAX_FRAGMENT_NODES` (để các lỗi gõ nhầm như `SELEC * FORM t` đi tiếp xuống DuckDB lấy thông báo lỗi cú pháp chính xác, miễn là từ đầu câu không nằm trong `NON_QUERY_LEADING_WORDS` hay `FORBIDDEN_KEYWORDS`).
+4. **Quét sâu đệ quy cây cú pháp (`stmt.walk()`):**
+   * Duyệt qua toàn bộ các node con:
      * Nếu bắt gặp bất kỳ node nào trong `FORBIDDEN_AST_NODES`: ném `SecurityViolation`.
-     * Nếu bắt gặp `exp.Anonymous` hoặc `exp.Func` có tên hàm nằm trong `FORBIDDEN_FUNCTIONS`: ném `SecurityViolation`.
-5. **Dung nạp lỗi cú pháp thực sự (Pass-through Genuine Syntax Errors):**
-   * Nếu `sqlglot` gặp lỗi `ParseError` do cú pháp SQL đặc thù của DuckDB hoặc lỗi cú pháp thông thường, hàm cho phép câu lệnh đi tiếp tới DuckDB để DuckDB đưa ra thông báo lỗi chính xác (kèm số dòng và gợi ý "Did you mean"), giúp LLM sửa lỗi ở bước retry hiệu quả hơn.
+     * Nếu bắt gặp hàm/bảng trong `FORBIDDEN_FUNCTIONS` hoặc hàm hệ thống bắt đầu bằng `duckdb_*`: ném `SecurityViolation`.
+5. **Fallback quét Regex đã xóa literal khi `ParseError`:**
+   * Chỉ khi `sqlglot` ném `ParseError`, hàm mới dùng `_strip_literals_and_comments(cleaned_sql)` để kiểm tra dấu `;`, `FORBIDDEN_FUNCTIONS`, `duckdb_*`, `FORBIDDEN_KEYWORDS` và `NON_QUERY_LEADING_WORDS` trên phần code thuần túy (đã loại bỏ chuỗi literal).
 
 ---
 

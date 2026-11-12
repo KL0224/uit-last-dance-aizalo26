@@ -6,7 +6,9 @@ import sqlite3
 import unittest
 from dataclasses import replace
 
-from datamate.b0.b02.contracts import (
+from relationship_fixtures import reviewed_edge
+
+from datamate.context.contracts import (
     ColumnMetadata,
     ContractBuilder,
     JoinEdge,
@@ -14,9 +16,9 @@ from datamate.b0.b02.contracts import (
     SchemaCatalog,
     TableMetadata,
 )
-from datamate.b0.b01.join_graph import JoinGraphNavigator, JoinPredicateCompiler
-from datamate.b0.b02.rule_compiler import BusinessRuleCompiler
-from datamate.b0.b01.schema_catalog import SchemaCatalogBuilder
+from datamate.ingestion.join_graph import JoinGraphNavigator, JoinPredicateCompiler
+from datamate.context.rule_compiler import BusinessRuleCompiler
+from datamate.ingestion.schema_catalog import SchemaCatalogBuilder
 
 
 class CompositeJoinTests(unittest.TestCase):
@@ -41,16 +43,18 @@ class CompositeJoinTests(unittest.TestCase):
                 {"order_ref": 1, "line_ref": 2},
             ),
         )
-        self.edge = JoinEdge(
-            "allocations",
-            "order_ref",
-            "lines",
-            "order_id",
-            "many_to_one",
-            "candidate",
-            0.9,
-            ("README: allocation references the order and its line",),
-            additional_key_pairs=(("line_ref", "line_no"),),
+        self.edge = reviewed_edge(
+            JoinEdge(
+                "allocations",
+                "order_ref",
+                "lines",
+                "order_id",
+                "many_to_one",
+                "candidate",
+                0.9,
+                ("README: allocation references the order and its line",),
+                additional_key_pairs=(("line_ref", "line_no"),),
+            )
         )
 
     def test_tuple_join_is_validated_and_executes_without_cross_product(self) -> None:

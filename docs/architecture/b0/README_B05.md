@@ -1,6 +1,8 @@
 # B0.5 Basic Output Gate — Hướng Dẫn Kỹ Thuật & Tích Hợp
 **DataMate — Zalo AI Challenge 2026 (Track 2)**
 
+> Tài liệu này mô tả kiến trúc legacy `b05.v1`. Kiến trúc proof-driven `b05.v2`, shadow/enforce policy và canonical finalizer được mô tả tại [B0_5_PROOF_DRIVEN_GATE_ARCHITECTURE.md](B0_5_PROOF_DRIVEN_GATE_ARCHITECTURE.md).
+
 Module **B0.5 Basic Output Gate** đóng vai trò là chốt chặn cuối cùng của Baseline B0 (Direct Text-to-SQL):
 - Kiểm soát hợp đồng đầu vào (`GateRequest`) từ B0.3 (Generation) và B0.4 (Safe Execution).
 - Validate kết quả truy vấn (ma trận shape, kiểu dữ liệu, NULL, non-finite NaN/Inf, truncated).
@@ -103,4 +105,3 @@ PYTHONPATH=src .venv/bin/python3 -m datamate.b05.cli \
     --fixtures tests/fixtures/b05_cases.jsonl \
     --result-dir /tmp/b05_run
 ```
-

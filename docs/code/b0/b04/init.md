@@ -29,6 +29,7 @@ __all__ = [
     # 3. Error Handling
     "classify_error",
     "determine_route",
+    "enrich_error_with_schema",
     "format_error_message",
     # 4. Engine
     "execute_query",

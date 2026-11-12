@@ -68,8 +68,23 @@ if [ -n "${MODEL_PATH}" ]; then
   EXTRA_ARGS+=(--model-path "${MODEL_PATH}")
 fi
 
-# Chạy pipeline B0.1 -> B0.5
-python3 /workspace/scripts/run_b0_pipeline.py \
+# Kiểm tra sớm model offline để báo lỗi rõ ràng (tránh crash muộn trong vLLM)
+RESOLVED_MODEL_PATH="$(PYTHONPATH=/workspace/src python3 - "${CONFIG_FILE}" "${MODEL_PATH}" <<'PY'
+import sys
+from pathlib import Path
+from datamate.planner.config import load_config
+cfg, _ = load_config(sys.argv[1])
+print(Path(sys.argv[2]).expanduser() if sys.argv[2] else cfg.model_path)
+PY
+)" || RESOLVED_MODEL_PATH=""
+if [ -n "${RESOLVED_MODEL_PATH}" ] && [ ! -f "${RESOLVED_MODEL_PATH}/config.json" ]; then
+  echo "[LỖI] Không tìm thấy model tại '${RESOLVED_MODEL_PATH}' (thiếu config.json)." >&2
+  echo "      Hãy mount/COPY weights vào đường dẫn này hoặc truyền --model_path <dir>." >&2
+  exit 2
+fi
+
+# Chạy DataMate Pipeline
+python3 /workspace/scripts/run_pipeline.py \
     --split-dir "${INPUT_DIR}" \
     --output-dir "${OUTPUT_DIR}" \
     --config "${CONFIG_FILE}" \

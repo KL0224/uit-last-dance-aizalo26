@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pytest
 
-from datamate.b0.b01 import ColumnMetadata, SchemaCatalogBuilder, TableMetadata
-from datamate.b0.b02 import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
-from datamate.b0.b03 import (
+from datamate.ingestion import ColumnMetadata, SchemaCatalogBuilder, TableMetadata
+from datamate.context import BusinessContext, BusinessRule, ContractBuilder, RuleCatalog
+from datamate.planner import (
     BaseLLM,
     ChatMessage,
     GenerationOptions,
@@ -21,7 +21,7 @@ from datamate.b0.b03 import (
     infer_answer_type_from_sql,
     parse_text2sql_response,
 )
-from datamate.b0.b05.contracts import GenerationResult as B05GenerationResult
+from datamate.gate.contracts import GenerationResult as B05GenerationResult
 
 
 class MockLLM(BaseLLM):
@@ -336,3 +336,41 @@ def test_text2sql_generator_end_to_end(sample_business_context: BusinessContext)
     assert repaired.status == "answerable"
     assert repaired.sql == "SELECT COUNT(order_id) FROM orders"
 
+
+def test_parse_thinking_process_preamble():
+    """Verify parser extracts JSON when model outputs 'Thinking Process:' preamble without XML tags."""
+    raw = """Thinking Process:
+
+1.  **Analyze the Request:**
+    *   Role: DataMate 2026 AI Assistant.
+    *   Task: Generate Text-to-SQL query.
+    *   Table: `orders`
+
+2.  **Generate SQL:**
+    ```json
+    {
+      "status": "answerable",
+      "answer_type": "number",
+      "sql": "SELECT COUNT(*) FROM orders WHERE status = 'completed'",
+      "tables_used": ["orders"]
+    }
+    ```"""
+    res = parse_text2sql_response(raw)
+    assert res.status == "answerable"
+    assert res.answer_type == "number"
+    assert "orders" in res.tables_used
+    assert res.thinking is not None
+    assert "Thinking Process:" in res.thinking
+    assert "completed" in res.sql
+
+
+def test_parse_sql_block_inside_truncated_think():
+    """Output bị cắt trong <think> chỉ chứa SQL nháp -> phải bị từ chối (đi vào nhánh retry/abstain)."""
+    raw = """<think>
+    Let's check the schema.
+    We need total revenue.
+    ```sql
+    SELECT SUM(amount) FROM orders WHERE status = 'completed'
+    ```"""
+    with pytest.raises(Text2SQLParseError):
+        parse_text2sql_response(raw)

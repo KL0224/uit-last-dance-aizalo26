@@ -30,7 +30,7 @@ Tệp `schemas.py` định nghĩa các bản hợp đồng dữ liệu đầu v�
   * `timeout_sec`: Thời gian tối đa cho phép chạy (mặc định 10.0 giây).
   * `max_rows`: Giới hạn số dòng nạp vào RAM (mặc định 10,000 dòng).
 * **Phương thức Factory `from_b03(cls, b03_result, question_id, db_path, ...)`:**
-  * Tiếp nhận trực tiếp đối tượng [`Text2SQLResult`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b03/types.md) từ B0.3, tự động trích xuất `sql` và `answer_type`, tạo thành `ExecutionRequest` chuẩn chỉnh.
+  * Tiếp nhận trực tiếp đối tượng [`Text2SQLResult`](file:///home/kiet97/uit-last-dance-aizalo26/docs/code/b0/b03/types.md) từ B0.3, tự động trích xuất `sql` và chuẩn hóa `answer_type` qua `normalize_answer_type` (ví dụ chuyển các alias `"money"`, `"int"`, `"float"` về `"number"`), tạo thành `ExecutionRequest` chuẩn chỉnh để kích hoạt chính xác kiểm tra `EmptyResultWarning`.
 
 ### 2.3. Lớp `ExecutionResponse(BaseModel)`
 * **Các trường:**
@@ -41,9 +41,10 @@ Tệp `schemas.py` định nghĩa các bản hợp đồng dữ liệu đầu v�
   * `columns`: Danh sách tên các cột trả về.
   * `rows`: Danh sách các dictionary chứa từng dòng kết quả đã chuẩn hóa.
   * `row_count`: Số lượng dòng trả về.
-  * `error_type`: Phân loại lỗi (`SyntaxError`, `BinderError`, `TimeoutError`...).
-  * `error_message`: Thông điệp lỗi tinh gọn truyền vào prompt của B0.3 khi retry.
+  * `error_type`: Phân loại lỗi (`SyntaxError`, `BinderError`, `CatalogError`, `ConversionError`, `EmptyResultWarning`, `TimeoutError`...).
+  * `error_message`: Thông điệp lỗi tinh gọn (kèm `[Gợi ý Schema thực tế trong DB]` khi gặp lỗi schema/cast) truyền vào prompt của B0.3 khi retry.
   * `execution_time_ms`: Thời gian thực thi (mili-giây).
+  * `truncated`: `True` nếu số dòng thực tế vượt quá `max_rows` và đã bị cắt bớt.
 * **Phương thức Adapter `to_b05_execution_result(self) -> Any`:**
   * Tự động chuyển đổi sang đối tượng `ExecutionResult` của B0.5:
     * Nếu thành công: biến đổi danh sách dict thành ma trận giá trị `rows: List[List[Any]]` khớp thứ tự `columns`, gán `status = "success"`.

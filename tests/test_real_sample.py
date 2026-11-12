@@ -5,7 +5,7 @@ import duckdb
 import pandas as pd
 import pytest
 
-from datamate.b0.b04 import ExecutionRequest, execute_query
+from datamate.execution import ExecutionRequest, execute_query
 
 
 def test_real_biz_104_query(tmp_path):
