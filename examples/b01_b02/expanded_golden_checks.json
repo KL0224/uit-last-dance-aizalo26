@@ -1,0 +1,517 @@
+[
+  {
+    "question_id": "q_001883280e83",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2026-09-01' AND \"thoi_gian\" < DATE '2026-09-08' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_2b3dc5e6e597",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-09-01' AND \"thoi_gian\" < DATE '2025-10-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_5abc31fde219",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-11-01' AND \"thoi_gian\" < DATE '2025-12-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_68e09809a798",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2026-08-01' AND \"thoi_gian\" < DATE '2026-09-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_9882a4330cc0",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-10-01' AND \"thoi_gian\" < DATE '2025-11-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_334438589ac0",
+    "sql": "SELECT SUM(\"tong_gia_tri_nhap\") FROM \"pos_phieu_nhap_9ec4e5c1\" WHERE \"ngay_nhap_kho\" >= DATE '2025-06-01' AND \"ngay_nhap_kho\" < DATE '2025-07-01' AND (\"tinh_trang\" IS NULL OR LOWER(\"tinh_trang\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5; README biz_123: phieu_nhap.TongGiaTriNhap là tổng tiền cả phiếu nhập; cộng tại grain phiếu, không JOIN chi tiết.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_688299e017d0",
+    "sql": "SELECT SUM(\"tong_gia_tri_nhap\") FROM \"pos_phieu_nhap_9ec4e5c1\" WHERE \"ngay_nhap_kho\" >= DATE '2025-05-01' AND \"ngay_nhap_kho\" < DATE '2025-06-01' AND (\"tinh_trang\" IS NULL OR LOWER(\"tinh_trang\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5; README biz_123: phieu_nhap.TongGiaTriNhap là tổng tiền cả phiếu nhập; cộng tại grain phiếu, không JOIN chi tiết.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_b3d541ac5f83",
+    "sql": "SELECT SUM(\"thanh_tien\") FROM \"so_nhap_hang_3fc02a9b\" WHERE \"ngay_nhap\" >= DATE '2025-02-01' AND \"ngay_nhap\" < DATE '2025-03-01'",
+    "rationale": "rulebook.md §5 và README biz_105: Thành tiền của dòng nhập; cộng các dòng theo ngày nhập. Không dùng giá nhập nhân số lượng khi có thành tiền.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_ebe4f9b3e3b7",
+    "sql": "SELECT SUM(\"thanh_tien\") FROM \"so_nhap_hang_3fc02a9b\" WHERE \"ngay_nhap\" >= DATE '2026-06-01' AND \"ngay_nhap\" < DATE '2026-06-25'",
+    "rationale": "rulebook.md §5 và README biz_105: Thành tiền của dòng nhập; cộng các dòng theo ngày nhập. Không dùng giá nhập nhân số lượng khi có thành tiền.",
+    "review_status": "reviewed_against_question_and_source_docs",
+    "category": "purchase_total"
+  },
+  {
+    "question_id": "q_05d6ddd737ed",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2026-09-01' AND thoi_gian < DATE '2026-09-15' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_106 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_5e0db0c65c8f",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2026-01-01' AND thoi_gian < DATE '2026-02-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_106 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_79283c17e1af",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2026-05-01' AND thoi_gian < DATE '2026-05-30' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_108 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_a031cfee2cde",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-01-01' AND thoi_gian < DATE '2025-02-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_108 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_243c9fca1e72",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-11-01' AND thoi_gian < DATE '2025-12-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_119 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_71176b2fa385",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-10-01' AND thoi_gian < DATE '2025-11-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_119 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_257dc84373e7",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-12-01' AND thoi_gian < DATE '2026-01-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_120 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_937450753289",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-01-01' AND thoi_gian < DATE '2025-02-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_120 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_d6d3255fdaee",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-07-01' AND thoi_gian < DATE '2025-08-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_120 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_dcab2f85301d",
+    "sql": "SELECT SUM(can_tra_ncc) FROM danh_sach_nhap_hang_120a7c6c WHERE thoi_gian >= DATE '2025-11-01' AND thoi_gian < DATE '2025-12-01' AND (trang_thai IS NULL OR LOWER(trang_thai) NOT IN ('cancelled','hủy','huỷ','đã hủy','đã huỷ'))",
+    "category": "purchase_total",
+    "rationale": "biz_120 README: Cần trả NCC là tổng phiếu; rulebook §5: theo ngày phiếu, bỏ huỷ, không JOIN chi tiết.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_700cb0d7392c",
+    "sql": "SELECT SUM(thanh_tien) FROM so_nhap_hang_40836583 WHERE ngay_nhap >= DATE '2026-02-01' AND ngay_nhap < DATE '2026-03-01'",
+    "category": "purchase_total",
+    "rationale": "README cột Thành tiền: tiền cả dòng nhập; rulebook §5: tổng theo ngày phiếu.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_f04f3cf741d6",
+    "sql": "SELECT SUM(thanh_tien) FROM so_nhap_hang_40836583 WHERE ngay_nhap >= DATE '2025-09-01' AND ngay_nhap < DATE '2025-10-01'",
+    "category": "purchase_total",
+    "rationale": "README cột Thành tiền: tiền cả dòng nhập; rulebook §5: tổng theo ngày phiếu.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_7aab9df093c7",
+    "sql": "SELECT SUM(thanh_tien) FROM so_tay_nhap_hang_9a399917 WHERE ngay_nhap >= DATE '2025-01-01' AND ngay_nhap < DATE '2025-02-01'",
+    "category": "purchase_total",
+    "rationale": "README cột Thành tiền: tiền cả dòng nhập; rulebook §5: tổng theo ngày phiếu.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_83358960bf89",
+    "sql": "SELECT SUM(thanh_tien) FROM so_tay_nhap_hang_9a399917 WHERE ngay_nhap >= DATE '2026-03-01' AND ngay_nhap < DATE '2026-04-01'",
+    "category": "purchase_total",
+    "rationale": "README cột Thành tiền: tiền cả dòng nhập; rulebook §5: tổng theo ngày phiếu.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_2c664c3eaf2c",
+    "sql": "SELECT SUM(thanh_tien) FROM so_nhap_hang_3fc02a9b WHERE ngay_nhap >= DATE '2026-03-01' AND ngay_nhap < DATE '2026-04-01'",
+    "category": "purchase_total",
+    "rationale": "README cột Thành tiền: tiền cả dòng nhập; rulebook §5: tổng theo ngày phiếu.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_c893acce3ef3",
+    "sql": "SELECT SUM(s.thanh_tien) FROM ban_hang_efb24547 s WHERE s.ngay_thang >= DATE '2026-07-01' AND s.ngay_thang < DATE '2026-08-01' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_ed4fe0895229",
+    "sql": "SELECT SUM(s.thanh_tien) FROM ban_hang_efb24547 s WHERE s.ngay_thang >= DATE '2026-01-01' AND s.ngay_thang < DATE '2026-02-01' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_f969bd7ed482",
+    "sql": "SELECT SUM(s.thanh_tien) FROM ban_hang_efb24547 s WHERE s.ngay_thang >= DATE '2026-03-01' AND s.ngay_thang < DATE '2026-04-01' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_0cb7c9b93048",
+    "sql": "SELECT COUNT(DISTINCT s.ma_hoa_don) FROM ban_hang_efb24547 s WHERE s.ngay_thang >= DATE '2025-09-23' AND s.ngay_thang < DATE '2025-09-24' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_1af02cd5fe06",
+    "sql": "SELECT COUNT(DISTINCT s.ma_hoa_don) FROM ban_hang_efb24547 s WHERE s.ngay_thang >= DATE '2026-04-13' AND s.ngay_thang < DATE '2026-04-14' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_668ce996c69e",
+    "sql": "SELECT SUM(s.tong_tien) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-07-01' AND s.ngay_dat_hang < DATE '2025-08-01' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_934eb2f07621",
+    "sql": "SELECT SUM(s.tong_tien) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-10-01' AND s.ngay_dat_hang < DATE '2025-11-01' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_cc3b3986ea00",
+    "sql": "SELECT SUM(s.tong_tien) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-02-01' AND s.ngay_dat_hang < DATE '2026-03-01' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_d784b9a6937f",
+    "sql": "SELECT SUM(s.tong_tien) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-05-01' AND s.ngay_dat_hang < DATE '2026-06-01' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_159e84d3a61e",
+    "sql": "SELECT COUNT(DISTINCT s.ma_don_hang) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-10-15' AND s.ngay_dat_hang < DATE '2025-10-16' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_fecb9f3bc765",
+    "sql": "SELECT COUNT(DISTINCT s.ma_don_hang) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-04-01' AND s.ngay_dat_hang < DATE '2025-07-01' AND NOT EXISTS (SELECT 1 FROM don_hang_chi_tiet_c45c645a b WHERE b.ma_don_hang=s.ma_don_hang AND b.trang_thai_don_hang IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_00eadfc5c599",
+    "sql": "SELECT COUNT(DISTINCT s.ma_don_hang) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-12-01' AND s.ngay_dat_hang < DATE '2026-01-01' AND s.trang_thai_don_hang='cancelled'",
+    "category": "cancel_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_042171000b2c",
+    "sql": "SELECT COUNT(DISTINCT s.ma_don_hang) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-02-01' AND s.ngay_dat_hang < DATE '2026-03-01' AND s.trang_thai_don_hang='cancelled'",
+    "category": "cancel_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_fd9c0becefa5",
+    "sql": "SELECT COUNT(DISTINCT s.ma_don_hang) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-03-01' AND s.ngay_dat_hang < DATE '2026-04-01' AND s.trang_thai_don_hang='cancelled'",
+    "category": "cancel_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_0e96d244ad69",
+    "sql": "SELECT ROUND(100.0*COUNT(DISTINCT CASE WHEN s.trang_thai_don_hang='cancelled' THEN s.ma_don_hang END)/NULLIF(COUNT(DISTINCT s.ma_don_hang),0),2) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2025-05-01' AND s.ngay_dat_hang < DATE '2025-06-01'",
+    "category": "cancel_percent",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_2145ced2c91e",
+    "sql": "SELECT ROUND(100.0*COUNT(DISTINCT CASE WHEN s.trang_thai_don_hang='cancelled' THEN s.ma_don_hang END)/NULLIF(COUNT(DISTINCT s.ma_don_hang),0),2) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-05-01' AND s.ngay_dat_hang < DATE '2026-06-01'",
+    "category": "cancel_percent",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_e1874330b217",
+    "sql": "SELECT ROUND(100.0*COUNT(DISTINCT CASE WHEN s.trang_thai_don_hang='cancelled' THEN s.ma_don_hang END)/NULLIF(COUNT(DISTINCT s.ma_don_hang),0),2) FROM don_hang_chi_tiet_c45c645a s WHERE s.ngay_dat_hang >= DATE '2026-02-01' AND s.ngay_dat_hang < DATE '2026-03-01'",
+    "category": "cancel_percent",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_18e16f9f9f85",
+    "sql": "SELECT SUM(s.tien_hang) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2025-05-01' AND s.ngay_giao_dich < DATE '2025-06-01' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_6fe9f968ba88",
+    "sql": "SELECT SUM(s.tien_hang) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2026-06-01' AND s.ngay_giao_dich < DATE '2026-07-01' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_b3b45f9adceb",
+    "sql": "SELECT SUM(s.tien_hang) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2025-07-01' AND s.ngay_giao_dich < DATE '2025-10-01' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_38f93b35964e",
+    "sql": "SELECT SUM(s.tien_hang) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2025-07-22' AND s.ngay_giao_dich < DATE '2025-07-23' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_d96f45ce61be",
+    "sql": "SELECT SUM(s.tien_hang) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2026-03-02' AND s.ngay_giao_dich < DATE '2026-03-03' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "revenue",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_05f70ec18809",
+    "sql": "SELECT COUNT(DISTINCT s.ma_bill) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2026-04-01' AND s.ngay_giao_dich < DATE '2026-07-01' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_09f475fddfec",
+    "sql": "SELECT COUNT(DISTINCT s.ma_bill) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2025-06-25' AND s.ngay_giao_dich < DATE '2025-06-26' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_3790a635bd18",
+    "sql": "SELECT COUNT(DISTINCT s.ma_bill) FROM danh_sach_hoa_don_9579ce11 s WHERE s.ngay_giao_dich >= DATE '2026-02-09' AND s.ngay_giao_dich < DATE '2026-02-10' AND NOT EXISTS (SELECT 1 FROM danh_sach_hoa_don_9579ce11 b WHERE b.ma_bill=s.ma_bill AND b.status IN ('cancelled','returned'))",
+    "category": "order_count",
+    "rationale": "README xác định grain dòng hàng/đơn và cột tiền hàng; rulebook §1: loại cả đơn huỷ/trả kể cả một phần; COUNT DISTINCT mã đơn. Tỷ lệ huỷ dùng mọi trạng thái ở mẫu số, làm tròn 2 chữ số.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison"
+  },
+  {
+    "question_id": "q_0bcf0fcf8740",
+    "sql": "SELECT ROUND(SUM(d.so_luong*d.don_gia)/NULLIF(SUM(d.so_luong),0),0) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND LOWER(TRIM(d.dvt))='thùng' AND h.thoi_gian >= DATE '2025-06-01' AND h.thoi_gian < DATE '2025-07-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+    "category": "weighted_purchase_price_join",
+    "rationale": "README biz_128: nối mã nhập/mã hàng; Đơn giá theo đơn vị nhập. Rulebook §5: bình quân theo số lượng, bỏ phiếu huỷ; §định dạng: làm tròn tiền về đồng. Chỉ dòng thùng; kiểm tra distribution đơn vị và uniqueness dimension riêng.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison",
+    "prechecks": [
+      {
+        "description": "purchase header id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_nhap_hang) FROM danh_sach_nhap_hang_120a7c6c",
+        "expected": 0
+      },
+      {
+        "description": "product id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hang) FROM danh_sach_san_pham_3c75cd9e",
+        "expected": 0
+      },
+      {
+        "description": "target product/month has no other import unit; otherwise explicit conversion required",
+        "sql": "SELECT COUNT(*) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND (d.dvt IS NULL OR LOWER(TRIM(d.dvt))<>'thùng') AND h.thoi_gian >= DATE '2025-06-01' AND h.thoi_gian < DATE '2025-07-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_40198f0271d6",
+    "sql": "SELECT ROUND(SUM(d.so_luong*d.don_gia)/NULLIF(SUM(d.so_luong),0),0) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND LOWER(TRIM(d.dvt))='thùng' AND h.thoi_gian >= DATE '2026-03-01' AND h.thoi_gian < DATE '2026-04-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+    "category": "weighted_purchase_price_join",
+    "rationale": "README biz_128: nối mã nhập/mã hàng; Đơn giá theo đơn vị nhập. Rulebook §5: bình quân theo số lượng, bỏ phiếu huỷ; §định dạng: làm tròn tiền về đồng. Chỉ dòng thùng; kiểm tra distribution đơn vị và uniqueness dimension riêng.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison",
+    "prechecks": [
+      {
+        "description": "purchase header id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_nhap_hang) FROM danh_sach_nhap_hang_120a7c6c",
+        "expected": 0
+      },
+      {
+        "description": "product id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hang) FROM danh_sach_san_pham_3c75cd9e",
+        "expected": 0
+      },
+      {
+        "description": "target product/month has no other import unit; otherwise explicit conversion required",
+        "sql": "SELECT COUNT(*) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND (d.dvt IS NULL OR LOWER(TRIM(d.dvt))<>'thùng') AND h.thoi_gian >= DATE '2026-03-01' AND h.thoi_gian < DATE '2026-04-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_990a9512c0a9",
+    "sql": "SELECT ROUND(SUM(d.so_luong*d.don_gia)/NULLIF(SUM(d.so_luong),0),0) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND LOWER(TRIM(d.dvt))='thùng' AND h.thoi_gian >= DATE '2025-04-01' AND h.thoi_gian < DATE '2025-05-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+    "category": "weighted_purchase_price_join",
+    "rationale": "README biz_128: nối mã nhập/mã hàng; Đơn giá theo đơn vị nhập. Rulebook §5: bình quân theo số lượng, bỏ phiếu huỷ; §định dạng: làm tròn tiền về đồng. Chỉ dòng thùng; kiểm tra distribution đơn vị và uniqueness dimension riêng.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison",
+    "prechecks": [
+      {
+        "description": "purchase header id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_nhap_hang) FROM danh_sach_nhap_hang_120a7c6c",
+        "expected": 0
+      },
+      {
+        "description": "product id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hang) FROM danh_sach_san_pham_3c75cd9e",
+        "expected": 0
+      },
+      {
+        "description": "target product/month has no other import unit; otherwise explicit conversion required",
+        "sql": "SELECT COUNT(*) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Tiger lon' AND (d.dvt IS NULL OR LOWER(TRIM(d.dvt))<>'thùng') AND h.thoi_gian >= DATE '2025-04-01' AND h.thoi_gian < DATE '2025-05-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_f512a1665ff9",
+    "sql": "SELECT ROUND(SUM(d.so_luong*d.don_gia)/NULLIF(SUM(d.so_luong),0),0) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Heineken lon' AND LOWER(TRIM(d.dvt))='thùng' AND h.thoi_gian >= DATE '2025-04-01' AND h.thoi_gian < DATE '2025-05-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+    "category": "weighted_purchase_price_join",
+    "rationale": "README biz_128: nối mã nhập/mã hàng; Đơn giá theo đơn vị nhập. Rulebook §5: bình quân theo số lượng, bỏ phiếu huỷ; §định dạng: làm tròn tiền về đồng. Chỉ dòng thùng; kiểm tra distribution đơn vị và uniqueness dimension riêng.",
+    "review_status": "question_readme_rulebook_reviewed_before_golden_comparison",
+    "prechecks": [
+      {
+        "description": "purchase header id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_nhap_hang) FROM danh_sach_nhap_hang_120a7c6c",
+        "expected": 0
+      },
+      {
+        "description": "product id unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hang) FROM danh_sach_san_pham_3c75cd9e",
+        "expected": 0
+      },
+      {
+        "description": "target product/month has no other import unit; otherwise explicit conversion required",
+        "sql": "SELECT COUNT(*) FROM danh_sach_chi_tiet_nhap_hang_5ebeb2ec d JOIN danh_sach_nhap_hang_120a7c6c h ON d.ma_nhap_hang=h.ma_nhap_hang JOIN danh_sach_san_pham_3c75cd9e p ON d.ma_hang=p.ma_hang WHERE p.ten_hang='Bia Heineken lon' AND (d.dvt IS NULL OR LOWER(TRIM(d.dvt))<>'thùng') AND h.thoi_gian >= DATE '2025-04-01' AND h.thoi_gian < DATE '2025-05-01' AND (h.trang_thai IS NULL OR h.trang_thai<>'cancelled')",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_314e13662297",
+    "category": "revenue_join",
+    "sql": "SELECT SUM(d.thanh_tien) FROM danh_sach_hoa_don_chi_tiet_51b07f00 d JOIN danh_sach_hoa_don_a3318608 h ON d.ma_hoa_don=h.ma_hoa_don WHERE h.thoi_gian >= DATE '2025-03-01' AND h.thoi_gian < DATE '2025-04-01' AND (h.trang_thai IS NULL OR h.trang_thai NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_108: chi tiết Thành tiền sau giảm, nối Mã hóa đơn. Rulebook §1: doanh thu cộng dòng hàng; loại cả đơn hủy/trả; không trừ giảm giá đơn, không dùng tiền khách trả.",
+    "prechecks": [
+      {
+        "description": "header order ids unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hoa_don) FROM danh_sach_hoa_don_a3318608",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_46d3c956e971",
+    "category": "revenue_join",
+    "sql": "SELECT SUM(d.thanh_tien) FROM danh_sach_hoa_don_chi_tiet_51b07f00 d JOIN danh_sach_hoa_don_a3318608 h ON d.ma_hoa_don=h.ma_hoa_don WHERE h.thoi_gian >= DATE '2026-02-01' AND h.thoi_gian < DATE '2026-03-01' AND (h.trang_thai IS NULL OR h.trang_thai NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_108: chi tiết Thành tiền sau giảm, nối Mã hóa đơn. Rulebook §1: doanh thu cộng dòng hàng; loại cả đơn hủy/trả; không trừ giảm giá đơn, không dùng tiền khách trả.",
+    "prechecks": [
+      {
+        "description": "header order ids unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hoa_don) FROM danh_sach_hoa_don_a3318608",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_4f59ba727c8e",
+    "category": "revenue_join",
+    "sql": "SELECT SUM(d.thanh_tien) FROM danh_sach_hoa_don_chi_tiet_51b07f00 d JOIN danh_sach_hoa_don_a3318608 h ON d.ma_hoa_don=h.ma_hoa_don WHERE h.thoi_gian >= DATE '2025-05-01' AND h.thoi_gian < DATE '2025-06-01' AND (h.trang_thai IS NULL OR h.trang_thai NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_108: chi tiết Thành tiền sau giảm, nối Mã hóa đơn. Rulebook §1: doanh thu cộng dòng hàng; loại cả đơn hủy/trả; không trừ giảm giá đơn, không dùng tiền khách trả.",
+    "prechecks": [
+      {
+        "description": "header order ids unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_hoa_don) FROM danh_sach_hoa_don_a3318608",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_69a890ba4423",
+    "category": "revenue_join",
+    "sql": "SELECT SUM(d.t_tien) FROM chi_tiet_don_607a7caf d JOIN don_hang_7264a9e4 h ON d.ma_don=h.ma_chung_tu WHERE h.ngay_ban >= DATE '2025-03-01' AND h.ngay_ban < DATE '2025-04-01' AND (h.xu_ly IS NULL OR h.xu_ly NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_111: Mã chứng từ nối Ma don; T.Tiền là thành tiền sau giảm. Rulebook §1: lấy tiền hàng, không dùng Tổng bill/Khách trả; bỏ cả đơn hủy/trả.",
+    "prechecks": [
+      {
+        "description": "header order ids unique/non-null",
+        "sql": "SELECT COUNT(*)-COUNT(DISTINCT ma_chung_tu) FROM don_hang_7264a9e4",
+        "expected": 0
+      }
+    ]
+  },
+  {
+    "question_id": "q_7c8afb8a81e9",
+    "category": "base_unit_quantity",
+    "sql": "SELECT SUM(s.quy_ra_dv_le) FROM ban_hang_efb24547 s WHERE s.noi_dung='Nếp cái hoa vàng' AND s.ngay_thang >= DATE '2025-07-01' AND s.ngay_thang < DATE '2025-08-01' AND NOT EXISTS (SELECT 1 FROM ban_hang_efb24547 b WHERE b.ma_hoa_don=s.ma_hoa_don AND b.ket_qua IN ('cancelled','returned'))",
+    "rationale": "README biz_101: Quy ra ĐV lẻ là số lượng đã đổi sang đơn vị cơ bản. Rulebook §1 loại cả đơn hủy/trả; câu hỏi kg dùng số lượng đã quy đổi, không cộng số bao/gói trực tiếp."
+  },
+  {
+    "question_id": "q_756cb06c26cc",
+    "category": "revenue_event_no_order_id",
+    "sql": "SELECT SUM(thanh_tien) FROM so_ban_hang_aa6f00c0 WHERE ngay_mua >= DATE '2026-02-01' AND ngay_mua < DATE '2026-03-01' AND (ghi_chu_tt IS NULL OR ghi_chu_tt NOT IN ('cancelled','returned')) AND mat_hang='Công tắc 1 chiều Panasonic Wide kèm mặt'",
+    "rationale": "README biz_113: mỗi dòng một mặt hàng, không có mã đơn; thanh_tien là thành tiền sau giảm. Rulebook: bảng không ghi theo đơn giữ mọi sự kiện, loại dòng hủy/trả theo trạng thái. Tên Công tắc là hàng thật, không phải Cộng tổng."
+  },
+  {
+    "question_id": "q_80410ed452fc",
+    "category": "revenue_event_no_order_id",
+    "sql": "SELECT SUM(thanh_tien) FROM so_ban_hang_aa6f00c0 WHERE ngay_mua >= DATE '2025-10-01' AND ngay_mua < DATE '2025-11-01' AND (ghi_chu_tt IS NULL OR ghi_chu_tt NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_113: mỗi dòng một mặt hàng, không có mã đơn; thanh_tien là thành tiền sau giảm. Rulebook: bảng không ghi theo đơn giữ mọi sự kiện, loại dòng hủy/trả theo trạng thái. Tên Công tắc là hàng thật, không phải Cộng tổng."
+  },
+  {
+    "question_id": "q_f5fd1585c5c6",
+    "category": "revenue_event_no_order_id",
+    "sql": "SELECT SUM(thanh_tien) FROM so_ban_hang_aa6f00c0 WHERE ngay_mua >= DATE '2025-06-01' AND ngay_mua < DATE '2025-07-01' AND (ghi_chu_tt IS NULL OR ghi_chu_tt NOT IN ('cancelled','returned'))",
+    "rationale": "README biz_113: mỗi dòng một mặt hàng, không có mã đơn; thanh_tien là thành tiền sau giảm. Rulebook: bảng không ghi theo đơn giữ mọi sự kiện, loại dòng hủy/trả theo trạng thái. Tên Công tắc là hàng thật, không phải Cộng tổng."
+  }
+]

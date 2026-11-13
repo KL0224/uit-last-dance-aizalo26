@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 import uuid
@@ -46,6 +47,21 @@ from .profiling import (
 )
 from .readers import READERS, column_names, fold, quote, sql_name
 from .relationships import ReviewedRelationships
+
+
+def _is_summary_label(value, exact, prefixes):
+    """Keep entity-name diacritics when interpreting folded report labels."""
+    if value is None:
+        return False
+    raw = str(value).strip().casefold()
+    marker = fold(raw).strip()
+    first = raw.split()[0] if raw.split() else ''
+    # Folding Tống/Tổng or Công/Cộng loses information needed for row deletion.
+    if fold(first) in {'tong', 'cong'} and first not in {'tong', 'tổng', 'cong', 'cộng'}:
+        return False
+    if marker.startswith('tong nam ') and not re.match(r'^tong nam \d{4}(?:\D|$)', marker):
+        return False
+    return marker in exact or marker.startswith(prefixes)
 
 
 def _hash(path: Path) -> str:
@@ -147,7 +163,7 @@ def prepare_business(
         "parser": PARSER_VERSION,
         "code_hash": hashlib.sha256(
             "".join(
-                _hash(p) for p in sorted(Path(__file__).parent.parent.rglob("*.py"))
+                _hash(p) for p in sorted(Path(__file__).parent.parent.parent.rglob("*.py"))
             ).encode()
         ).hexdigest(),
         "config": asdict(config),
@@ -527,15 +543,13 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong doanh thu ",
                                 "cong ngay ",
                                 "cong thang ",
-                                "cong ",
                                 "ghi chu ",
                                 "subtotal ",
                                 "grand total ",
                             )
                             for idx, val in enumerate(values):
                                 if val is not None:
-                                    s_val = fold(str(val)).strip()
-                                    if s_val in summary_markers_exact or s_val.startswith(summary_prefixes):
+                                    if _is_summary_label(val, summary_markers_exact, summary_prefixes):
                                         summary_col_idx = idx
                                         break
 
@@ -544,8 +558,7 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                             has_identities = any(
                                 values[i] is not None
                                 and str(values[i]).strip()
-                                and fold(str(values[i])).strip() not in summary_markers_exact
-                                and not fold(str(values[i])).strip().startswith(summary_prefixes)
+                                and not _is_summary_label(values[i], summary_markers_exact, summary_prefixes)
                                 for i in set(orders + products)
                             )
                             if (
@@ -562,9 +575,9 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 roles[i] in {"money", "quantity"} and values[i] is not None and str(values[i]).strip()
                                 for i in range(len(values))
                             ):
-                                # In tables with order or product lines, a row with no identity but having money/quantity is an unlabeled subtotal
-                                is_non_data = True
-                                log_col = columns[0]
+                                # Missing identity alone does not prove a subtotal.
+                                issue(source, number, columns[0], "ambiguous_subtotal",
+                                      "missing identity with numeric value; retained for review")
 
                             if is_non_data:
                                 report["excluded_non_data_rows"] += 1

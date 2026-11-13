@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-PARSER_VERSION = "1.0.0"
+PARSER_VERSION = "1.1.2"
 
 
 @dataclass(frozen=True)
