@@ -73,6 +73,8 @@ Kiểm thử hiện tại: **482 passed, 3 skipped, 15 subtests passed**. Trong 
 
 ## Pilot thực tế trên Modal
 
+Đối chiếu baseline sau nâng cấp và inventory đủ 3.000 golden: [B01_ADVISOR_GOLDEN_VERIFICATION.md](B01_ADVISOR_GOLDEN_VERIFICATION.md). Chỉ 61 câu có reference SQL, không gọi kết quả này là chấm đủ 3.000 câu.
+
 Chạy Qwen2.5-3B-Instruct với README và hai bảng đơn hàng/chi tiết đơn của `biz_123`; không chạy full pipeline hoặc model 9B.
 
 - Lần đầu: 12 role và 1 JOIN đều bị validator loại do trích dẫn không khớp hoặc khóa lặp.
