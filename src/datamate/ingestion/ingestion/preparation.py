@@ -6,6 +6,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import time
 import uuid
@@ -46,6 +47,21 @@ from .profiling import (
 )
 from .readers import READERS, column_names, fold, quote, sql_name
 from .relationships import ReviewedRelationships
+
+
+def _is_summary_label(value, exact, prefixes):
+    """Keep entity-name diacritics when interpreting folded report labels."""
+    if value is None:
+        return False
+    raw = str(value).strip().casefold()
+    marker = fold(raw).strip()
+    first = raw.split()[0] if raw.split() else ''
+    # Folding Tống/Tổng or Công/Cộng loses information needed for row deletion.
+    if fold(first) in {'tong', 'cong'} and first not in {'tong', 'tổng', 'cong', 'cộng'}:
+        return False
+    if marker.startswith('tong nam ') and not re.match(r'^tong nam \d{4}(?:\D|$)', marker):
+        return False
+    return marker in exact or marker.startswith(prefixes)
 
 
 def _hash(path: Path) -> str:
@@ -147,7 +163,7 @@ def prepare_business(
         "parser": PARSER_VERSION,
         "code_hash": hashlib.sha256(
             "".join(
-                _hash(p) for p in sorted(Path(__file__).parent.parent.rglob("*.py"))
+                _hash(p) for p in sorted(Path(__file__).parent.parent.parent.rglob("*.py"))
             ).encode()
         ).hexdigest(),
         "config": asdict(config),
@@ -307,7 +323,32 @@ def prepare_business(
                 semantic_extractor=extractor,
             )
             context = service.prepare(root.name, documents)
-        _json(work / "business_context.json", context.to_dict())
+        ctx_dict = context.to_dict()
+        unit_convs = ctx_dict.get("semantic_catalog", {}).get("unit_conversions", [])
+        if unit_convs:
+            with duckdb.connect(str(work / "data.duckdb")) as con:
+                con.execute("CREATE TABLE IF NOT EXISTS main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))")
+                con.execute("DELETE FROM main.unit_conversions")
+                for u in unit_convs:
+                    con.execute(
+                        "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
+                        [str(u["item_name"]), str(u["from_unit"]), str(u["to_unit"]), float(u["factor"])]
+                    )
+            existing_table_names = {t["name"] for t in ctx_dict.get("schema_catalog", {}).get("tables", [])}
+            if "unit_conversions" not in existing_table_names:
+                ctx_dict.setdefault("schema_catalog", {}).setdefault("tables", []).append({
+                    "name": "unit_conversions",
+                    "columns": [
+                        {"name": "item_name", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "from_unit", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "to_unit", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "factor", "data_type": "DECIMAL(38,12)", "nullable": False},
+                    ],
+                    "row_count": len(unit_convs),
+                    "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
+                    "provenance": "B02 semantic unit conversions",
+                })
+        _json(work / "business_context.json", ctx_dict)
         if any(_hash(Path(p)) != digest for p, digest in hashes.items()):
             raise PreparationError(
                 "source changed while building; bundle not published"
@@ -498,7 +539,7 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                             } or marker.startswith("ghi chu ")
 
                             # Check whether any cell is a summary or footer marker
-                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ')
+                            # (e.g. 'TỔNG NGÀY 01/03', 'TỔNG THÁNG', 'TỔNG CỘNG', 'GHI CHÚ', 'CỘNG NGÀY')
                             summary_col_idx = None
                             summary_markers_exact = {
                                 "tong",
@@ -509,6 +550,9 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong so",
                                 "tong don hang",
                                 "tong doanh thu",
+                                "cong",
+                                "cong ngay",
+                                "cong thang",
                                 "subtotal",
                                 "total",
                                 "grand total",
@@ -522,18 +566,26 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong don hang ",
                                 "tong don ",
                                 "tong doanh thu ",
+                                "cong ngay ",
+                                "cong thang ",
                                 "ghi chu ",
                                 "subtotal ",
                                 "grand total ",
                             )
                             for idx, val in enumerate(values):
                                 if val is not None:
-                                    s_val = fold(str(val)).strip()
-                                    if s_val in summary_markers_exact or s_val.startswith(summary_prefixes):
+                                    if _is_summary_label(val, summary_markers_exact, summary_prefixes):
                                         summary_col_idx = idx
                                         break
 
                             is_non_data = False
+                            # Detect unlabeled or labeled subtotal/footer rows
+                            has_identities = any(
+                                values[i] is not None
+                                and str(values[i]).strip()
+                                and not _is_summary_label(values[i], summary_markers_exact, summary_prefixes)
+                                for i in set(orders + products)
+                            )
                             if (
                                 roles[0] == "date"
                                 and footer_marker
@@ -541,18 +593,16 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                             ):
                                 is_non_data = True
                                 log_col = columns[0]
-                            elif (
-                                summary_col_idx is not None
-                                and not any(
-                                    values[i] is not None
-                                    and str(values[i]).strip()
-                                    and fold(str(values[i])).strip() not in summary_markers_exact
-                                    and not fold(str(values[i])).strip().startswith(summary_prefixes)
-                                    for i in set(orders + products)
-                                )
-                            ):
+                            elif summary_col_idx is not None and not has_identities:
                                 is_non_data = True
                                 log_col = columns[summary_col_idx]
+                            elif bool(orders or products) and not has_identities and any(
+                                roles[i] in {"money", "quantity"} and values[i] is not None and str(values[i]).strip()
+                                for i in range(len(values))
+                            ):
+                                # Missing identity alone does not prove a subtotal.
+                                issue(source, number, columns[0], "ambiguous_subtotal",
+                                      "missing identity with numeric value; retained for review")
 
                             if is_non_data:
                                 report["excluded_non_data_rows"] += 1

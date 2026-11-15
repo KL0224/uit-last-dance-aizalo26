@@ -1,0 +1,54 @@
+{
+  "business_id": "biz_128",
+  "source": "data/train/data/biz_128/README.md, Quy đổi đơn vị",
+  "units": [
+    {
+      "item_name": "Bia Tiger lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    },
+    {
+      "item_name": "Bia Sài Gòn Special lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    },
+    {
+      "item_name": "Coca-Cola lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    },
+    {
+      "item_name": "Bia Tiger Bạc lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    },
+    {
+      "item_name": "Nước suối",
+      "from_unit": "thùng",
+      "to_unit": "chai",
+      "factor": 24
+    },
+    {
+      "item_name": "Bia Heineken lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    },
+    {
+      "item_name": "Bia Sài Gòn Lager chai",
+      "from_unit": "két",
+      "to_unit": "chai",
+      "factor": 20
+    },
+    {
+      "item_name": "7Up lon",
+      "from_unit": "thùng",
+      "to_unit": "lon",
+      "factor": 24
+    }
+  ]
+}

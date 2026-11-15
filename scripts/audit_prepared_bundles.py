@@ -123,13 +123,19 @@ def audit(report_path: Path, baseline_report: Path | None = None) -> dict[str, A
                     c.execute(f"SELECT COUNT(*) FROM {quote(name)}").fetchone()[0]
                     == table["row_count"]
                 )
-                assert (
-                    c.execute(
-                        "SELECT COUNT(*) FROM meta.lineage WHERE table_name=? AND NOT deduplicated",
-                        [name],
-                    ).fetchone()[0]
-                    == table["row_count"]
-                )
+                calendars = [Path(p) for p in manifest['inputs'].get('documents', {})
+                             if Path(p).name == 'calendar.csv']
+                managed_calendar = name == 'calendar' and table.get('provenance') == 'calendar' and len(calendars) == 1
+                if managed_calendar:
+                    # Calendar is a separately hashed reference input, not a business raw table.
+                    # Check every value in both directions; don't exempt it from data verification.
+                    for left, right in ((f'SELECT * EXCLUDE (__dm_row_id) FROM {quote(name)}', 'SELECT * FROM read_csv_auto(?)'),
+                                        ('SELECT * FROM read_csv_auto(?)', f'SELECT * EXCLUDE (__dm_row_id) FROM {quote(name)}')):
+                        assert c.execute(f'SELECT COUNT(*) FROM (({left}) EXCEPT ALL ({right}))', [str(calendars[0])]).fetchone()[0] == 0
+                else:
+                    assert c.execute(
+                        "SELECT COUNT(*) FROM meta.lineage WHERE table_name=? AND NOT deduplicated", [name]
+                    ).fetchone()[0] == table['row_count']
                 schema = c.execute(
                     "SELECT column_name,data_type FROM information_schema.columns WHERE table_schema='main' AND table_name=?",
                     [name],

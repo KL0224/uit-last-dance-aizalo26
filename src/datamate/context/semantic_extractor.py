@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -276,53 +277,53 @@ class RuleSchemaMatcher:
                         "description": f"Khóa ngoại liên kết ({k})",
                     })
 
+        # 3. Trích xuất đơn vị quy đổi từ business rules
+        discovered_units: list[dict[str, Any]] = []
+        for rule in rules:
+            txt = rule.text.strip()
+            if "=" in txt and ":" in txt:
+                item_part, eq_part = txt.split(":", 1)
+                item_name = item_part.strip().lstrip("-* ").strip("*` ")
+                for m in re.finditer(r'(?<![\d.,])1\s*([^\s=]+)\s*=\s*(\d+(?:[.,]\d+)?)\s*([^\s,;]+)', eq_part):
+                    from_u = m.group(1).strip()
+                    factor_str = m.group(2).replace(",", ".")
+                    to_u = m.group(3).strip()
+                    try:
+                        factor = float(factor_str)
+                        if factor > 0 and item_name:
+                            discovered_units.append({
+                                "item_name": item_name,
+                                "from_unit": from_u,
+                                "to_unit": to_u,
+                                "factor": factor_str,
+                                "evidence": {
+                                    "rule_id": rule.rule_id,
+                                    "quote": txt,
+                                },
+                                "status": "source_verified",
+                            })
+                    except ValueError:
+                        pass
+
         return SemanticCatalog(
             business_id=business_id,
             metrics=tuple(discovered_metrics.values()),
             suggested_joins=tuple(heuristic_joins),
+            unit_conversions=tuple(discovered_units),
             unsupported_capabilities=(),
         )
 
 
-SEMANTIC_DISCOVERY_SYSTEM_PROMPT = """Bạn là chuyên gia phân tích ngữ nghĩa cơ sở dữ liệu doanh nghiệp và trích xuất chỉ số kinh doanh (Semantic Discovery).
-Nhiệm vụ: Đối chiếu LƯỢC ĐỒ DỮ LIỆU với các QUY TẮC NGHIỆP VỤ của doanh nghiệp để tìm ra:
-1. Danh sách CHỈ SỐ KINH DOANH (Metrics):
-   - metric_id: mã định danh chỉ số (ví dụ: revenue, order_count, commission, warranty_count, cost, sold_qty...).
-   - name: tên tiếng Việt chuẩn của chỉ số.
-   - aliases: các từ đồng nghĩa hoặc cách gọi trong tiếng Việt.
-   - preferred_table: bảng dữ liệu chính để tính toán (BẮT BUỘC tồn tại trong lược đồ).
-   - required_columns: các cột bắt buộc dùng (BẮT BUỘC tồn tại trong preferred_table).
-   - formula_hint: công thức SQL gợi ý (ví dụ: SUM(tien), COUNT(*), SUM(tien * CAST(hoa_hong AS DOUBLE)/100)...).
-   - unit: đơn vị (VND, count, qty, percent).
-2. QUAN HỆ LIÊN KẾT BẢNG (suggested_joins):
-   - left_table, left_column, right_table, right_column, join_type (exact, name_suffix_match), description.
-
-QUY TẮC NGHIÊM NGẶT:
-- Mọi bảng và cột BẮT BUỘC phải tồn tại thật trong LƯỢC ĐỒ DỮ LIỆU. TUYỆT ĐỐI KHÔNG tự bịa bảng hoặc cột.
-- Trả về DUY NHẤT một khối JSON hợp lệ nằm trong ```json ... ```:
-{
-  "metrics": [
-    {
-      "metric_id": "revenue",
-      "name": "Doanh thu",
-      "aliases": ["doanh thu", "tổng tiền", "tiền bán"],
-      "preferred_table": "bang_giao_dich",
-      "required_columns": ["tien"],
-      "formula_hint": "SUM(tien)",
-      "unit": "VND"
-    }
-  ],
-  "suggested_joins": [
-    {
-      "left_table": "bang_giao_dich",
-      "left_column": "ma_khach_hang",
-      "right_table": "bang_khach_hang",
-      "right_column": "ma_khach_hang",
-      "join_type": "exact",
-      "description": "Liên kết giao dịch với danh mục khách hàng"
-    }
-  ]
-}
+SEMANTIC_DISCOVERY_SYSTEM_PROMPT = """Bạn trích xuất metadata B02 từ tài liệu được cung cấp. Chỉ trả một JSON object.
+KHÔNG dùng tri thức ngoài tài liệu. KHÔNG tự sáng tạo tên hàng, công thức hoặc JOIN.
+Mỗi mục PHẢI có evidence gồm rule_id chính xác từ [ID] trong input và quote trích nguyên văn dòng nguồn (không gồm tiền tố [ID] source=...).
+Thiếu bằng chứng thì bỏ mục; dùng mảng rỗng. Nếu tài liệu chỉ có quy đổi, các nhóm còn lại PHẢI rỗng.
+Schema output:
+- metrics: array các object {metric_id, name, preferred_table, required_columns, formula_hint, unit, evidence: {rule_id, quote}}. Chỉ khi tài liệu nói rõ metric và công thức; bảng/cột phải có trong schema. Không coi giá bán danh mục là doanh thu.
+- suggested_joins: array các object {left_table, left_column, right_table, right_column, join_type, description, evidence: {rule_id, quote}}. Chỉ khi tài liệu nói rõ quan hệ. Không nối bảng với chính nó.
+- unit_conversions: array các object {item_name, from_unit, to_unit, factor, evidence: {rule_id, quote}}. Chỉ trích phương trình được viết rõ, giữ chính xác tên hàng và đơn vị. item_name PHẢI là tên sản phẩm sạch (ví dụ: 'Bánh croissant', 'Pepsi 330ml'), KHÔNG được bao gồm dấu hai chấm hay đơn vị quy đổi như ': 1 hộp' trong item_name. Trích đầy đủ từng dòng có phương trình; quote phải chứa tên hàng và phương trình. factor là số dương.
+- unsupported_capabilities: array rỗng; không suy luận dữ liệu thiếu từ việc chưa nhìn thấy cột.
+Không thêm văn xuôi, markdown hoặc ví dụ giả định vào output.
 """
 
 
@@ -357,7 +358,8 @@ class LLMSemanticExtractor:
         try:
             llm_result = self._call_llm(business_id, schema, rules)
             if llm_result is not None:
-                return self._merge_catalogs(business_id, base_catalog, llm_result, schema)
+                from .verified_semantics import verified_merge
+                return verified_merge(business_id, base_catalog, llm_result, schema, tuple(rules))
         except Exception as exc:
             logger.warning("LLMSemanticExtractor gặp lỗi (%s), dùng kết quả RuleSchemaMatcher", exc)
 
@@ -406,7 +408,12 @@ class LLMSemanticExtractor:
 
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_text)
         json_str = match.group(1) if match else raw_text.strip()
-        return json.loads(json_str)
+        parsed = json.loads(json_str)
+        if isinstance(parsed, dict) and "unit_conversions" in parsed:
+            for u in parsed.get("unit_conversions", []):
+                if isinstance(u, dict) and "item_name" in u:
+                    u["item_name"] = str(u["item_name"]).split(":")[0].strip().strip("*-` ")
+        return parsed
 
     def _build_prompt(
         self,
@@ -427,8 +434,8 @@ class LLMSemanticExtractor:
         )
         omitted = 0
         for index, rule in enumerate(valid_rules):
-            rule_text = " ".join(str(rule.text).split())[:500]
-            candidate = f"- [{rule.rule_id}] {rule.topic or ''}: {rule_text}"
+            rule_text = " ".join(str(rule.text).split())
+            candidate = f"- [{rule.rule_id}] source={rule.source} {rule.topic or ''}: {rule_text}"
             remaining_rules = len(valid_rules) - index
             suffix = f"\n- ... đã lược bớt {remaining_rules} quy tắc để giữ giới hạn context"
             if len("\n".join((*lines, candidate))) + len(suffix) > max_prompt_chars:
@@ -441,67 +448,10 @@ class LLMSemanticExtractor:
         prompt = "\n".join(lines)
         return prompt[:max_prompt_chars]
 
-    def _merge_catalogs(
-        self,
-        business_id: str,
-        base: SemanticCatalog,
-        llm_data: dict[str, Any],
-        schema: SchemaCatalog,
-    ) -> SemanticCatalog:
-        known_tables = {t.name: {c.name for c in t.columns} for t in schema.tables}
-        discovered: dict[str, MetricDefinition] = {m.metric_id: m for m in base.metrics}
-
-        llm_metrics = llm_data.get("metrics") or []
-        for raw_m in llm_metrics:
-            if not isinstance(raw_m, dict):
-                continue
-            mid = raw_m.get("metric_id")
-            if not mid:
-                continue
-            pref_tbl = raw_m.get("preferred_table", "")
-            if pref_tbl not in known_tables:
-                continue
-            req_cols = tuple(
-                c for c in raw_m.get("required_columns") or []
-                if c in known_tables[pref_tbl]
-            )
-            name = raw_m.get("name") or mid
-            aliases = tuple(raw_m.get("aliases") or (name,))
-            formula = raw_m.get("formula_hint") or ""
-            unit = raw_m.get("unit") or "VND"
-
-            discovered[mid] = MetricDefinition(
-                metric_id=mid,
-                name=name,
-                aliases=aliases,
-                preferred_table=pref_tbl,
-                required_columns=req_cols,
-                formula_hint=formula or getattr(discovered.get(mid), "formula_hint", ""),
-                unit=unit,
-            )
-
-        # Xác thực và kết hợp suggested_joins chống ảo giác
-        validated_joins: list[dict[str, Any]] = []
-        raw_joins = list(llm_data.get("suggested_joins") or []) + list(base.suggested_joins or [])
-        for j in raw_joins:
-            if not isinstance(j, dict):
-                continue
-            lt = j.get("left_table")
-            lc = j.get("left_column")
-            rt = j.get("right_table")
-            rc = j.get("right_column")
-            if lt in known_tables and rt in known_tables:
-                if lc in known_tables[lt] and rc in known_tables[rt]:
-                    pair_key = (lt, lc, rt, rc)
-                    if not any((x.get("left_table"), x.get("left_column"), x.get("right_table"), x.get("right_column")) == pair_key for x in validated_joins):
-                        validated_joins.append(j)
-
-        return SemanticCatalog(
-            business_id=business_id,
-            metrics=tuple(discovered.values()),
-            suggested_joins=tuple(validated_joins),
-            unsupported_capabilities=base.unsupported_capabilities,
-        )
+    def _merge_catalogs(self, business_id, base, llm_data, schema, rules=()):
+        """Compatibility entrypoint; source checks also apply to direct callers."""
+        from .verified_semantics import verified_merge
+        return verified_merge(business_id, base, llm_data, schema, tuple(rules))
 
 
 def create_semantic_extractor(

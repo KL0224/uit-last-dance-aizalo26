@@ -1,0 +1,56 @@
+[
+  {
+    "question_id": "q_001883280e83",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2026-09-01' AND \"thoi_gian\" < DATE '2026-09-08' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_2b3dc5e6e597",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-09-01' AND \"thoi_gian\" < DATE '2025-10-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_5abc31fde219",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-11-01' AND \"thoi_gian\" < DATE '2025-12-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_68e09809a798",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2026-08-01' AND \"thoi_gian\" < DATE '2026-09-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_9882a4330cc0",
+    "sql": "SELECT SUM(\"can_tra_ncc\") FROM \"danh_sach_nhap_hang_120a7c6c\" WHERE \"thoi_gian\" >= DATE '2025-10-01' AND \"thoi_gian\" < DATE '2025-11-01' AND (\"trang_thai\" IS NULL OR LOWER(\"trang_thai\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5: tiền nhập là tổng tiền phiếu theo ngày phiếu, bỏ phiếu hủy; README biz_128: Cần trả NCC là tổng tiền cả phiếu; không JOIN chi tiết để tránh fanout.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_334438589ac0",
+    "sql": "SELECT SUM(\"tong_gia_tri_nhap\") FROM \"pos_phieu_nhap_9ec4e5c1\" WHERE \"ngay_nhap_kho\" >= DATE '2025-06-01' AND \"ngay_nhap_kho\" < DATE '2025-07-01' AND (\"tinh_trang\" IS NULL OR LOWER(\"tinh_trang\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5; README biz_123: phieu_nhap.TongGiaTriNhap là tổng tiền cả phiếu nhập; cộng tại grain phiếu, không JOIN chi tiết.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_688299e017d0",
+    "sql": "SELECT SUM(\"tong_gia_tri_nhap\") FROM \"pos_phieu_nhap_9ec4e5c1\" WHERE \"ngay_nhap_kho\" >= DATE '2025-05-01' AND \"ngay_nhap_kho\" < DATE '2025-06-01' AND (\"tinh_trang\" IS NULL OR LOWER(\"tinh_trang\") NOT IN ('cancelled', 'hủy', 'huỷ', 'đã hủy', 'đã huỷ'))",
+    "rationale": "rulebook.md §5; README biz_123: phieu_nhap.TongGiaTriNhap là tổng tiền cả phiếu nhập; cộng tại grain phiếu, không JOIN chi tiết.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_b3d541ac5f83",
+    "sql": "SELECT SUM(\"thanh_tien\") FROM \"so_nhap_hang_3fc02a9b\" WHERE \"ngay_nhap\" >= DATE '2025-02-01' AND \"ngay_nhap\" < DATE '2025-03-01'",
+    "rationale": "rulebook.md §5 và README biz_105: Thành tiền của dòng nhập; cộng các dòng theo ngày nhập. Không dùng giá nhập nhân số lượng khi có thành tiền.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  },
+  {
+    "question_id": "q_ebe4f9b3e3b7",
+    "sql": "SELECT SUM(\"thanh_tien\") FROM \"so_nhap_hang_3fc02a9b\" WHERE \"ngay_nhap\" >= DATE '2026-06-01' AND \"ngay_nhap\" < DATE '2026-06-25'",
+    "rationale": "rulebook.md §5 và README biz_105: Thành tiền của dòng nhập; cộng các dòng theo ngày nhập. Không dùng giá nhập nhân số lượng khi có thành tiền.",
+    "review_status": "reviewed_against_question_and_source_docs"
+  }
+]

@@ -372,6 +372,18 @@ def run_pipeline_cli(
             print(f"  CẢNH BÁO: Thư mục doanh nghiệp không tồn tại: {biz_dir}")
             continue
         out_b = bundles_dir / biz_id
+
+        # Kiểm tra nếu đã có bundle hoàn chỉnh (enriched) được tạo trước đó
+        if out_b.is_dir():
+            ready_subdirs = [
+                p for p in out_b.iterdir()
+                if p.is_dir() and (p / "business_context.json").is_file() and (p / "data.duckdb").is_file()
+            ]
+            if ready_subdirs:
+                bundles[biz_id] = ready_subdirs[0]
+                print(f"  -> Tái sử dụng bundle đã sẵn sàng cho {biz_id}: {ready_subdirs[0].name[:8]}...")
+                continue
+
         rulebook = split_dir / "rulebook.txt"
         if not rulebook.is_file():
             rulebook = split_dir / "rulebook.md"
@@ -434,6 +446,26 @@ def run_pipeline_cli(
                             rules = _deserialize_business_rules(raw_rules)
                             sem_cat = extractor.extract_semantic_catalog(business_id=b_id, schema=schema, rules=rules)
                             ctx_data["semantic_catalog"] = sem_cat.to_dict()
+                            
+                            # Nếu trích xuất được bảng quy đổi đơn vị (unit_conversions), ghi nhận vào DuckDB
+                            if getattr(sem_cat, "unit_conversions", None):
+                                try:
+                                    import duckdb
+                                    duck_file = Path(b_path) / "data.duckdb"
+                                    if duck_file.is_file():
+                                        con = duckdb.connect(str(duck_file))
+                                        con.execute("CREATE TABLE IF NOT EXISTS unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DOUBLE)")
+                                        con.execute("DELETE FROM unit_conversions")
+                                        for u in sem_cat.unit_conversions:
+                                            con.execute(
+                                                "INSERT INTO unit_conversions VALUES (?, ?, ?, ?)",
+                                                [str(u.get("item_name")), str(u.get("from_unit")), str(u.get("to_unit")), float(u.get("factor", 1.0))]
+                                            )
+                                        con.close()
+                                        print(f"  => Doanh nghiệp {b_id}: Đã nạp {len(sem_cat.unit_conversions)} quy tắc quy đổi đơn vị vào DuckDB.")
+                                except Exception as u_exc:
+                                    print(f"  ! Cảnh báo khi nạp unit_conversions vào DuckDB cho {b_id}: {u_exc}")
+
                             b_ctx_file.write_text(json.dumps(ctx_data, ensure_ascii=False, indent=2))
                             print(f"  => Doanh nghiệp {b_id}: 3B đã phát hiện {len(sem_cat.metrics)} chỉ số và {len(sem_cat.suggested_joins)} liên kết bảng.")
                         except Exception as exc:

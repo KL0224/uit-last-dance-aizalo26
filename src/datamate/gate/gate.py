@@ -230,6 +230,12 @@ def _evaluate_legacy(request: GateRequest) -> GateOutcome:
             }
 
         target_type = request.generation.answer_type if request.generation else AnswerType.ABSTAIN
+        # Chuẩn hóa kiểu type nếu candidate là date dạng YYYY-MM hoặc YYYY-MM-DD nhưng model dự đoán nhầm là string
+        import re
+        if target_type == AnswerType.STRING and isinstance(val_res.normalized_candidate, str):
+            cand_s = val_res.normalized_candidate.strip()
+            if re.match(r"^\d{4}-\d{2}(-\d{2})?$", cand_s):
+                target_type = AnswerType.DATE
         formatted_answer = format_answer(target_type, val_res.normalized_candidate, semantics_dict)
 
         reason_code = ErrorCode.VALID_RESULT_AFTER_RETRY if request.attempt >= 1 else ErrorCode.VALID_RESULT
