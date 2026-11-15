@@ -372,6 +372,18 @@ def run_pipeline_cli(
             print(f"  CẢNH BÁO: Thư mục doanh nghiệp không tồn tại: {biz_dir}")
             continue
         out_b = bundles_dir / biz_id
+
+        # Kiểm tra nếu đã có bundle hoàn chỉnh (enriched) được tạo trước đó
+        if out_b.is_dir():
+            ready_subdirs = [
+                p for p in out_b.iterdir()
+                if p.is_dir() and (p / "business_context.json").is_file() and (p / "data.duckdb").is_file()
+            ]
+            if ready_subdirs:
+                bundles[biz_id] = ready_subdirs[0]
+                print(f"  -> Tái sử dụng bundle đã sẵn sàng cho {biz_id}: {ready_subdirs[0].name[:8]}...")
+                continue
+
         rulebook = split_dir / "rulebook.txt"
         if not rulebook.is_file():
             rulebook = split_dir / "rulebook.md"

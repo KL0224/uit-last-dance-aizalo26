@@ -323,7 +323,32 @@ def prepare_business(
                 semantic_extractor=extractor,
             )
             context = service.prepare(root.name, documents)
-        _json(work / "business_context.json", context.to_dict())
+        ctx_dict = context.to_dict()
+        unit_convs = ctx_dict.get("semantic_catalog", {}).get("unit_conversions", [])
+        if unit_convs:
+            with duckdb.connect(str(work / "data.duckdb")) as con:
+                con.execute("CREATE TABLE IF NOT EXISTS main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))")
+                con.execute("DELETE FROM main.unit_conversions")
+                for u in unit_convs:
+                    con.execute(
+                        "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
+                        [str(u["item_name"]), str(u["from_unit"]), str(u["to_unit"]), float(u["factor"])]
+                    )
+            existing_table_names = {t["name"] for t in ctx_dict.get("schema_catalog", {}).get("tables", [])}
+            if "unit_conversions" not in existing_table_names:
+                ctx_dict.setdefault("schema_catalog", {}).setdefault("tables", []).append({
+                    "name": "unit_conversions",
+                    "columns": [
+                        {"name": "item_name", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "from_unit", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "to_unit", "data_type": "VARCHAR", "nullable": False},
+                        {"name": "factor", "data_type": "DECIMAL(38,12)", "nullable": False},
+                    ],
+                    "row_count": len(unit_convs),
+                    "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
+                    "provenance": "B02 semantic unit conversions",
+                })
+        _json(work / "business_context.json", ctx_dict)
         if any(_hash(Path(p)) != digest for p, digest in hashes.items()):
             raise PreparationError(
                 "source changed while building; bundle not published"

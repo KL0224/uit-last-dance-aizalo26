@@ -55,6 +55,7 @@ agent_code
 data/raw
 *.zip
 *.tar.gz
-data/
+data/*
+!data/golden/
 khoi_docs/
 

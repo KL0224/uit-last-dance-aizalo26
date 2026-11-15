@@ -444,6 +444,15 @@ def format_context_for_prompt(
             else:
                 sections.append(f"- `{lt}`.{lc} = `{rt}`.{rc} ({desc})")
 
+    unit_conversions = semantic_catalog.get("unit_conversions") or []
+    if unit_conversions:
+        sections.append("\n### BẢNG QUY ĐỔI ĐƠN VỊ TÍNH (UNIT CONVERSIONS):")
+        sections.append("Có sẵn bảng `unit_conversions` (item_name, from_unit, to_unit, factor). Áp dụng khi câu hỏi yêu cầu đơn vị khác với bảng bán hàng:")
+        for u in unit_conversions[:25]:
+            sections.append(f"- {u.get('item_name')}: 1 {u.get('from_unit')} = {u.get('factor')} {u.get('to_unit')}")
+        if len(unit_conversions) > 25:
+            sections.append(f"... và {len(unit_conversions) - 25} quy tắc quy đổi khác trong bảng `unit_conversions`.")
+
     # 3. Business Rules: drop other industries, keep the highest precedence per topic
     rule_catalog = data.get("rule_catalog", {})
     rules = _select_rules(

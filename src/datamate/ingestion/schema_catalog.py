@@ -268,7 +268,11 @@ class SchemaCatalogBuilder:
         for left, right in combinations(tables, 2):
             proposals: set[tuple[tuple[str, str], ...]] = set()
             for lcol in left.columns:
+                if lcol.name.startswith("__"):
+                    continue
                 for rcol in right.columns:
+                    if rcol.name.startswith("__"):
+                        continue
                     left_role = self.profile_provider.column_role(left.name, lcol.name)
                     right_role = self.profile_provider.column_role(
                         right.name, rcol.name
@@ -292,6 +296,25 @@ class SchemaCatalogBuilder:
                                 warnings.append(warning)
                             continue
                         proposals.add(((lcol.name, rcol.name),))
+
+            # Conversion table composite join proposal:
+            for table, other in ((left, right), (right, left)):
+                if "quy_doi" in other.name.lower():
+                    table_prod = [c for c in table.columns if any(t in _column_tokens(c) for t in ("entity:product_id", "entity:product_name"))]
+                    other_prod = [c for c in other.columns if any(t in _column_tokens(c) for t in ("entity:product_id", "entity:product_name"))]
+                    table_unit = [c for c in table.columns if "entity:unit" in _column_tokens(c)]
+                    other_unit = [c for c in other.columns if "entity:unit" in _column_tokens(c)]
+                    if table_prod and other_prod and table_unit and other_unit:
+                        for p_tbl in table_prod:
+                            for p_oth in other_prod:
+                                if _compatible_types(p_tbl.data_type, p_oth.data_type):
+                                    for u_tbl in table_unit:
+                                        for u_oth in other_unit:
+                                            if table is left:
+                                                proposals.add(((p_tbl.name, p_oth.name), (u_tbl.name, u_oth.name)))
+                                            else:
+                                                proposals.add(((p_oth.name, p_tbl.name), (u_oth.name, u_tbl.name)))
+
             for table, other in ((left, right), (right, left)):
                 other_columns = {column.name: column for column in other.columns}
                 for key in keys:
@@ -360,10 +383,13 @@ class SchemaCatalogBuilder:
                 budget -= 1
                 checked = self.profile_provider.check_join(edge)
                 stats = checked.statistics
+                is_quy_doi = "quy_doi" in left.name.lower() or "quy_doi" in right.name.lower()
+                threshold = 0.2 if is_quy_doi else 0.8
                 if (
                     stats
                     and stats.matched_distinct
-                    and max(stats.left_coverage, stats.right_coverage) >= 0.8
+                    and max(stats.left_coverage, stats.right_coverage) >= threshold
+                    and stats.observed_cardinality != "many_to_many"
                 ):
                     edges.append(checked)
                     signatures.add(signature)
@@ -411,6 +437,28 @@ def _hashable(value: Any) -> Any:
         return repr(value)
 
 
+ENTITY_SYNONYMS: dict[str, set[str]] = {
+    "customer": {
+        "makh", "makhachhang", "makhach", "sokh", "khachhang", "khach", "doitac", "idkhachhang", "customerid", "sokhach"
+    },
+    "product_id": {
+        "mahang", "masanpham", "masp", "sku", "masku", "idsp", "sanphamid", "itemid", "productid"
+    },
+    "product_name": {
+        "tensanpham", "tenhang", "tenmon", "tensp", "tenhanghoa", "sanpham", "hanghoa", "noidung"
+    },
+    "order_id": {
+        "madon", "madonhang", "sohoadon", "mahoadon", "machungtu", "soct", "sophieu", "sodonhang", "orderid", "sohd"
+    },
+    "receipt_id": {
+        "manhap", "manhaphang", "maphieunhap", "madonnhap", "sophieunhap"
+    },
+    "unit": {
+        "donvitinh", "donviquydoi", "dvt", "donvi", "donvicoban"
+    },
+}
+
+
 def _edge_signature(edge: JoinEdge) -> tuple:
     forward = (edge.left_table, edge.right_table, tuple(sorted(edge.key_pairs)))
     backward = (
@@ -429,18 +477,29 @@ def _token(value: str) -> str:
 
 
 def _column_tokens(column: Any) -> set[str]:
-    return {_token(value) for value in (column.name, column.provenance) if value}
+    tokens = {_token(value) for value in (column.name, column.provenance) if value}
+    for syn_cat, syn_set in ENTITY_SYNONYMS.items():
+        if tokens & syn_set:
+            tokens.add(f"entity:{syn_cat}")
+            if syn_cat in ("product_id", "product_name"):
+                tokens.add("entity:product")
+    return tokens
 
 
 def _identifier(value: str) -> bool:
     token = _token(value)
-    return (
+    if (
         value.lower().startswith(("ma_", "mã ", "ma "))
         or (value.startswith("Ma") and len(value) > 2 and value[2].isupper())
         or value.lower().endswith("_id")
         or value.endswith(("Id", "ID"))
         or token in {"id", "sku", "code"}
-    )
+    ):
+        return True
+    for syn_cat in ("customer", "product_id", "product_name", "order_id", "receipt_id"):
+        if token in ENTITY_SYNONYMS[syn_cat]:
+            return True
+    return False
 
 
 def _compatible_types(left: str, right: str) -> bool:

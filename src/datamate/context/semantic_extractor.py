@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Sequence
@@ -276,10 +277,39 @@ class RuleSchemaMatcher:
                         "description": f"Khóa ngoại liên kết ({k})",
                     })
 
+        # 3. Trích xuất đơn vị quy đổi từ business rules
+        discovered_units: list[dict[str, Any]] = []
+        for rule in rules:
+            txt = rule.text.strip()
+            if "=" in txt and ":" in txt:
+                item_part, eq_part = txt.split(":", 1)
+                item_name = item_part.strip().lstrip("-* ").strip("*` ")
+                for m in re.finditer(r'(?<![\d.,])1\s*([^\s=]+)\s*=\s*(\d+(?:[.,]\d+)?)\s*([^\s,;]+)', eq_part):
+                    from_u = m.group(1).strip()
+                    factor_str = m.group(2).replace(",", ".")
+                    to_u = m.group(3).strip()
+                    try:
+                        factor = float(factor_str)
+                        if factor > 0 and item_name:
+                            discovered_units.append({
+                                "item_name": item_name,
+                                "from_unit": from_u,
+                                "to_unit": to_u,
+                                "factor": factor_str,
+                                "evidence": {
+                                    "rule_id": rule.rule_id,
+                                    "quote": txt,
+                                },
+                                "status": "source_verified",
+                            })
+                    except ValueError:
+                        pass
+
         return SemanticCatalog(
             business_id=business_id,
             metrics=tuple(discovered_metrics.values()),
             suggested_joins=tuple(heuristic_joins),
+            unit_conversions=tuple(discovered_units),
             unsupported_capabilities=(),
         )
 
@@ -291,7 +321,7 @@ Thiếu bằng chứng thì bỏ mục; dùng mảng rỗng. Nếu tài liệu c
 Schema output:
 - metrics: array các object {metric_id, name, preferred_table, required_columns, formula_hint, unit, evidence: {rule_id, quote}}. Chỉ khi tài liệu nói rõ metric và công thức; bảng/cột phải có trong schema. Không coi giá bán danh mục là doanh thu.
 - suggested_joins: array các object {left_table, left_column, right_table, right_column, join_type, description, evidence: {rule_id, quote}}. Chỉ khi tài liệu nói rõ quan hệ. Không nối bảng với chính nó.
-- unit_conversions: array các object {item_name, from_unit, to_unit, factor, evidence: {rule_id, quote}}. Chỉ trích phương trình được viết rõ, giữ chính xác tên hàng và đơn vị. Trích đầy đủ từng dòng có phương trình; quote phải chứa tên hàng và phương trình. factor là số dương.
+- unit_conversions: array các object {item_name, from_unit, to_unit, factor, evidence: {rule_id, quote}}. Chỉ trích phương trình được viết rõ, giữ chính xác tên hàng và đơn vị. item_name PHẢI là tên sản phẩm sạch (ví dụ: 'Bánh croissant', 'Pepsi 330ml'), KHÔNG được bao gồm dấu hai chấm hay đơn vị quy đổi như ': 1 hộp' trong item_name. Trích đầy đủ từng dòng có phương trình; quote phải chứa tên hàng và phương trình. factor là số dương.
 - unsupported_capabilities: array rỗng; không suy luận dữ liệu thiếu từ việc chưa nhìn thấy cột.
 Không thêm văn xuôi, markdown hoặc ví dụ giả định vào output.
 """
@@ -378,7 +408,12 @@ class LLMSemanticExtractor:
 
         match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw_text)
         json_str = match.group(1) if match else raw_text.strip()
-        return json.loads(json_str)
+        parsed = json.loads(json_str)
+        if isinstance(parsed, dict) and "unit_conversions" in parsed:
+            for u in parsed.get("unit_conversions", []):
+                if isinstance(u, dict) and "item_name" in u:
+                    u["item_name"] = str(u["item_name"]).split(":")[0].strip().strip("*-` ")
+        return parsed
 
     def _build_prompt(
         self,

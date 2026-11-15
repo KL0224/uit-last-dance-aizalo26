@@ -63,6 +63,12 @@ if (PROJECT_ROOT / "data" / "public_test").is_dir():
         remote_path="/workspace/data/public_test",
     )
 
+if (PROJECT_ROOT / "artifacts" / "b01_b02_full" / "enriched_bundles").is_dir():
+    image = image.add_local_dir(
+        str(PROJECT_ROOT / "artifacts" / "b01_b02_full" / "enriched_bundles"),
+        remote_path="/workspace/enriched_bundles",
+    )
+
 app = modal.App("datamate-pipeline", image=image)
 
 # Giữ nguyên volume name hiện có để tái sử dụng model weights (~18GB) đã cache
@@ -125,7 +131,12 @@ def run_pipeline_on_modal_gpu(
 
     # 2. Sử dụng trực tiếp dữ liệu tại /workspace/data/<split> đã được mount sẵn trong Image
     remote_split_dir = Path("/workspace/data") / split
-    bundles_dir = VOL_ROOT / "bundles" / split
+    enriched_local = Path("/workspace/enriched_bundles")
+    if enriched_local.is_dir() and split == "train":
+        bundles_dir = enriched_local
+        print(f"[Modal GPU] Tự động nạp 30 enriched bundles chuẩn B01 & B02 từ {bundles_dir}", flush=True)
+    else:
+        bundles_dir = VOL_ROOT / "bundles" / split
     remote_out_dir = VOL_ROOT / "runs" / run_name
     remote_out_dir.mkdir(parents=True, exist_ok=True)
 
