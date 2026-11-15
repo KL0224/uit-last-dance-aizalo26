@@ -334,9 +334,10 @@ def prepare_business(
                         "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
                         [str(u["item_name"]), str(u["from_unit"]), str(u["to_unit"]), float(u["factor"])]
                     )
-            existing_table_names = {t["name"] for t in ctx_dict.get("schema_catalog", {}).get("tables", [])}
+            existing_tables = list(ctx_dict.get("schema_catalog", {}).get("tables", []))
+            existing_table_names = {t["name"] for t in existing_tables}
             if "unit_conversions" not in existing_table_names:
-                ctx_dict.setdefault("schema_catalog", {}).setdefault("tables", []).append({
+                existing_tables.append({
                     "name": "unit_conversions",
                     "columns": [
                         {"name": "item_name", "data_type": "VARCHAR", "nullable": False},
@@ -348,6 +349,7 @@ def prepare_business(
                     "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
                     "provenance": "B02 semantic unit conversions",
                 })
+                ctx_dict.setdefault("schema_catalog", {})["tables"] = existing_tables
         _json(work / "business_context.json", ctx_dict)
         if any(_hash(Path(p)) != digest for p, digest in hashes.items()):
             raise PreparationError(
@@ -566,8 +568,10 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong don hang ",
                                 "tong don ",
                                 "tong doanh thu ",
+                                "tong ",
                                 "cong ngay ",
                                 "cong thang ",
+                                "cong ",
                                 "ghi chu ",
                                 "subtotal ",
                                 "grand total ",

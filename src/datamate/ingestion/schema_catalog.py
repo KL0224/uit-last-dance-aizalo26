@@ -439,22 +439,31 @@ def _hashable(value: Any) -> Any:
 
 ENTITY_SYNONYMS: dict[str, set[str]] = {
     "customer": {
-        "makh", "makhachhang", "makhach", "sokh", "khachhang", "khach", "doitac", "idkhachhang", "customerid", "sokhach"
+        "makh", "makhachhang", "makhach", "sokh", "khachhang", "khach", "doitac", "idkhachhang", "customerid", "sokhach",
+        "mathe", "makhachmua", "manguoimua", "tenkhachhang", "tenkh", "hotenkhach", "tenbe"
     },
     "product_id": {
-        "mahang", "masanpham", "masp", "sku", "masku", "idsp", "sanphamid", "itemid", "productid"
+        "mahang", "masanpham", "masp", "sku", "masku", "idsp", "sanphamid", "itemid", "productid",
+        "mavach", "mahangban", "masanphamban", "mahhoa", "barcode", "mabarcode", "maspban", "mathuoc", "maythu"
     },
     "product_name": {
-        "tensanpham", "tenhang", "tenmon", "tensp", "tenhanghoa", "sanpham", "hanghoa", "noidung"
+        "tensanpham", "tenhang", "tenmon", "tensp", "tenhanghoa", "sanpham", "hanghoa", "noidung", "mathang", "hang", "tenmathang", "product"
     },
     "order_id": {
-        "madon", "madonhang", "sohoadon", "mahoadon", "machungtu", "soct", "sophieu", "sodonhang", "orderid", "sohd"
+        "madon", "madonhang", "sohoadon", "mahoadon", "machungtu", "soct", "sophieu", "sodonhang", "orderid", "sohd",
+        "mabill", "bill", "donso", "hd"
     },
     "receipt_id": {
         "manhap", "manhaphang", "maphieunhap", "madonnhap", "sophieunhap"
     },
     "unit": {
-        "donvitinh", "donviquydoi", "dvt", "donvi", "donvicoban"
+        "donvitinh", "donviquydoi", "dvt", "donvi", "donvicoban", "quycach"
+    },
+    "imei": {
+        "imei"
+    },
+    "stt": {
+        "stt", "truvaosttsoban", "sothutu"
     },
 }
 
@@ -496,7 +505,7 @@ def _identifier(value: str) -> bool:
         or token in {"id", "sku", "code"}
     ):
         return True
-    for syn_cat in ("customer", "product_id", "product_name", "order_id", "receipt_id"):
+    for syn_cat in ("customer", "product_id", "product_name", "order_id", "receipt_id", "imei", "stt"):
         if token in ENTITY_SYNONYMS[syn_cat]:
             return True
     return False

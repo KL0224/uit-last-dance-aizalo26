@@ -99,13 +99,15 @@ def main():
     parser.add_argument('--all-bundles', type=Path, help='Path to directory containing all business bundles (e.g. bundles_release)')
     parser.add_argument('--context-json', type=Path, help='Path to business_context.json')
     parser.add_argument('--business-id', help='Business ID to compare against (e.g. biz_128)')
+    parser.add_argument('--golden', type=Path, default=GOLDEN_PATH, help='Path to golden full JSON file')
     args = parser.parse_args()
     
-    if not GOLDEN_PATH.exists():
-        print(f'Error: Golden data not found at {GOLDEN_PATH}. Run scripts/build_golden.py first.')
+    golden_file = args.golden
+    if not golden_file.exists():
+        print(f'Error: Golden data not found at {golden_file}. Run scripts/build_golden.py first.')
         return
         
-    golden_full = json.loads(GOLDEN_PATH.read_text())
+    golden_full = json.loads(golden_file.read_text())
     
     if args.all_bundles:
         print('=' * 80)
@@ -127,15 +129,12 @@ def main():
             if not biz_dir.exists():
                 print(f'{biz_id:<10} | NOT FOUND')
                 continue
-            # find subfolder with hash
-            subdirs = [p for p in biz_dir.iterdir() if p.is_dir() and (p / 'business_context.json').exists()]
-            if not subdirs:
-                if (biz_dir / 'business_context.json').exists():
-                    subdirs = [biz_dir]
-                else:
-                    print(f'{biz_id:<10} | NO CONTEXT JSON')
-                    continue
-            actual_ctx = json.loads((subdirs[0] / 'business_context.json').read_text())
+            # find subfolder with hash or nested bundle
+            ctx_candidates = list(biz_dir.rglob('business_context.json'))
+            if not ctx_candidates:
+                print(f'{biz_id:<10} | NO CONTEXT JSON')
+                continue
+            actual_ctx = json.loads(ctx_candidates[0].read_text())
             gold = golden_full[biz_id]
             b01_res = evaluate_b01(actual_ctx.get('schema_catalog', {}), gold['b01_schema'])
             b02_res = evaluate_b02(actual_ctx, gold['b02_semantics'])
