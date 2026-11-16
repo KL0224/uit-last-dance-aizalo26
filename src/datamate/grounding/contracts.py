@@ -243,6 +243,9 @@ class GroundedQuestion:
     applicable_rules: tuple[str, ...] = ()
     risk_flags: tuple[str, ...] = ()
 
+    grounding_source: str = "rules"
+    planner_input: dict[str, Any] | None = None
+
     @property
     def is_directly_unanswerable(self) -> bool:
         """Return True only when C5 proved that mandatory evidence is unsupported."""

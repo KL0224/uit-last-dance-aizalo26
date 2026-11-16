@@ -397,6 +397,9 @@ class GroundingToPlannerAdapter:
     @staticmethod
     def format_grounded_hint_for_planner(grounded: GroundedQuestion) -> str:
         """Render a concise, structured markdown section to guide the 9B SQL Planner."""
+        if grounded.planner_input is not None:
+            from .neo_engine import planner_hint
+            return planner_hint(grounded.planner_input)
         lines: list[str] = [
             "### KẾT QUẢ PHÂN TÍCH CÂU HỎI & LIÊN KẾT DỮ LIỆU (GROUNDING HINTS)",
             f"- **Phép toán chính (Operation)**: `{grounded.intent.operation.value}`",

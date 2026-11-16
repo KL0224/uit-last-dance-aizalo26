@@ -114,6 +114,12 @@ class VLLMModel(BaseLLM):
         if selected.max_new_tokens >= self.config.max_model_len:
             raise ValueError("max_new_tokens must leave context space for input tokens")
         budget_kwargs = {}
+        if selected.json_schema is not None:
+            try:
+                from vllm.sampling_params import StructuredOutputsParams
+            except ImportError as exc:
+                raise InferenceError("Grounding requires vLLM StructuredOutputsParams; constrained decoding cannot be disabled silently") from exc
+            budget_kwargs["structured_outputs"] = StructuredOutputsParams(json=selected.json_schema)
         if selected.thinking_token_budget is not None:
             if not self._reasoning_configured:
                 raise InferenceError(

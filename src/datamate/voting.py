@@ -180,7 +180,9 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
             pending = next_pending
         still_active = []
         for entry in active:
+            vote_started = time.perf_counter()
             winner, summary = vote(entry["voting_candidates"], config.threshold)
+            summary["elapsed_ms"] = (time.perf_counter() - vote_started) * 1000
             summary.update(round_id=round_id, thinking_enabled=options.enable_thinking,
                            next_action="answer" if winner else ("thinking_round" if round_id == 1 else "abstain"))
             entry["voting_rounds"].append(summary)

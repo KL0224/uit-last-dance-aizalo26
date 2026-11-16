@@ -398,6 +398,12 @@ def create_qwen3b_vllm_parser(
             ],
             options=generation_options,
         )
+        _chat.last_generation = {
+            "input_tokens": getattr(result, "input_tokens", None),
+            "output_tokens": getattr(result, "output_tokens", None),
+            "finish_reason": getattr(result, "finish_reason", None),
+            "max_new_tokens": generation_options.max_new_tokens,
+        }
         return result.text
 
     def _count_tokens(system_prompt: str, user_prompt: str) -> int:
