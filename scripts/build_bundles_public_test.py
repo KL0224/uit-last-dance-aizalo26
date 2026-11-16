@@ -26,14 +26,15 @@ def extract_dev003_units(duck_file: Path) -> list[dict]:
         conv_tbl = next((t for t in tables if "don_vi_quy_doi" in t.lower() or "quydoi" in t.lower()), None)
         prod_tbl = next((t for t in tables if "hang_hoa" in t.lower() or "san_pham" in t.lower()), None)
         if conv_tbl and prod_tbl:
+            cols = [c[0] for c in con.execute(f'DESCRIBE "{prod_tbl}"').fetchall()]
+            join_conds = ["c.ma_vach = p.ma_h_hoa", "c.ma_vach = p.ma_barcode"]
+            if "ma_hang" in cols:
+                join_conds.append("c.ma_vach = p.ma_hang")
+            join_clause = " OR ".join(join_conds)
             query = f'''
                 SELECT p.ten_hang_hoa, c.quy_cach, c.bang, p.dvt
                 FROM "{conv_tbl}" c
-                JOIN "{prod_tbl}" p ON (
-                    c.ma_vach = p.ma_h_hoa OR 
-                    c.ma_vach = p.ma_barcode OR 
-                    c.ma_vach = p.ma_hang
-                )
+                JOIN "{prod_tbl}" p ON ({join_clause})
             '''
             try:
                 rows = con.execute(query).fetchall()
@@ -256,16 +257,34 @@ def main():
                 seen_keys.add(k)
                 clean_units.append(u)
 
-        # Sync back to DuckDB unit_conversions table
+        # Sync back to DuckDB unit_conversions table (bidirectional)
         with duckdb.connect(str(duck_file)) as con:
             if clean_units:
+                seen_pairs = set()
+                bidi_units = []
+                for u in clean_units:
+                    item = str(u.get("item_name", "")).strip()
+                    f_u = str(u.get("from_unit", "")).strip()
+                    t_u = str(u.get("to_unit", "")).strip()
+                    try:
+                        factor = float(u.get("factor", 1.0))
+                    except (ValueError, TypeError):
+                        factor = 1.0
+                    if not (item and f_u and t_u and factor > 0):
+                        continue
+                    pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+                    if pair_fwd not in seen_pairs:
+                        seen_pairs.add(pair_fwd)
+                        bidi_units.append([item, f_u, t_u, factor])
+                    pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+                    if pair_rev not in seen_pairs:
+                        seen_pairs.add(pair_rev)
+                        bidi_units.append([item, t_u, f_u, round(1.0 / factor, 12)])
+
                 con.execute("CREATE TABLE IF NOT EXISTS main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))")
                 con.execute("DELETE FROM main.unit_conversions")
-                for u in clean_units:
-                    con.execute(
-                        "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
-                        [str(u["item_name"]), str(u["from_unit"]), str(u["to_unit"]), float(u["factor"])],
-                    )
+                for r in bidi_units:
+                    con.execute("INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)", r)
 
         # Update business_context.json
         ctx.setdefault("semantic_catalog", {})["unit_conversions"] = clean_units
