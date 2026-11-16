@@ -192,6 +192,11 @@ class GateRequest:
     repair_origin: Optional[RepairOrigin] = None
     attempt: int = 0
     trace: Dict[str, Any] = field(default_factory=dict)
+    max_retries: int = 1
+
+    def __post_init__(self) -> None:
+        if type(self.max_retries) is not int or self.max_retries < 0:
+            raise ValueError("max_retries must be a nonnegative integer")
 
 
 @dataclass
@@ -252,6 +257,7 @@ class GateOutcome:
     retry_count: int = 0
     repair_request: Optional[RepairRequest] = None
     risk_assessment: Optional[RiskAssessment] = None
+    voting: Optional[Dict[str, Any]] = None
     legacy_decision: Optional[str] = None
     shadow_decision: Optional[str] = None
     shadow_reason_code: Optional[str] = None

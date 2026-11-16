@@ -28,7 +28,8 @@ temp
 artifacts
 data/train
 data/public_test
-notebooks
+notebooks/*
+!notebooks/evaluate_voting_openrouter.ipynb
 benchmark_outputs
 synthetic_data
 data/test

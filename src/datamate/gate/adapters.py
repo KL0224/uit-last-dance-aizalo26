@@ -277,8 +277,11 @@ def adapt_gate_request(raw: Dict[str, Any]) -> GateRequest:
     semantic_proof = adapt_semantic_proof(raw.get("semantic_proof"))
 
     attempt = raw.get("attempt", 0)
-    if attempt not in (0, 1):
-        raise ContractError(f"Field 'attempt' must be 0 or 1, got {attempt}")
+    max_retries = raw.get("max_retries", 1)
+    if type(max_retries) is not int or max_retries < 0:
+        raise ContractError("max_retries must be a nonnegative integer")
+    if type(attempt) is not int or not 0 <= attempt <= max_retries:
+        raise ContractError(f"Field 'attempt' must be between 0 and {max_retries}, got {attempt}")
 
     trace = raw.get("trace") or {}
     if not isinstance(trace, dict):
@@ -300,5 +303,6 @@ def adapt_gate_request(raw: Dict[str, Any]) -> GateRequest:
         policy_mode=policy_mode,
         repair_origin=repair_origin,
         attempt=attempt,
+        max_retries=max_retries,
         trace=trace,
     )

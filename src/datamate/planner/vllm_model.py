@@ -86,6 +86,7 @@ class VLLMModel(BaseLLM):
                 tensor_parallel_size=self.config.tensor_parallel_size,
                 max_num_seqs=self.config.max_num_seqs,
                 trust_remote_code=self.config.trust_remote_code,
+                language_model_only=self.config.language_model_only,
                 # Không để generation_config của checkpoint âm thầm đổi
                 # sampling defaults mà ứng dụng đã khai báo.
                 generation_config="vllm",
@@ -166,12 +167,16 @@ class VLLMModel(BaseLLM):
             return []
         selected = options if options is not None else self.default_options
         observed = GenerationDiagnostics(
-            thinking_enabled=self.config.chat_template_kwargs.get("enable_thinking"),
+            thinking_enabled=(selected.enable_thinking if selected.enable_thinking is not None
+                              else self.config.chat_template_kwargs.get("enable_thinking")),
             thinking_token_budget=selected.thinking_token_budget,
             max_new_tokens=selected.max_new_tokens,
         )
         try:
             params = self._sampling_params(options)
+            if selected.enable_thinking is not None and selected.seed is not None:
+                params = [self._sampling_params(replace(selected, seed=selected.seed + index))
+                          for index in range(len(prompts))]
             # vLLM tự scheduling batch và trả kết quả theo thứ tự prompts.
             # Không tự cắt/truncate prompt: context vượt giới hạn phải báo lỗi.
             outputs = self._engine.generate(prompts, sampling_params=params, use_tqdm=False)
@@ -206,6 +211,9 @@ class VLLMModel(BaseLLM):
         payload = [{"role": message.role, "content": message.content} for message in messages]
         tokenizer = self._engine.get_tokenizer()
         template_kwargs = dict(self.config.chat_template_kwargs or {})
+        selected = options if options is not None else self.default_options
+        if selected.enable_thinking is not None:
+            template_kwargs["enable_thinking"] = selected.enable_thinking
         try:
             return tokenizer.apply_chat_template(
                 payload,
@@ -215,7 +223,7 @@ class VLLMModel(BaseLLM):
             )
         except Exception as exc:
             selected = options if options is not None else self.default_options
-            if selected.thinking_token_budget is not None:
+            if selected.thinking_token_budget is not None or selected.enable_thinking is not None:
                 error = InferenceError(f"Chat template failed with thinking budget: {exc}")
                 error.diagnostics = exception_diagnostics(exc, GenerationDiagnostics(
                     thinking_enabled=template_kwargs.get("enable_thinking"),
@@ -229,14 +237,14 @@ class VLLMModel(BaseLLM):
                 add_generation_prompt=True,
             )
 
-    def count_chat_tokens(self, messages: list[ChatMessage]) -> int:
+    def count_chat_tokens(self, messages: list[ChatMessage], *, options: GenerationOptions | None = None) -> int:
         """Count input tokens after applying the checkpoint's chat template."""
         self._require_loaded()
         if not isinstance(messages, list) or not messages:
             raise ValueError("messages must be a nonempty list of ChatMessage")
         if any(not isinstance(message, ChatMessage) for message in messages):
             raise TypeError("Every message must be a ChatMessage")
-        token_ids = self._apply_chat_template(messages, tokenize=True)
+        token_ids = self._apply_chat_template(messages, tokenize=True, options=options)
         if hasattr(token_ids, "input_ids"):
             token_ids = token_ids.input_ids
         elif isinstance(token_ids, dict) and "input_ids" in token_ids:

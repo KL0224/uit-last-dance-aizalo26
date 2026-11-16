@@ -42,8 +42,13 @@ class GenerationOptions:
     stop: tuple[str, ...] = ()
     seed: int | None = None
     thinking_token_budget: int | None = None
+    enable_thinking: bool | None = None
 
     def __post_init__(self) -> None:
+        if self.enable_thinking is not None and type(self.enable_thinking) is not bool:
+            raise ValueError("enable_thinking must be bool or None")
+        if self.enable_thinking is False and self.thinking_token_budget is not None:
+            raise ValueError("Thinking disabled requires thinking_token_budget=None")
         if self.thinking_token_budget is not None and (
             type(self.thinking_token_budget) is not int
             or not 0 < self.thinking_token_budget < self.max_new_tokens
@@ -71,6 +76,7 @@ class ModelConfig:
 
     chat_template_kwargs được chuyển nguyên sang chat template của model.
     Ví dụ enable_thinking chỉ có ý nghĩa nếu template của checkpoint hỗ trợ.
+    language_model_only mặc định tắt các modality ngoài text trong vLLM.
     """
 
     model_path: Path
@@ -81,9 +87,12 @@ class ModelConfig:
     max_num_seqs: int = 4
     trust_remote_code: bool = False
     chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
+    language_model_only: bool = True
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_path", Path(self.model_path).expanduser().resolve())
+        if type(self.language_model_only) is not bool:
+            raise ValueError("language_model_only must be bool")
         if self.max_model_len < 1 or self.tensor_parallel_size < 1 or self.max_num_seqs < 1:
             raise ValueError("Context length, tensor parallel size and max_num_seqs must be positive")
         if not 0 < self.gpu_memory_utilization < 1:

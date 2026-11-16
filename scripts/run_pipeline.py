@@ -31,6 +31,7 @@ if str(ROOT_DIR / "src") not in sys.path:
 
 from datamate.context.contracts import BusinessRule
 from datamate.pipeline import DataMatePipeline, Pipeline, B0Pipeline
+from datamate.voting import VotingConfig
 from datamate.planner import (
     BaseLLM,
     ChatMessage,
@@ -91,8 +92,14 @@ class OpenAICompatibleLLM(BaseLLM):
         max_tokens = opts.max_new_tokens if opts else 2048
         temperature = opts.temperature if opts else 0.0
         extra_body: dict[str, Any] = {}
-        if self.chat_template_kwargs:
-            extra_body["chat_template_kwargs"] = self.chat_template_kwargs
+        template_kwargs = dict(self.chat_template_kwargs)
+        if opts and opts.enable_thinking is not None:
+            template_kwargs["enable_thinking"] = opts.enable_thinking
+        if template_kwargs:
+            extra_body["chat_template_kwargs"] = template_kwargs
+        if opts and opts.enable_thinking is not None:
+            extra_body.update(top_p=opts.top_p, top_k=opts.top_k, presence_penalty=opts.presence_penalty,
+                              repetition_penalty=opts.repetition_penalty)
         if opts and getattr(opts, "thinking_token_budget", None) is not None:
             extra_body["thinking_token_budget"] = opts.thinking_token_budget
 
@@ -103,6 +110,7 @@ class OpenAICompatibleLLM(BaseLLM):
                 messages=msgs_payload,
                 max_tokens=max_tokens,
                 temperature=temperature,
+                seed=opts.seed if opts else None,
                 extra_body=extra_body if extra_body else None,
             )
         except Exception as exc:
@@ -120,7 +128,7 @@ class OpenAICompatibleLLM(BaseLLM):
             output_tokens=getattr(response.usage, "completion_tokens", None),
             finish_reason=choice.finish_reason,
             diagnostics=GenerationDiagnostics(
-                thinking_enabled=self.chat_template_kwargs.get("enable_thinking"),
+                thinking_enabled=template_kwargs.get("enable_thinking"),
                 thinking_token_budget=getattr(opts, "thinking_token_budget", None) if opts else None,
                 max_new_tokens=max_tokens,
             ),
@@ -134,7 +142,10 @@ class OpenAICompatibleLLM(BaseLLM):
     def chat_batch(
         self, messages_batch: list[list[ChatMessage]], *, options: GenerationOptions | None = None
     ) -> list[GenerationResult]:
-        return [self.chat(m, options=options) for m in messages_batch]
+        selected = options or self.default_options
+        return [self.chat(m, options=replace(selected, seed=selected.seed + index)
+                          if selected and selected.enable_thinking is not None and selected.seed is not None
+                          else options) for index, m in enumerate(messages_batch)]
 
 
 def _deserialize_business_rules(raw_rules: list[dict[str, Any]]) -> list[BusinessRule]:
@@ -318,8 +329,17 @@ def run_pipeline_cli(
     enable_grounding: bool = True,
     enable_grounding_llm: bool = False,
     verbose: bool = True,
+    voting: bool = False,
+    voting_candidates: int = 4,
+    voting_threshold: float = 0.5,
+    voting_temperature: float = 0.7,
+    voting_top_p: float = 0.8,
+    voting_top_k: int = 20,
 ) -> dict[str, Any]:
     """Hàm lõi thực thi pipeline end-to-end có thể gọi từ code Python hoặc CLI."""
+    voting_config = VotingConfig(enabled=voting, initial_candidates=voting_candidates,
+                                 threshold=voting_threshold, temperature=voting_temperature,
+                                 top_p=voting_top_p, top_k=voting_top_k)
     split_dir = split_dir.resolve()
     bundles_dir = bundles_dir.resolve()
     output_dir = output_dir.resolve()
@@ -504,6 +524,7 @@ def run_pipeline_cli(
         timeout_sec=timeout_sec,
         max_rows=max_rows,
         options=gen_opts,
+        voting=voting_config,
         enable_grounding=enable_grounding,
         grounding_runtime=grounding_runtime,
     )
@@ -683,6 +704,12 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Số lượng câu hỏi chạy suy luận song song (batch) trên GPU (mặc định 1, gợi ý 8 trên A100)",
     )
+    parser.add_argument("--voting", action="store_true", help="Enable two-round execution-result voting")
+    parser.add_argument("--voting-candidates", type=int, choices=(4, 8), default=4)
+    parser.add_argument("--voting-threshold", type=float, default=0.5)
+    parser.add_argument("--voting-temperature", type=float, default=0.7)
+    parser.add_argument("--voting-top-p", type=float, default=0.8)
+    parser.add_argument("--voting-top-k", type=int, default=20)
     parser.add_argument("--timeout-sec", type=float, default=10.0)
     parser.add_argument("--max-rows", type=int, default=10000)
     return parser.parse_args()
@@ -695,6 +722,12 @@ def main() -> int:
         bundles_dir=args.bundles_dir,
         output_dir=args.output_dir,
         config_path=args.config,
+        voting=args.voting,
+        voting_candidates=args.voting_candidates,
+        voting_threshold=args.voting_threshold,
+        voting_temperature=args.voting_temperature,
+        voting_top_p=args.voting_top_p,
+        voting_top_k=args.voting_top_k,
         model_path=args.model_path,
         grounding_config_path=args.grounding_config,
         grounding_model_path=args.grounding_model_path,

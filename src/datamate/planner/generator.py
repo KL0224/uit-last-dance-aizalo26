@@ -27,7 +27,8 @@ class Text2SQLGenerator:
         config = getattr(self.model, "config", None)
         template_kwargs = getattr(config, "chat_template_kwargs", {})
         return GenerationDiagnostics(
-            thinking_enabled=template_kwargs.get("enable_thinking"),
+            thinking_enabled=(selected.enable_thinking if selected is not None and selected.enable_thinking is not None
+                              else template_kwargs.get("enable_thinking")),
             thinking_token_budget=getattr(selected, "thinking_token_budget", None),
             max_new_tokens=getattr(selected, "max_new_tokens", None),
         )

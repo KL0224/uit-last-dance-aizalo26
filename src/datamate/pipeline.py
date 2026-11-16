@@ -27,6 +27,7 @@ from datamate.grounding import (
     QuestionGroundingRuntimeError,
 )
 from datamate.ingestion.ingestion import PreparedBusinessArtifacts, prepare_business
+from datamate.voting import VotingConfig, run_voting
 from datamate.planner.diagnostics import diagnostics_dict
 from datamate.planner.generator import Text2SQLGenerator
 from datamate.planner.types import GenerationOptions, Text2SQLResult
@@ -60,11 +61,13 @@ class DataMatePipeline:
         max_rows: int = 10000,
         options: GenerationOptions | None = None,
         enable_grounding: bool = True,
+        voting: VotingConfig | None = None,
         gate_contract_version: str = "b05.v1",
         grounding_runtime: QuestionGroundingRuntime | None = None,
         context_loader: BusinessContextRuntimeLoader | None = None,
     ) -> None:
         self.generator = generator
+        self.voting = voting or VotingConfig()
         self.timeout_sec = timeout_sec
         self.max_rows = max_rows
         self.options = options
@@ -349,6 +352,12 @@ class DataMatePipeline:
                     self._record_grounding_trace(out_dir, grounded, outcome, grounding_ms)
             return outcome
 
+        if self.voting.enabled:
+            entry = dict(q_meta=q_meta, bundle_path=bundle_path, context=ctx,
+                         industry=resolved_industry, grounded=grounded, grounded_hint=grounded_hint)
+            run_voting(self, [entry], writer)
+            return entry["outcome"]
+
         # 3. Lập kế hoạch và sinh câu truy vấn SQL (Planner D)
         t_llm0 = time.perf_counter()
         try:
@@ -546,6 +555,7 @@ class DataMatePipeline:
                     "retry_count": outcome.retry_count,
                     "total_elapsed_ms": elapsed_ms,
                     "final_answer": outcome.final_answer.to_submission_dict() if outcome.final_answer else None,
+                    "voting": outcome.voting,
                     "grounding": g_summary,
                     "attempts": attempts_history,
                 }
@@ -672,6 +682,9 @@ class DataMatePipeline:
 
             # 1. Batch Generation: Attempt 0 (cho những câu chưa giải bằng fast-path)
             valid_for_gen = [entry for entry in chunk_prepared if entry["outcome"] is None]
+            if valid_for_gen and self.voting.enabled:
+                run_voting(self, valid_for_gen, writer)
+                valid_for_gen = []
             if valid_for_gen:
                 gen_inputs = [
                     {
@@ -895,6 +908,7 @@ class DataMatePipeline:
                     "retry_count": outcome.retry_count,
                     "total_elapsed_ms": elapsed_ms,
                     "final_answer": outcome.final_answer.to_submission_dict() if outcome.final_answer else None,
+                    "voting": outcome.voting,
                     "grounding": g_summary,
                     "attempts": attempts_history,
                 }
@@ -927,6 +941,8 @@ class DataMatePipeline:
                         execution_status="error",
                         error_code=ErrorCode.UNKNOWN_ERROR,
                         error_message=f"{type(exc).__name__}: {exc}",
+                        candidate_id=kwargs.get("candidate_id"),
+                        round_id=kwargs.get("round_id"),
                     )
                 except Exception:
                     logger.exception("Không ghi được attempt lỗi cho %s", q_meta.id)
@@ -940,6 +956,9 @@ class DataMatePipeline:
         context: Mapping[str, Any],
         gen_res: Text2SQLResult,
         attempt: int,
+        max_retries: int = 1,
+        candidate_id: int | None = None,
+        round_id: int | None = None,
         llm_generation_ms: float | None = None,
         batch_fallback_error: dict[str, Any] | None = None,
         grounded: GroundedQuestion | None = None,
@@ -960,7 +979,7 @@ class DataMatePipeline:
                 sql_query=gen_res.sql or "",
                 answer_type=gate_gen.answer_type,
                 retry_count=attempt,
-                max_retries=1,
+                max_retries=max_retries,
                 timeout_sec=self.timeout_sec,
                 max_rows=self.max_rows,
             )
@@ -974,6 +993,7 @@ class DataMatePipeline:
             execution=gate_exec,
             evidence=evidence,
             attempt=attempt,
+            max_retries=max_retries,
         )
         outcome = evaluate_gate(gate_req)
         if writer is not None:
@@ -989,6 +1009,8 @@ class DataMatePipeline:
                 thinking=gen_res.thinking,
                 generation_diagnostics=diagnostics_dict(gen_res),
                 batch_fallback_error=batch_fallback_error,
+                candidate_id=candidate_id,
+                round_id=round_id,
                 assumptions=list(gen_res.assumptions) if gen_res.assumptions else None,
                 error_message=err_msg,
                 llm_generation_ms=llm_generation_ms,
