@@ -526,6 +526,12 @@ class GroundingToPlannerAdapter:
     @staticmethod
     def to_b05_evidence_proof(grounded: GroundedQuestion) -> EvidenceProof:
         """Convert GroundedQuestion coverage result into a B0.5 catalog-verified EvidenceProof."""
+        if (grounded.planner_input or {}).get('request', {}).get('contract_version') == '3.0':
+            return EvidenceProof(
+                capability_status='unknown', coverage_status='unknown',
+                checked_all_sources=False, source_kind='unverified',
+                proof='Mention extraction and calendar calculation do not check data coverage.',
+            )
         if grounded.is_directly_unanswerable and grounded.missing_evidence_proof is not None:
             mp = grounded.missing_evidence_proof
             return EvidenceProof(
