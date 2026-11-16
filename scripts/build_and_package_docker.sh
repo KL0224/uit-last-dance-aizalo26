@@ -48,18 +48,18 @@ for req in \
 done
 
 if [ "${ALLOW_MISSING_MODELS:-0}" != "1" ]; then
-  for model_cfg in \
-    "models/Qwen3.5-9B/config.json" \
-    "models/Qwen2.5-3B-Instruct/config.json"; do
-    if [ ! -f "$model_cfg" ]; then
-      echo "[LỖI] Thiếu snapshot model offline: $model_cfg" >&2
-      echo "Hãy tải đủ weights trước khi build Docker submission:" >&2
-      echo "  python3 scripts/download_model.py --model Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a --output-dir models/Qwen3.5-9B" >&2
-      echo "  python3 scripts/download_model.py --model Qwen/Qwen2.5-3B-Instruct --output-dir models/Qwen2.5-3B-Instruct" >&2
-      echo "(Hoặc đặt ALLOW_MISSING_MODELS=1 nếu chỉ test build cấu trúc.)" >&2
-      exit 1
-    fi
-  done
+  if [ ! -f "models/qwen3_5_9b_ft_v1_2/config.json" ] && [ ! -f "models/Qwen3.5-9B/config.json" ]; then
+    echo "[LỖI] Thiếu snapshot 9B offline (cần models/qwen3_5_9b_ft_v1_2/config.json hoặc models/Qwen3.5-9B/config.json)" >&2
+    echo "Hãy tải hoặc merge LoRA trước khi build Docker submission:" >&2
+    echo "  python3 scripts/download_model.py --model Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a --output-dir models/Qwen3.5-9B" >&2
+    echo "  python3 training_code/src/merge_lora.py --base-model models/Qwen3.5-9B --adapter-dir models/adapters/qwen3_5_9b_v1_2 --output-dir models/qwen3_5_9b_ft_v1_2" >&2
+    exit 1
+  fi
+  if [ ! -f "models/Qwen2.5-3B-Instruct/config.json" ]; then
+    echo "[LỖI] Thiếu snapshot model offline: models/Qwen2.5-3B-Instruct/config.json" >&2
+    echo "  python3 scripts/download_model.py --model Qwen/Qwen2.5-3B-Instruct --output-dir models/Qwen2.5-3B-Instruct" >&2
+    exit 1
+  fi
 fi
 echo "  => Cấu trúc mã nguồn & offline weights hợp lệ."
 
@@ -73,23 +73,34 @@ docker image inspect -f 'OS/Arch: {{.Os}}/{{.Architecture}} | Kích thước unc
 docker run --rm --network none --entrypoint "" "${IMAGE_TAG}" bash -c \
   'find /code -maxdepth 2 && test -x /code/predict.sh && test -f /code/training_code/data/train_v1_2.jsonl && test -f /code/training_code/src/train_datamate.py'
 
-# 4. Đóng gói docker save | gzip
-echo "[4/5] Đang xuất Docker image và nén thành ${OUTPUT_TAR_GZ} (vui lòng đợi vài phút)..."
+# 4. Đóng gói docker save | pigz/gzip (đo luôn dung lượng uncompressed trong 1 lượt đọc)
+THREADS="${PIGZ_THREADS:-$(nproc 2>/dev/null || echo 8)}"
+LEVEL="${PIGZ_LEVEL:-1}"
+echo "[4/5] Đang xuất Docker image và nén nhanh (level=-${LEVEL}, threads=${THREADS}) thành ${OUTPUT_TAR_GZ}..."
+
 if command -v pigz >/dev/null 2>&1; then
-  docker save "${IMAGE_TAG}" | pigz -p 8 > "${OUTPUT_TAR_GZ}"
+  COMPRESS_CMD="pigz -${LEVEL} -p ${THREADS}"
 else
-  docker save "${IMAGE_TAG}" | gzip > "${OUTPUT_TAR_GZ}"
+  echo "[Cảnh báo] Chưa cài 'pigz' -> fallback dùng 'gzip -${LEVEL}' (1 luồng, chậm hơn nhiều). Nên cài: sudo apt-get install -y pigz"
+  COMPRESS_CMD="gzip -${LEVEL}"
 fi
 
-# 5. Đo đạc kích thước uncompressed và tạo mã MD5
-echo "[5/5] Tính toán checksum MD5 và đo kích thước uncompressed..."
+SIZE_FIFO="$(mktemp -u)"
+SIZE_OUT="${SIZE_FIFO}.size"
+mkfifo "${SIZE_FIFO}"
+trap 'rm -f "${SIZE_FIFO}" "${SIZE_OUT}"' EXIT
+wc -c < "${SIZE_FIFO}" > "${SIZE_OUT}" &
+WC_PID=$!
+
+docker save "${IMAGE_TAG}" | tee "${SIZE_FIFO}" | ${COMPRESS_CMD} > "${OUTPUT_TAR_GZ}"
+wait "${WC_PID}"
+UNCOMPRESSED_SIZE="$(tr -d '[:space:]' < "${SIZE_OUT}")"
+rm -f "${SIZE_FIFO}" "${SIZE_OUT}"
+trap - EXIT
+
+# 5. Tạo mã MD5 checksum cho tệp nén cuối cùng
+echo "[5/5] Đang tính toán checksum MD5..."
 md5sum "${OUTPUT_TAR_GZ}" > "${OUTPUT_MD5}"
-
-if command -v pigz >/dev/null 2>&1; then
-  UNCOMPRESSED_SIZE=$(pigz -dc "${OUTPUT_TAR_GZ}" | wc -c)
-else
-  UNCOMPRESSED_SIZE=$(gzip -dc "${OUTPUT_TAR_GZ}" | wc -c)
-fi
 
 echo "=========================================================="
 echo "ĐÓNG GÓI THÀNH CÔNG!"
