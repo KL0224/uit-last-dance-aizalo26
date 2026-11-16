@@ -181,6 +181,9 @@ Nếu không có dataset, bỏ biến `DATAMATE_TRAIN_DIR` để chạy unit tes
 # ZAIC 2026 — Local LLM layer
 Interface Python dùng chung cho model local, backend đầu tiên là offline vLLM.
 Checkpoint mẫu: `Qwen/Qwen3.5-9B`. Model chỉ được load vào GPU khi gọi `load()`.
+Backend offline mặc định dùng `language_model_only = true` để bỏ vision encoder
+và multimodal profiling. Có thể đặt `language_model_only = false` trong phần
+`[model]` của file TOML để tắt chế độ này.
 
 - Cấu hình: [configs/qwen3_5_9b.toml](configs/qwen3_5_9b.toml)
 - Tải weights: [scripts/download_model.py](scripts/download_model.py)

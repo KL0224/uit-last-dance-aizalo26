@@ -58,7 +58,7 @@ def _retry_or_abstain(request: GateRequest, error_code: str, warnings=None, risk
     classification = classify_error(request.execution.error, error_code)
     repair = decide_retry(request, classification)
     if repair is None:
-        reason = ErrorCode.RETRY_EXHAUSTED if request.attempt >= 1 else error_code
+        reason = ErrorCode.RETRY_EXHAUSTED if request.attempt >= request.max_retries else error_code
         return _abstain(request, reason, risk)
     return GateOutcome(
         action=GateAction.RETRY,
@@ -205,7 +205,7 @@ def _evaluate_legacy(request: GateRequest) -> GateOutcome:
                 repair_request=repair,
             )
         else:
-            reason_code = ErrorCode.RETRY_EXHAUSTED if request.attempt >= 1 else classification.code
+            reason_code = ErrorCode.RETRY_EXHAUSTED if request.attempt >= request.max_retries else classification.code
             return GateOutcome(
                 action=GateAction.FINAL,
                 question_id=question_id,
@@ -302,7 +302,7 @@ def _evaluate_legacy(request: GateRequest) -> GateOutcome:
                 repair_request=repair,
             )
         else:
-            reason_code = ErrorCode.RETRY_EXHAUSTED if request.attempt >= 1 else classification.code
+            reason_code = ErrorCode.RETRY_EXHAUSTED if request.attempt >= request.max_retries else classification.code
             return GateOutcome(
                 action=GateAction.FINAL,
                 question_id=question_id,

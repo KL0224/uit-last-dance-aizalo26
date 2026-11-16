@@ -52,6 +52,8 @@ class SubmissionWriter:
         llm_generation_ms: Optional[float] = None,
         generation_diagnostics: Optional[Dict[str, Any]] = None,
         batch_fallback_error: Optional[Dict[str, Any]] = None,
+        candidate_id: Optional[int] = None,
+        round_id: Optional[int] = None,
     ) -> None:
         """Record an attempt trace into audit logger history."""
         self.audit_logger.record_attempt(
@@ -68,6 +70,8 @@ class SubmissionWriter:
             llm_generation_ms=llm_generation_ms,
             generation_diagnostics=generation_diagnostics,
             batch_fallback_error=batch_fallback_error,
+            candidate_id=candidate_id,
+            round_id=round_id,
         )
 
     def record_grounding(

@@ -53,6 +53,8 @@ class AuditLogger:
         llm_generation_ms: Optional[float] = None,
         generation_diagnostics: Optional[Dict[str, Any]] = None,
         batch_fallback_error: Optional[Dict[str, Any]] = None,
+        candidate_id: Optional[int] = None,
+        round_id: Optional[int] = None,
     ) -> None:
         """Record attempt trace in history (including LLM thinking and assumptions)."""
         if question_id not in self._history:
@@ -66,6 +68,8 @@ class AuditLogger:
             "execution_ms": execution_ms,
             "result_row_count": row_count,
         }
+        if candidate_id is not None:
+            entry.update(candidate_id=candidate_id, round_id=round_id)
         if llm_generation_ms is not None:
             entry["llm_generation_ms"] = llm_generation_ms
         if thinking is not None:
@@ -105,13 +109,18 @@ class AuditLogger:
         thinking_val: Optional[Any] = None
         code_val: Optional[str] = None
         output_val: Optional[Any] = None
-        if attempts:
-            thinkings = [a.get("thinking") for a in attempts if a.get("thinking")]
+        selected_attempts = attempts
+        if outcome.voting:
+            rounds = outcome.voting.get("rounds", [])
+            winner_id = rounds[-1].get("winner_candidate_id") if rounds else None
+            selected_attempts = [a for a in attempts if a.get("candidate_id") == winner_id] if winner_id is not None else []
+        if selected_attempts:
+            thinkings = [a.get("thinking") for a in selected_attempts if a.get("thinking")]
             if len(thinkings) == 1:
                 thinking_val = thinkings[0]
             elif len(thinkings) > 1:
                 thinking_val = thinkings
-            last_attempt = attempts[-1]
+            last_attempt = selected_attempts[-1]
             code_val = last_attempt.get("sql")
             output_val = last_attempt.get("result_sample") or (final_ans_dict.get("answer") if final_ans_dict else None)
 
@@ -129,6 +138,7 @@ class AuditLogger:
             "final_answer": final_ans_dict,
             "grounding": grounding_data,
             "attempts": attempts,
+            "voting": outcome.voting,
             "checks": outcome.validation.get("errors", []),
             "warnings": outcome.validation.get("warnings", []),
             "total_elapsed_ms": total_elapsed_ms,

@@ -181,9 +181,8 @@ def decide_retry(
     request: GateRequest,
     classification: ErrorClassification,
 ) -> Optional[RepairRequest]:
-    """Determine whether to trigger a bounded retry (max 1 retry)."""
-    # Invariant: Attempt 1 is the final retry attempt; if it fails, terminate with abstain
-    if request.attempt >= 1:
+    """Trigger a repair within the request budget (legacy default: one retry)."""
+    if request.attempt >= request.max_retries:
         return None
 
     if not classification.retryable:
@@ -200,7 +199,7 @@ def decide_retry(
         err_msg = request.execution.error.message or classification.evidence
 
     return RepairRequest(
-        attempt=1,
+        attempt=request.attempt + 1,
         failed_sql=failed_sql,
         error_type=err_type,
         error_message=err_msg,

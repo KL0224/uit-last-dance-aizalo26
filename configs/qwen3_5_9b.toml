@@ -11,10 +11,12 @@ gpu_memory_utilization = 0.68
 tensor_parallel_size = 1
 max_num_seqs = 16
 trust_remote_code = false
+# Bỏ vision encoder và multimodal profiling để dành bộ nhớ cho text/KV cache.
+language_model_only = true
 
 # Đây là tùy chọn template Qwen; bỏ/đổi khi dùng họ model khác.
 [model.chat_template_kwargs]
-enable_thinking = true
+enable_thinking = false
 
 [generation]
 max_new_tokens = 8192
