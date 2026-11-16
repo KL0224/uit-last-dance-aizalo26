@@ -1,10 +1,58 @@
 """Execution and Result Validator for B0.5 Basic Output Gate (DataMate 2026)."""
 
+import datetime
 import math
-from typing import List
+import re
+import unicodedata
+from typing import Any, List, Optional
 
 from .contracts import AnswerType, ExecutionStatus, GateRequest, ValidationResult
 from .errors import ErrorCode
+
+_SINGULAR_DATE_CUES = (
+    "ngày nào",
+    "ngay nao",
+    "tháng nào",
+    "thang nao",
+    "khi nào",
+    "khi nao",
+    "bao giờ",
+    "bao gio",
+)
+_PLURAL_LIST_CUES = (
+    "các ngày",
+    "cac ngay",
+    "những ngày",
+    "nhung ngay",
+    "các tháng",
+    "cac thang",
+    "những tháng",
+    "nhung thang",
+    "liệt kê",
+    "liet ke",
+    "danh sách",
+    "danh sach",
+    "top ",
+)
+_ISO_DATE_OR_MONTH_RE = re.compile(r"^\d{4}-\d{2}(-\d{2})?$")
+
+
+def _coerce_single_date_item(request: GateRequest, item: Any) -> Optional[str]:
+    """Return ISO date string when a 1-item list answers a singular date question."""
+    if request.question is None:
+        return None
+    item_s = item.isoformat()[:10] if isinstance(item, (datetime.date, datetime.datetime)) else str(item).strip()
+    if not _ISO_DATE_OR_MONTH_RE.match(item_s):
+        return None
+    month = int(item_s[5:7])
+    if not (1 <= month <= 12):
+        return None
+    q_lower = " ".join(unicodedata.normalize("NFC", request.question.question or "").lower().split())
+    if any(cue in q_lower for cue in _SINGULAR_DATE_CUES) and not any(
+        cue in q_lower for cue in _PLURAL_LIST_CUES
+    ):
+        return item_s
+    return None
 
 
 def validate_execution(request: GateRequest) -> ValidationResult:
@@ -160,6 +208,19 @@ def validate_execution(request: GateRequest) -> ValidationResult:
                     passed=False,
                     error_code=ErrorCode.EMPTY_RESULT,
                     details="List result is empty and empty_set_policy != 'allowed'",
+                    warnings=warnings,
+                )
+
+        if len(clean_items) == 1:
+            coerced_date = _coerce_single_date_item(request, clean_items[0])
+            if coerced_date is not None:
+                request.generation.answer_type = AnswerType.DATE
+                if request.generation.expected_answer_type == AnswerType.LIST:
+                    request.generation.expected_answer_type = AnswerType.DATE
+                warnings.append(f"Coerced 1-item list '{coerced_date}' to date for singular date question")
+                return ValidationResult(
+                    passed=True,
+                    normalized_candidate=coerced_date,
                     warnings=warnings,
                 )
 
