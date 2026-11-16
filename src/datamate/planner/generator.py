@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any
+from typing import Any, Literal, Sequence
 
 from .base import BaseLLM
 from .diagnostics import exception_diagnostics
 from .parser import parse_text2sql_response
 from .prompt import build_repair_messages, build_text2sql_messages
+from .prompt_v1_2 import build_v1_2_messages, build_v1_2_repair_messages
 from .types import GenerationDiagnostics, GenerationOptions, GenerationResult, Text2SQLResult
+
+_PROMPT_FORMATS = frozenset({"legacy", "v1_2"})
+_GROUNDED_HINT_MODES = frozenset({"auto", "markdown", "compact_json", "off"})
 
 
 class Text2SQLGenerator:
@@ -19,8 +23,96 @@ class Text2SQLGenerator:
     JSON/SQL đầu ra. Sẵn sàng hỗ trợ vòng lặp Bounded Retry nếu có lỗi thực thi.
     """
 
-    def __init__(self, model: BaseLLM) -> None:
+    def __init__(
+        self,
+        model: BaseLLM,
+        *,
+        prompt_format: Literal["legacy", "v1_2"] | None = None,
+        grounded_hint_mode: Literal["auto", "markdown", "compact_json", "off"] | None = None,
+    ) -> None:
         self.model = model
+        resolved = prompt_format if prompt_format is not None else getattr(
+            getattr(model, "config", None), "prompt_format", "legacy"
+        )
+        if resolved not in _PROMPT_FORMATS:
+            raise ValueError(f"Unsupported prompt_format: {resolved!r}")
+        self.prompt_format: Literal["legacy", "v1_2"] = resolved
+
+        resolved_hint = grounded_hint_mode if grounded_hint_mode is not None else getattr(
+            getattr(model, "config", None), "grounded_hint_mode", "auto"
+        )
+        if resolved_hint not in _GROUNDED_HINT_MODES:
+            raise ValueError(f"Unsupported grounded_hint_mode: {resolved_hint!r}")
+        self.grounded_hint_mode: Literal["auto", "markdown", "compact_json", "off"] = resolved_hint
+
+    @property
+    def effective_grounded_hint_mode(self) -> Literal["markdown", "compact_json", "off"]:
+        if self.grounded_hint_mode != "auto":
+            return self.grounded_hint_mode
+        return "compact_json" if self.prompt_format == "v1_2" else "markdown"
+
+    def _build_generate_messages(
+        self,
+        context: Any,
+        question: str,
+        as_of_date: str,
+        industry: str | None = None,
+        grounded_hint: str | None = None,
+    ) -> Any:
+        hint = None if self.effective_grounded_hint_mode == "off" else grounded_hint
+        if self.prompt_format == "v1_2":
+            return build_v1_2_messages(
+                context=context,
+                question=question,
+                as_of_date=as_of_date,
+                industry=industry,
+                grounded_hint=hint,
+            )
+        return build_text2sql_messages(
+            context=context,
+            question=question,
+            as_of_date=as_of_date,
+            industry=industry,
+            grounded_hint=hint,
+        )
+
+    def _build_repair_messages(
+        self,
+        context: Any,
+        question: str,
+        as_of_date: str,
+        previous_sql: str,
+        error_message: str,
+        industry: str | None = None,
+        grounded_hint: str | None = None,
+        *,
+        previous_plan: dict[str, Any] | None = None,
+        error_code: str | None = None,
+        failed_checks: Sequence[str] | None = None,
+    ) -> Any:
+        hint = None if self.effective_grounded_hint_mode == "off" else grounded_hint
+        if self.prompt_format == "v1_2":
+            return build_v1_2_repair_messages(
+                context=context,
+                question=question,
+                as_of_date=as_of_date,
+                previous_sql=previous_sql,
+                error_message=error_message,
+                industry=industry,
+                grounded_hint=hint,
+                previous_plan=previous_plan,
+                error_code=error_code,
+                failed_checks=failed_checks,
+            )
+        return build_repair_messages(
+            context=context,
+            question=question,
+            as_of_date=as_of_date,
+            previous_sql=previous_sql,
+            error_message=error_message,
+            industry=industry,
+            grounded_hint=hint,
+        )
 
     def _request_diagnostics(self, options: GenerationOptions | None) -> GenerationDiagnostics:
         selected = options if options is not None else getattr(self.model, "default_options", None)
@@ -81,7 +173,7 @@ class Text2SQLGenerator:
         grounded_hint: str | None = None,
     ) -> Text2SQLResult:
         """Sinh câu truy vấn SQL từ câu hỏi và BusinessContext."""
-        messages = build_text2sql_messages(
+        messages = self._build_generate_messages(
             context=context,
             question=question,
             as_of_date=as_of_date,
@@ -102,9 +194,12 @@ class Text2SQLGenerator:
         options: GenerationOptions | None = None,
         industry: str | None = None,
         grounded_hint: str | None = None,
+        previous_plan: dict[str, Any] | None = None,
+        error_code: str | None = None,
+        failed_checks: Sequence[str] | None = None,
     ) -> Text2SQLResult:
         """Thực hiện 1 lần Bounded Retry sửa lại câu SQL khi bước thực thi gặp lỗi."""
-        messages = build_repair_messages(
+        messages = self._build_repair_messages(
             context=context,
             question=question,
             as_of_date=as_of_date,
@@ -112,6 +207,9 @@ class Text2SQLGenerator:
             error_message=error_message,
             industry=industry,
             grounded_hint=grounded_hint,
+            previous_plan=previous_plan,
+            error_code=error_code,
+            failed_checks=failed_checks,
         )
         gen_result = self._chat(messages, options)
         return self._parse(gen_result, question, options)
@@ -126,7 +224,7 @@ class Text2SQLGenerator:
         if not items:
             return []
         messages_batch = [
-            build_text2sql_messages(
+            self._build_generate_messages(
                 it["context"],
                 it["question"],
                 it["as_of_date"],
@@ -154,14 +252,17 @@ class Text2SQLGenerator:
         if not items:
             return []
         messages_batch = [
-            build_repair_messages(
-                context=it["context"],
-                question=it["question"],
-                as_of_date=it["as_of_date"],
-                previous_sql=it["previous_sql"],
-                error_message=it["error_message"],
-                industry=it.get("industry"),
-                grounded_hint=it.get("grounded_hint"),
+            self._build_repair_messages(
+                it["context"],
+                it["question"],
+                it["as_of_date"],
+                it["previous_sql"],
+                it["error_message"],
+                it.get("industry"),
+                it.get("grounded_hint"),
+                previous_plan=it.get("previous_plan"),
+                error_code=it.get("error_code"),
+                failed_checks=it.get("failed_checks"),
             )
             for it in items
         ]

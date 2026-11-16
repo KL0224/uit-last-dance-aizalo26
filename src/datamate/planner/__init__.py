@@ -4,7 +4,7 @@ Import package này không tự động import GPU runtime (vLLM/PyTorch).
 """
 
 from .base import BaseLLM
-from .config import load_config
+from .config import load_config, load_pipeline_config
 from .errors import (
     InferenceError,
     LLMError,
@@ -39,6 +39,7 @@ __all__ = [
     "BaseLLM",
     "VLLMModel",
     "load_config",
+    "load_pipeline_config",
     # Dataclasses & Types
     "ChatMessage",
     "GenerationDiagnostics",

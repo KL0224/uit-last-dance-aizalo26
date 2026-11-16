@@ -14,7 +14,7 @@ set -e
 
 INPUT_DIR="/data/input"
 OUTPUT_DIR="/data/output"
-CONFIG_FILE="/workspace/configs/qwen3_5_9b.toml"
+CONFIG_FILE="/workspace/configs/qwen3_5_9b_ft_v1_2.toml"
 MODEL_PATH=""
 BATCH_SIZE=8
 

@@ -1,6 +1,6 @@
 # Local Qwen 2.5 3B semantic extractor used only by Component C fallback.
 [model]
-model_path = "../.models/Qwen2.5-3B-Instruct"
+model_path = "../models/Qwen2.5-3B-Instruct"
 dtype = "bfloat16"
 max_model_len = 4096
 # Cấu hình tối ưu cho Single GPU A100 40GB chạy song song 2 model vLLM:

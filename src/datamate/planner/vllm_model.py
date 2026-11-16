@@ -29,6 +29,7 @@ class VLLMModel(BaseLLM):
         self._engine: Any = None
         self._sampling_params_class: Any = None
         self._reasoning_configured = False
+        self._lora_request: Any = None
 
     @property
     def is_loaded(self) -> bool:
@@ -55,9 +56,30 @@ class VLLMModel(BaseLLM):
                     raise ValueError("Snapshot download is not marked complete")
             except (OSError, ValueError) as exc:
                 raise ModelLoadError(f"Invalid/incomplete download manifest: {manifest_path}") from exc
+        if self.config.lora_path is not None:
+            lora_dir = self.config.lora_path
+            if not lora_dir.is_dir() or not (lora_dir / "adapter_config.json").is_file():
+                raise ModelLoadError(
+                    f"Not a valid LoRA adapter directory (missing adapter_config.json): {lora_dir}"
+                )
         try:
             # Lazy import: laptop không cài vLLM vẫn import được package llm.
             from vllm import LLM, SamplingParams
+
+            lora_kwargs: dict[str, Any] = {}
+            lora_request: Any = None
+            if self.config.lora_path is not None:
+                try:
+                    from vllm.lora.request import LoRARequest
+                except ImportError as exc:
+                    raise ModelLoadError(
+                        "Installed vLLM does not expose LoRARequest for runtime LoRA loading."
+                    ) from exc
+                lora_kwargs = {
+                    "enable_lora": True,
+                    "max_lora_rank": self.config.max_lora_rank,
+                }
+                lora_request = LoRARequest("datamate_lora", 1, str(self.config.lora_path))
 
             reasoning_kwargs = {}
             if self.default_options.thinking_token_budget is not None:
@@ -90,6 +112,7 @@ class VLLMModel(BaseLLM):
                 # Không để generation_config của checkpoint âm thầm đổi
                 # sampling defaults mà ứng dụng đã khai báo.
                 generation_config="vllm",
+                **lora_kwargs,
                 **reasoning_kwargs,
             )
         except ModelLoadError:
@@ -104,6 +127,7 @@ class VLLMModel(BaseLLM):
         self._sampling_params_class = SamplingParams
         self._engine = engine
         self._reasoning_configured = bool(reasoning_kwargs)
+        self._lora_request = lora_request
 
     def _require_loaded(self) -> None:
         if not self.is_loaded:
@@ -179,7 +203,10 @@ class VLLMModel(BaseLLM):
                           for index in range(len(prompts))]
             # vLLM tự scheduling batch và trả kết quả theo thứ tự prompts.
             # Không tự cắt/truncate prompt: context vượt giới hạn phải báo lỗi.
-            outputs = self._engine.generate(prompts, sampling_params=params, use_tqdm=False)
+            gen_kwargs: dict[str, Any] = {}
+            if self._lora_request is not None:
+                gen_kwargs["lora_request"] = self._lora_request
+            outputs = self._engine.generate(prompts, sampling_params=params, use_tqdm=False, **gen_kwargs)
             results = self._convert_outputs(outputs, expected=len(prompts))
             return [replace(result, diagnostics=replace(
                 observed, raw_response=result.text, input_tokens=result.input_tokens,

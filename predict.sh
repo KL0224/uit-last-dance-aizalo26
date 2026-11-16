@@ -24,8 +24,20 @@ else
   CODE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 
-CONFIG_FILE="${CODE_ROOT}/configs/qwen3_5_9b.toml"
-MODEL_PATH="${CODE_ROOT}/models/qwen3_5_9b"
+CONFIG_FILE="${CODE_ROOT}/configs/qwen3_5_9b_ft_v1_2.toml"
+MODEL_PATH=""
+LORA_PATH=""
+NO_LORA=0
+PROMPT_FORMAT=""
+GROUNDED_HINT_MODE=""
+VOTING_FLAG=""
+VOTING_ROUNDS=""
+VOTING_CANDIDATES=""
+VOTING_THRESHOLD=""
+VOTING_TEMPERATURE=""
+VOTING_TOP_P=""
+VOTING_TOP_K=""
+VOTING_THINKING_MODE=""
 
 # Support optional flag overrides if provided
 while [[ $# -gt 0 ]]; do
@@ -46,8 +58,60 @@ while [[ $# -gt 0 ]]; do
       MODEL_PATH="$2"
       shift 2
       ;;
+    --lora_path|--lora-path)
+      LORA_PATH="$2"
+      shift 2
+      ;;
+    --no-lora)
+      NO_LORA=1
+      shift
+      ;;
+    --prompt_format|--prompt-format)
+      PROMPT_FORMAT="$2"
+      shift 2
+      ;;
+    --grounded_hint_mode|--grounded-hint-mode)
+      GROUNDED_HINT_MODE="$2"
+      shift 2
+      ;;
     --batch_size|--batch-size|-b)
       BATCH_SIZE="$2"
+      shift 2
+      ;;
+    --voting)
+      VOTING_FLAG="--voting"
+      shift
+      ;;
+    --no-voting)
+      VOTING_FLAG="--no-voting"
+      shift
+      ;;
+    --voting-rounds)
+      VOTING_ROUNDS="$2"
+      shift 2
+      ;;
+    --voting-candidates)
+      VOTING_CANDIDATES="$2"
+      shift 2
+      ;;
+    --voting-threshold)
+      VOTING_THRESHOLD="$2"
+      shift 2
+      ;;
+    --voting-temperature)
+      VOTING_TEMPERATURE="$2"
+      shift 2
+      ;;
+    --voting-top-p)
+      VOTING_TOP_P="$2"
+      shift 2
+      ;;
+    --voting-top-k)
+      VOTING_TOP_K="$2"
+      shift 2
+      ;;
+    --voting-thinking-mode)
+      VOTING_THINKING_MODE="$2"
       shift 2
       ;;
     *)
@@ -84,10 +148,68 @@ export VLLM_USE_FLASHINFER_SAMPLER=0
 export PYTHONPATH="${CODE_ROOT}/src:${CODE_ROOT}"
 
 EXTRA_ARGS=()
-if [ -d "${MODEL_PATH}" ] && [ -f "${MODEL_PATH}/config.json" ]; then
+if [ -z "${MODEL_PATH}" ]; then
+  if [ -f "${CODE_ROOT}/models/qwen3_5_9b_ft_v1_2/config.json" ]; then
+    MODEL_PATH="${CODE_ROOT}/models/qwen3_5_9b_ft_v1_2"
+    if [ -z "${LORA_PATH}" ]; then
+      NO_LORA=1
+    fi
+  elif [ -f "${CODE_ROOT}/models/Qwen3.5-9B/config.json" ]; then
+    MODEL_PATH="${CODE_ROOT}/models/Qwen3.5-9B"
+    if [ -z "${LORA_PATH}" ] && [ "${NO_LORA}" -eq 0 ] && [ -f "${CODE_ROOT}/models/adapters/qwen3_5_9b_v1_2/adapter_config.json" ]; then
+      LORA_PATH="${CODE_ROOT}/models/adapters/qwen3_5_9b_v1_2"
+    fi
+  elif [ -f "${CODE_ROOT}/models/qwen3_5_9b/config.json" ]; then
+    MODEL_PATH="${CODE_ROOT}/models/qwen3_5_9b"
+    if [ -z "${LORA_PATH}" ] && [ "${NO_LORA}" -eq 0 ]; then
+      if [ -f "${CODE_ROOT}/models/adapters/qwen3_5_9b_v1_2/adapter_config.json" ]; then
+        LORA_PATH="${CODE_ROOT}/models/adapters/qwen3_5_9b_v1_2"
+      elif [ -f "${CODE_ROOT}/models/adapter-final/adapter_config.json" ]; then
+        LORA_PATH="${CODE_ROOT}/models/adapter-final"
+      fi
+    fi
+  fi
+fi
+
+if [ -n "${MODEL_PATH}" ] && [ -f "${MODEL_PATH}/config.json" ]; then
   EXTRA_ARGS+=(--model-path "${MODEL_PATH}")
-elif [ -n "${MODEL_PATH}" ] && [ -f "${MODEL_PATH}/config.json" ]; then
-  EXTRA_ARGS+=(--model-path "${MODEL_PATH}")
+fi
+
+if [ "${NO_LORA}" -eq 1 ]; then
+  EXTRA_ARGS+=(--no-lora)
+elif [ -n "${LORA_PATH}" ]; then
+  EXTRA_ARGS+=(--lora-path "${LORA_PATH}")
+fi
+
+if [ -n "${PROMPT_FORMAT}" ]; then
+  EXTRA_ARGS+=(--prompt-format "${PROMPT_FORMAT}")
+fi
+if [ -n "${GROUNDED_HINT_MODE}" ]; then
+  EXTRA_ARGS+=(--grounded-hint-mode "${GROUNDED_HINT_MODE}")
+fi
+if [ -n "${VOTING_FLAG}" ]; then
+  EXTRA_ARGS+=("${VOTING_FLAG}")
+fi
+if [ -n "${VOTING_ROUNDS}" ]; then
+  EXTRA_ARGS+=(--voting-rounds "${VOTING_ROUNDS}")
+fi
+if [ -n "${VOTING_CANDIDATES}" ]; then
+  EXTRA_ARGS+=(--voting-candidates "${VOTING_CANDIDATES}")
+fi
+if [ -n "${VOTING_THRESHOLD}" ]; then
+  EXTRA_ARGS+=(--voting-threshold "${VOTING_THRESHOLD}")
+fi
+if [ -n "${VOTING_TEMPERATURE}" ]; then
+  EXTRA_ARGS+=(--voting-temperature "${VOTING_TEMPERATURE}")
+fi
+if [ -n "${VOTING_TOP_P}" ]; then
+  EXTRA_ARGS+=(--voting-top-p "${VOTING_TOP_P}")
+fi
+if [ -n "${VOTING_TOP_K}" ]; then
+  EXTRA_ARGS+=(--voting-top-k "${VOTING_TOP_K}")
+fi
+if [ -n "${VOTING_THINKING_MODE}" ]; then
+  EXTRA_ARGS+=(--voting-thinking-mode "${VOTING_THINKING_MODE}")
 fi
 
 # Run DataMate Pipeline

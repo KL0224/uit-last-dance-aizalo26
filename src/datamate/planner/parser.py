@@ -433,6 +433,19 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
 
     if isinstance(data, dict):
         status = str(data.get("status", "answerable")).lower()
+        if status == "needs_more_context":
+            return Text2SQLResult(
+                status="needs_more_context",
+                answer_type=None,
+                sql=None,
+                tables_used=(),
+                assumptions=tuple(data.get("assumptions") or ()),
+                reason=data.get("reason") or "Planner yêu cầu bổ sung ngữ cảnh.",
+                requested_context=tuple(str(item) for item in data.get("requested_context") or ()),
+                structured_plan=data.get("structured_plan") if isinstance(data.get("structured_plan"), dict) else None,
+                thinking=thinking,
+                raw_response=raw_text,
+            )
         if status not in {"answerable", "unanswerable"}:
             status = "unanswerable" if data.get("sql") is None else "answerable"
 
@@ -445,6 +458,7 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
                 assumptions=tuple(data.get("assumptions") or ()),
                 reason=data.get("reason") or "Không thể trả lời từ dữ liệu hiện có.",
                 missing_fields=tuple(str(f) for f in data.get("missing_fields") or ()),
+                structured_plan=data.get("structured_plan") if isinstance(data.get("structured_plan"), dict) else None,
                 thinking=thinking,
                 raw_response=raw_text,
             )
@@ -470,6 +484,7 @@ def parse_text2sql_response(raw_text: str, question: str | None = None) -> Text2
             assumptions=tuple(data.get("assumptions") or ()),
             reason=None,
             answer_semantics=dict(semantics) if isinstance(semantics, dict) else None,
+            structured_plan=data.get("structured_plan") if isinstance(data.get("structured_plan"), dict) else None,
             thinking=thinking,
             raw_response=raw_text,
         )

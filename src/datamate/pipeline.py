@@ -65,6 +65,7 @@ class DataMatePipeline:
         gate_contract_version: str = "b05.v1",
         grounding_runtime: QuestionGroundingRuntime | None = None,
         context_loader: BusinessContextRuntimeLoader | None = None,
+        grounded_hint_mode: str | None = None,
     ) -> None:
         self.generator = generator
         self.voting = voting or VotingConfig()
@@ -73,12 +74,26 @@ class DataMatePipeline:
         self.options = options
         self.enable_grounding = enable_grounding
         self.gate_contract_version = gate_contract_version
+        self.grounded_hint_mode = grounded_hint_mode
         self.grounding_runtime = (
             grounding_runtime if grounding_runtime is not None else QuestionGroundingRuntime()
         )
         self.context_loader = (
             context_loader if context_loader is not None else BusinessContextRuntimeLoader()
         )
+
+    def _format_grounded_hint(self, grounded: GroundedQuestion) -> str | None:
+        mode = self.grounded_hint_mode
+        if mode is None or mode == "auto":
+            mode = getattr(self.generator, "effective_grounded_hint_mode", None)
+            if mode is None:
+                pfmt = getattr(self.generator, "prompt_format", "legacy")
+                mode = "compact_json" if pfmt == "v1_2" else "markdown"
+        if mode == "off":
+            return None
+        if mode == "compact_json":
+            return GroundingToPlannerAdapter.format_grounded_hint_for_v1_2(grounded)
+        return GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded)
 
     @staticmethod
     def prepare_bundle(
@@ -245,6 +260,20 @@ class DataMatePipeline:
         except Exception as exc:
             logger.debug("Failed to record grounding trace: %s", exc)
 
+    def _record_writer_grounding_trace(
+        self,
+        writer: SubmissionWriter | None,
+        grounded: GroundedQuestion | None,
+        outcome: GateOutcome | None,
+        elapsed_ms: float | None,
+    ) -> None:
+        """Record grounding trace when writer exposes an output directory."""
+        if writer is None:
+            return
+        out_dir = getattr(writer, "result_dir", None) or getattr(writer, "output_dir", None)
+        if out_dir:
+            self._record_grounding_trace(out_dir, grounded, outcome, elapsed_ms)
+
     def answer_question(
         self,
         question: QuestionMeta | Mapping[str, Any],
@@ -310,7 +339,7 @@ class DataMatePipeline:
                     as_of_date=q_meta.as_of_date,
                     context=grounding_ctx,
                 )
-                grounded_hint = GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded)
+                grounded_hint = self._format_grounded_hint(grounded)
             except Exception as g_exc:
                 grounding_error = str(g_exc)
                 logger.warning("Grounding failed for %s: %s; falling back to ungrounded planner", q_meta.id, g_exc)
@@ -347,16 +376,16 @@ class DataMatePipeline:
                     error_message=grounded.missing_evidence_proof.reason,
                     llm_generation_ms=0.0,
                 )
-                out_dir = getattr(writer, "output_dir", None)
-                if out_dir:
-                    self._record_grounding_trace(out_dir, grounded, outcome, grounding_ms)
+                self._record_writer_grounding_trace(writer, grounded, outcome, grounding_ms)
             return outcome
 
         if self.voting.enabled:
             entry = dict(q_meta=q_meta, bundle_path=bundle_path, context=ctx,
                          industry=resolved_industry, grounded=grounded, grounded_hint=grounded_hint)
             run_voting(self, [entry], writer)
-            return entry["outcome"]
+            outcome = entry["outcome"]
+            self._record_writer_grounding_trace(writer, grounded, outcome, grounding_ms)
+            return outcome
 
         # 3. Lập kế hoạch và sinh câu truy vấn SQL (Planner D)
         t_llm0 = time.perf_counter()
@@ -383,7 +412,9 @@ class DataMatePipeline:
                     generation_diagnostics=diagnostics_dict(exc),
                     llm_generation_ms=llm_ms0,
                 )
-            return self._abstain_outcome(q_meta.id, str(exc), attempt=0)
+            outcome = self._abstain_outcome(q_meta.id, str(exc), attempt=0)
+            self._record_writer_grounding_trace(writer, grounded, outcome, grounding_ms)
+            return outcome
 
         # 4. Thực thi và Đánh giá (Execution E -> Gate F/G)
         outcome = self._evaluate_attempt(
@@ -414,6 +445,9 @@ class DataMatePipeline:
                     options=self.options,
                     industry=resolved_industry,
                     grounded_hint=grounded_hint,
+                    previous_plan=gen_res.structured_plan,
+                    error_code=repair_req.error_code or outcome.reason_code,
+                    failed_checks=outcome.validation.get("errors", []),
                 )
                 llm_ms1 = round((time.perf_counter() - t_llm1) * 1000.0, 2)
             except Exception as exc:
@@ -429,7 +463,9 @@ class DataMatePipeline:
                         generation_diagnostics=diagnostics_dict(exc),
                         llm_generation_ms=llm_ms1,
                     )
-                return self._abstain_outcome(q_meta.id, str(exc), attempt=1)
+                outcome = self._abstain_outcome(q_meta.id, str(exc), attempt=1)
+                self._record_writer_grounding_trace(writer, grounded, outcome, grounding_ms)
+                return outcome
 
             outcome = self._evaluate_attempt(
                 q_meta=q_meta,
@@ -442,8 +478,7 @@ class DataMatePipeline:
                 writer=writer,
             )
 
-        if writer is not None and getattr(writer, "output_dir", None):
-            self._record_grounding_trace(writer.output_dir, grounded, outcome, grounding_ms)
+        self._record_writer_grounding_trace(writer, grounded, outcome, grounding_ms)
         return outcome
 
     def run_questions(
@@ -631,7 +666,7 @@ class DataMatePipeline:
                                 as_of_date=q_meta.as_of_date,
                                 context=grounding_ctx,
                             )
-                            grounded_hint_str = GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded_res)
+                            grounded_hint_str = self._format_grounded_hint(grounded_res)
                         except Exception as g_err:
                             g_err_msg = str(g_err)
                             logger.warning("Grounding failed for %s: %s", q_meta.id, g_err)
@@ -785,7 +820,8 @@ class DataMatePipeline:
                         error_feedback = f"[{repair_req.error_type}] {repair_req.error_message}"
                         if repair_req.instruction:
                             error_feedback = f"{error_feedback}\nHướng dẫn: {repair_req.instruction}"
-                        prev_sql = repair_req.failed_sql or ((entry.get("gen_res_0") or None) and entry["gen_res_0"].sql or "")
+                        gen_0 = entry.get("gen_res_0")
+                        prev_sql = repair_req.failed_sql or (gen_0.sql or "" if gen_0 is not None else "")
                         repair_inputs.append({
                             "context": entry["context"],
                             "question": entry["q_meta"].question,
@@ -794,6 +830,9 @@ class DataMatePipeline:
                             "error_message": error_feedback,
                             "industry": entry["industry"],
                             "grounded_hint": entry.get("grounded_hint"),
+                            "previous_plan": gen_0.structured_plan if gen_0 is not None else None,
+                            "error_code": repair_req.error_code or entry["outcome"].reason_code,
+                            "failed_checks": list(entry["outcome"].validation.get("errors", [])),
                         })
                     t_b1 = time.perf_counter()
                     try:
@@ -807,16 +846,7 @@ class DataMatePipeline:
                         for entry, r_inp in zip(repair_needed, repair_inputs):
                             try:
                                 t_indiv1 = time.perf_counter()
-                                r_res = self.generator.repair(
-                                    context=r_inp["context"],
-                                    question=r_inp["question"],
-                                    as_of_date=r_inp["as_of_date"],
-                                    previous_sql=r_inp["previous_sql"],
-                                    error_message=r_inp["error_message"],
-                                    options=self.options,
-                                    industry=r_inp["industry"],
-                                    grounded_hint=r_inp.get("grounded_hint"),
-                                )
+                                r_res = self.generator.repair(**r_inp, options=self.options)
                                 entry["indiv_llm_ms1"] = round((time.perf_counter() - t_indiv1) * 1000.0, 2)
                                 repaired_results.append(r_res)
                             except Exception as err:
@@ -964,6 +994,51 @@ class DataMatePipeline:
         grounded: GroundedQuestion | None = None,
         writer: SubmissionWriter | None = None,
     ) -> GateOutcome:
+        if gen_res.status == "needs_more_context":
+            requested = ", ".join(gen_res.requested_context)
+            reason_text = gen_res.reason or (
+                f"Requested extra context: {requested}" if requested else "Model requested more context"
+            )
+            if attempt < max_retries:
+                outcome = GateOutcome(
+                    action=GateAction.RETRY,
+                    question_id=q_meta.id,
+                    decision=Decision.RETRY,
+                    reason_code=ErrorCode.MISSING_EVIDENCE,
+                    validation={"passed": False, "errors": [ErrorCode.MISSING_EVIDENCE], "warnings": []},
+                    retry_count=attempt,
+                    repair_request=RepairRequest(
+                        attempt=attempt + 1,
+                        failed_sql="",
+                        error_type="NEEDS_MORE_CONTEXT",
+                        error_message=reason_text,
+                        error_code=ErrorCode.MISSING_EVIDENCE,
+                        instruction=(
+                            "Toàn bộ schema, cột, liên kết và quy tắc khả dụng đã được cung cấp đầy đủ trong context. "
+                            "Không trả status='needs_more_context'; hãy dùng thông tin trong context để trả "
+                            "status='answerable' kèm SQL, hoặc status='unanswerable' nếu thực sự thiếu dữ liệu."
+                        ),
+                    ),
+                )
+            else:
+                outcome = self._abstain_outcome(q_meta.id, reason_text, attempt=attempt, code=ErrorCode.RETRY_EXHAUSTED)
+            if writer is not None:
+                writer.record_attempt(
+                    question_id=q_meta.id,
+                    attempt=attempt,
+                    sql="",
+                    execution_status="not_executed",
+                    error_code=outcome.reason_code,
+                    error_message=reason_text,
+                    thinking=gen_res.thinking,
+                    generation_diagnostics=diagnostics_dict(gen_res),
+                    batch_fallback_error=batch_fallback_error,
+                    candidate_id=candidate_id,
+                    round_id=round_id,
+                    llm_generation_ms=llm_generation_ms,
+                )
+            return outcome
+
         gate_gen = gen_res.to_gate_generation_result()
         if gen_res.status == "unanswerable":
             gate_exec = ExecutionResult(status="not_executed")

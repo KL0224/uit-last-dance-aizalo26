@@ -30,6 +30,7 @@ if str(ROOT_DIR / "src") not in sys.path:
     sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from datamate.context.contracts import BusinessRule
+from datamate.context.runtime import sync_unit_conversions_to_bundle
 from datamate.pipeline import DataMatePipeline, Pipeline, B0Pipeline
 from datamate.voting import VotingConfig
 from datamate.planner import (
@@ -41,8 +42,20 @@ from datamate.planner import (
     Text2SQLGenerator,
     VLLMModel,
     load_config,
+    load_pipeline_config,
 )
 from datamate.planner.errors import InferenceError
+
+_DEFAULT_VOTING_FALLBACK = VotingConfig(
+    enabled=True,
+    rounds=1,
+    initial_candidates=4,
+    threshold=0.5,
+    temperature=0.5,
+    top_p=0.8,
+    top_k=20,
+    thinking_mode="always_off",
+)
 
 
 class OpenAICompatibleLLM(BaseLLM):
@@ -97,9 +110,13 @@ class OpenAICompatibleLLM(BaseLLM):
             template_kwargs["enable_thinking"] = opts.enable_thinking
         if template_kwargs:
             extra_body["chat_template_kwargs"] = template_kwargs
-        if opts and opts.enable_thinking is not None:
-            extra_body.update(top_p=opts.top_p, top_k=opts.top_k, presence_penalty=opts.presence_penalty,
-                              repetition_penalty=opts.repetition_penalty)
+        if opts:
+            extra_body.update(
+                top_p=opts.top_p,
+                top_k=opts.top_k,
+                presence_penalty=opts.presence_penalty,
+                repetition_penalty=opts.repetition_penalty,
+            )
         if opts and getattr(opts, "thinking_token_budget", None) is not None:
             extra_body["thinking_token_budget"] = opts.thinking_token_budget
 
@@ -315,6 +332,10 @@ def run_pipeline_cli(
     output_dir: Path,
     config_path: Path,
     model_path: Path | None = None,
+    lora_path: Path | None = None,
+    no_lora: bool = False,
+    prompt_format: str | None = None,
+    grounded_hint_mode: str | None = None,
     grounding_config_path: Path | None = None,
     grounding_model_path: Path | None = None,
     enable_thinking: bool | None = None,
@@ -329,17 +350,16 @@ def run_pipeline_cli(
     enable_grounding: bool = True,
     enable_grounding_llm: bool = False,
     verbose: bool = True,
-    voting: bool = False,
-    voting_candidates: int = 4,
-    voting_threshold: float = 0.5,
-    voting_temperature: float = 0.7,
-    voting_top_p: float = 0.8,
-    voting_top_k: int = 20,
+    voting: bool | None = None,
+    voting_rounds: int | None = None,
+    voting_candidates: int | None = None,
+    voting_threshold: float | None = None,
+    voting_temperature: float | None = None,
+    voting_top_p: float | None = None,
+    voting_top_k: int | None = None,
+    voting_thinking_mode: str | None = None,
 ) -> dict[str, Any]:
     """Hàm lõi thực thi pipeline end-to-end có thể gọi từ code Python hoặc CLI."""
-    voting_config = VotingConfig(enabled=voting, initial_candidates=voting_candidates,
-                                 threshold=voting_threshold, temperature=voting_temperature,
-                                 top_p=voting_top_p, top_k=voting_top_k)
     split_dir = split_dir.resolve()
     bundles_dir = bundles_dir.resolve()
     output_dir = output_dir.resolve()
@@ -467,21 +487,14 @@ def run_pipeline_cli(
                             sem_cat = extractor.extract_semantic_catalog(business_id=b_id, schema=schema, rules=rules)
                             ctx_data["semantic_catalog"] = sem_cat.to_dict()
                             
-                            # Nếu trích xuất được bảng quy đổi đơn vị (unit_conversions), ghi nhận vào DuckDB
+                            # Nếu trích xuất được bảng quy đổi đơn vị (unit_conversions), ghi nhận vào DuckDB và schema_catalog
                             if getattr(sem_cat, "unit_conversions", None):
                                 try:
-                                    import duckdb
                                     duck_file = Path(b_path) / "data.duckdb"
                                     if duck_file.is_file():
-                                        con = duckdb.connect(str(duck_file))
-                                        con.execute("CREATE TABLE IF NOT EXISTS unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DOUBLE)")
-                                        con.execute("DELETE FROM unit_conversions")
-                                        for u in sem_cat.unit_conversions:
-                                            con.execute(
-                                                "INSERT INTO unit_conversions VALUES (?, ?, ?, ?)",
-                                                [str(u.get("item_name")), str(u.get("from_unit")), str(u.get("to_unit")), float(u.get("factor", 1.0))]
-                                            )
-                                        con.close()
+                                        sync_unit_conversions_to_bundle(
+                                            duck_file, ctx_data, ctx_data["semantic_catalog"].get("unit_conversions", [])
+                                        )
                                         print(f"  => Doanh nghiệp {b_id}: Đã nạp {len(sem_cat.unit_conversions)} quy tắc quy đổi đơn vị vào DuckDB.")
                                 except Exception as u_exc:
                                     print(f"  ! Cảnh báo khi nạp unit_conversions vào DuckDB cho {b_id}: {u_exc}")
@@ -494,13 +507,55 @@ def run_pipeline_cli(
             print("\n[2.1/4] Grounding Engine sử dụng chế độ Pure Rule-Based (Deterministic Fast-Path).")
 
     print(f"\n[2.2/4] Đang khởi tạo mô hình Generator (9B)...")
-    model_cfg, gen_opts = load_config(config_path)
+    model_cfg, gen_opts, voting_config = load_pipeline_config(
+        config_path, default_voting=_DEFAULT_VOTING_FALLBACK
+    )
+    voting_overrides: dict[str, Any] = {}
+    if voting is not None:
+        voting_overrides["enabled"] = voting
+    if voting_rounds is not None:
+        voting_overrides["rounds"] = voting_rounds
+    if voting_candidates is not None:
+        voting_overrides["initial_candidates"] = voting_candidates
+    if voting_threshold is not None:
+        voting_overrides["threshold"] = voting_threshold
+    if voting_temperature is not None:
+        voting_overrides["temperature"] = voting_temperature
+    if voting_top_p is not None:
+        voting_overrides["top_p"] = voting_top_p
+    if voting_top_k is not None:
+        voting_overrides["top_k"] = voting_top_k
+    if voting_thinking_mode is not None:
+        voting_overrides["thinking_mode"] = voting_thinking_mode
+    if voting_overrides:
+        voting_config = replace(voting_config, **voting_overrides)
+
     if model_path is not None:
-        model_cfg = replace(model_cfg, model_path=Path(model_path).resolve())
+        model_cfg = replace(model_cfg, model_path=Path(model_path).expanduser().resolve())
+    if no_lora:
+        model_cfg = replace(model_cfg, lora_path=None)
+    elif lora_path is not None:
+        model_cfg = replace(model_cfg, lora_path=Path(lora_path).expanduser().resolve())
+    if prompt_format is not None:
+        model_cfg = replace(model_cfg, prompt_format=prompt_format)
+    if grounded_hint_mode is not None:
+        model_cfg = replace(model_cfg, grounded_hint_mode=grounded_hint_mode)
     if enable_thinking is not None:
         new_kwargs = dict(model_cfg.chat_template_kwargs)
         new_kwargs["enable_thinking"] = bool(enable_thinking)
         model_cfg = replace(model_cfg, chat_template_kwargs=new_kwargs)
+        gen_opts = replace(
+            gen_opts,
+            enable_thinking=bool(enable_thinking),
+            thinking_token_budget=None if not enable_thinking else gen_opts.thinking_token_budget,
+        )
+
+    print(
+        f"  - Voting: enabled={voting_config.enabled}, rounds={voting_config.rounds}, "
+        f"k={voting_config.initial_candidates}, threshold={voting_config.threshold}, "
+        f"temp={voting_config.temperature}, thinking_mode={voting_config.thinking_mode}, "
+        f"grounded_hint_mode={model_cfg.grounded_hint_mode}"
+    )
 
     if api_base:
         print(f"  - Kết nối vLLM server từ xa: {api_base} (model={api_model or model_cfg.model_name})")
@@ -513,20 +568,27 @@ def run_pipeline_cli(
     else:
         print(
             f"  - Nạp offline vLLM model từ: {model_cfg.model_path} "
-            f"(enable_thinking={model_cfg.chat_template_kwargs.get('enable_thinking')})"
+            f"(enable_thinking={model_cfg.chat_template_kwargs.get('enable_thinking')}, "
+            f"prompt_format={model_cfg.prompt_format}, "
+            f"lora_path={model_cfg.lora_path})"
         )
         vllm_engine = VLLMModel(model_cfg, default_options=gen_opts)
         vllm_engine.load()
         llm = vllm_engine
 
     pipeline = DataMatePipeline(
-        generator=Text2SQLGenerator(llm),
+        generator=Text2SQLGenerator(
+            llm,
+            prompt_format=model_cfg.prompt_format,
+            grounded_hint_mode=model_cfg.grounded_hint_mode,
+        ),
         timeout_sec=timeout_sec,
         max_rows=max_rows,
         options=gen_opts,
         voting=voting_config,
         enable_grounding=enable_grounding,
         grounding_runtime=grounding_runtime,
+        grounded_hint_mode=model_cfg.grounded_hint_mode,
     )
 
     # Xóa các file kết quả cũ trong cùng output_dir nếu chạy lại để tránh trùng lặp
@@ -628,8 +690,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=Path,
-        default=Path("configs/qwen3_5_9b.toml"),
-        help="File cấu hình TOML cho model B0.3",
+        default=Path("configs/qwen3_5_9b_ft_v1_2.toml"),
+        help="File cấu hình TOML cho model B0.3 (mặc định: configs/qwen3_5_9b_ft_v1_2.toml)",
     )
     parser.add_argument(
         "--model-path",
@@ -638,9 +700,35 @@ def parse_args() -> argparse.Namespace:
         help="Ghi đè đường dẫn tới thư mục chứa weights model trên đĩa",
     )
     parser.add_argument(
-        "--enable-thinking",
+        "--lora-path",
+        type=Path,
+        default=None,
+        help="Ghi đè đường dẫn tới thư mục chứa LoRA adapter",
+    )
+    parser.add_argument(
+        "--no-lora",
         action="store_true",
-        help="Bật chế độ sinh khối suy luận <think>...</think> của Qwen3 và lưu vào log",
+        help="Tắt LoRA adapter trong config (dùng khi chạy base model hoặc merged checkpoint)",
+    )
+    parser.add_argument(
+        "--prompt-format",
+        type=str,
+        choices=("legacy", "v1_2"),
+        default=None,
+        help="Ghi đè prompt format ('legacy' hoặc 'v1_2')",
+    )
+    parser.add_argument(
+        "--grounded-hint-mode",
+        type=str,
+        choices=("auto", "markdown", "compact_json", "off"),
+        default=None,
+        help="Ghi đè cách truyền grounded_hint ('auto', 'markdown', 'compact_json', 'off'); mặc định đọc từ config",
+    )
+    parser.add_argument(
+        "--enable-thinking",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Bật (--enable-thinking) hoặc tắt (--no-enable-thinking) suy luận <think>...</think>; mặc định lấy theo config",
     )
     parser.add_argument(
         "--enable-grounding",
@@ -704,12 +792,24 @@ def parse_args() -> argparse.Namespace:
         default=1,
         help="Số lượng câu hỏi chạy suy luận song song (batch) trên GPU (mặc định 1, gợi ý 8 trên A100)",
     )
-    parser.add_argument("--voting", action="store_true", help="Enable two-round execution-result voting")
-    parser.add_argument("--voting-candidates", type=int, choices=(4, 8), default=4)
-    parser.add_argument("--voting-threshold", type=float, default=0.5)
-    parser.add_argument("--voting-temperature", type=float, default=0.7)
-    parser.add_argument("--voting-top-p", type=float, default=0.8)
-    parser.add_argument("--voting-top-k", type=int, default=20)
+    parser.add_argument(
+        "--voting",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Ghi đè bật (--voting) hoặc tắt (--no-voting) execution-result voting; mặc định đọc từ section [voting] của config",
+    )
+    parser.add_argument("--voting-rounds", type=int, choices=(1, 2), default=None)
+    parser.add_argument("--voting-candidates", type=int, choices=(4, 8), default=None)
+    parser.add_argument("--voting-threshold", type=float, default=None)
+    parser.add_argument("--voting-temperature", type=float, default=None)
+    parser.add_argument("--voting-top-p", type=float, default=None)
+    parser.add_argument("--voting-top-k", type=int, default=None)
+    parser.add_argument(
+        "--voting-thinking-mode",
+        type=str,
+        choices=("two_round", "always_off", "always_on", "inherit"),
+        default=None,
+    )
     parser.add_argument("--timeout-sec", type=float, default=10.0)
     parser.add_argument("--max-rows", type=int, default=10000)
     return parser.parse_args()
@@ -723,15 +823,21 @@ def main() -> int:
         output_dir=args.output_dir,
         config_path=args.config,
         voting=args.voting,
+        voting_rounds=args.voting_rounds,
         voting_candidates=args.voting_candidates,
         voting_threshold=args.voting_threshold,
         voting_temperature=args.voting_temperature,
         voting_top_p=args.voting_top_p,
         voting_top_k=args.voting_top_k,
+        voting_thinking_mode=args.voting_thinking_mode,
         model_path=args.model_path,
+        lora_path=args.lora_path,
+        no_lora=args.no_lora,
+        prompt_format=args.prompt_format,
+        grounded_hint_mode=args.grounded_hint_mode,
         grounding_config_path=args.grounding_config,
         grounding_model_path=args.grounding_model_path,
-        enable_thinking=True if args.enable_thinking else None,
+        enable_thinking=args.enable_thinking,
         enable_grounding=args.enable_grounding,
         enable_grounding_llm=args.enable_grounding_llm,
         api_base=args.api_base,

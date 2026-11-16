@@ -7,7 +7,7 @@ from decimal import Decimal
 import json
 import math
 import time
-from typing import Any
+from typing import Any, Literal
 
 from datamate.gate.contracts import Decision, GateAction
 from datamate.gate.errors import ErrorCode
@@ -15,20 +15,29 @@ from datamate.planner.diagnostics import diagnostics_dict
 from datamate.planner.types import GenerationOptions
 
 
+_THINKING_MODES = frozenset({"two_round", "always_off", "always_on", "inherit"})
+
+
 @dataclass(frozen=True)
 class VotingConfig:
     enabled: bool = False
     initial_candidates: int = 4
     threshold: float = 0.5
-    temperature: float = 0.5
+    temperature: float = 0.7
     top_p: float = 0.8
     top_k: int = 20
+    rounds: int = 2
+    thinking_mode: Literal["two_round", "always_off", "always_on", "inherit"] = "two_round"
 
     def __post_init__(self) -> None:
         if type(self.enabled) is not bool:
             raise ValueError("enabled must be bool")
         if type(self.initial_candidates) is not int or self.initial_candidates not in (4, 8):
             raise ValueError("initial_candidates must be 4 or 8")
+        if type(self.rounds) is not int or self.rounds not in (1, 2):
+            raise ValueError("rounds must be 1 or 2")
+        if self.thinking_mode not in _THINKING_MODES:
+            raise ValueError(f"thinking_mode must be one of {sorted(_THINKING_MODES)}")
         if isinstance(self.threshold, bool) or not math.isfinite(self.threshold) or not 0 <= self.threshold < 1:
             raise ValueError("threshold must be finite and in [0, 1)")
         GenerationOptions(temperature=self.temperature, top_p=self.top_p, top_k=self.top_k)
@@ -36,10 +45,23 @@ class VotingConfig:
             raise ValueError("Voting requires a finite temperature > 0")
 
     def options(self, base: GenerationOptions, round_id: int) -> GenerationOptions:
-        return replace(base, temperature=self.temperature, top_p=self.top_p, top_k=self.top_k,
-                       seed=base.seed + (round_id - 1) * 100000 if base.seed is not None else None,
-                       enable_thinking=round_id == 2,
-                       thinking_token_budget=base.thinking_token_budget if round_id == 2 else None)
+        mode_map: dict[str, bool | None] = {
+            "two_round": round_id == 2,
+            "always_off": False,
+            "always_on": True,
+            "inherit": base.enable_thinking,
+        }
+        enable_thinking = mode_map[self.thinking_mode]
+        budget = None if enable_thinking is False else base.thinking_token_budget
+        return replace(
+            base,
+            temperature=self.temperature,
+            top_p=self.top_p,
+            top_k=self.top_k,
+            seed=base.seed + (round_id - 1) * 100000 if base.seed is not None else None,
+            enable_thinking=enable_thinking,
+            thinking_token_budget=budget,
+        )
 
 
 def _canonical(value: Any) -> Any:
@@ -118,7 +140,8 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
     for entry in active:
         entry["voting_candidates"] = []
         entry["voting_rounds"] = []
-    for round_id, count in ((1, config.initial_candidates), (2, 4)):
+    round_plan = ((1, config.initial_candidates),) if config.rounds == 1 else ((1, config.initial_candidates), (2, 4))
+    for round_id, count in round_plan:
         if not active:
             break
         options = config.options(base, round_id)
@@ -160,6 +183,9 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
                                               batch_fallback_error=fallback, candidate_id=candidate["candidate_id"],
                                               round_id=round_id)
                     feedback, previous_sql = str(result), candidate["input"].get("previous_sql", "")
+                    previous_plan = candidate["input"].get("previous_plan")
+                    error_code = ErrorCode.GENERATION_INVALID
+                    failed_checks = [ErrorCode.GENERATION_INVALID]
                     retry = attempt < 2
                 else:
                     evaluation_start = time.perf_counter()
@@ -173,18 +199,36 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
                     retry = outcome.action == GateAction.RETRY and repair is not None and attempt < 2
                     feedback = f"[{repair.error_type}] {repair.error_message}\n{repair.instruction}" if retry else ""
                     previous_sql = (repair.failed_sql or result.sql or "") if retry else ""
+                    previous_plan = result.structured_plan if retry else None
+                    error_code = (repair.error_code or outcome.reason_code) if retry else None
+                    failed_checks = list(outcome.validation.get("errors", [])) if retry else []
                 candidate["outcome"] = outcome
                 if retry:
-                    candidate["input"].update(previous_sql=previous_sql, error_message=feedback)
+                    candidate["input"].update(
+                        previous_sql=previous_sql,
+                        error_message=feedback,
+                        previous_plan=previous_plan,
+                        error_code=error_code,
+                        failed_checks=failed_checks,
+                    )
                     next_pending.append(candidate)
             pending = next_pending
         still_active = []
+        has_next_round = round_id < config.rounds
         for entry in active:
             winner, summary = vote(entry["voting_candidates"], config.threshold)
-            summary.update(round_id=round_id, thinking_enabled=options.enable_thinking,
-                           next_action="answer" if winner else ("thinking_round" if round_id == 1 else "abstain"))
+            next_action = (
+                "answer"
+                if winner
+                else ("thinking_round" if has_next_round and config.thinking_mode == "two_round" else ("round_2" if has_next_round else "abstain"))
+            )
+            summary.update(
+                round_id=round_id,
+                thinking_enabled=options.enable_thinking,
+                next_action=next_action,
+            )
             entry["voting_rounds"].append(summary)
-            if winner is None and round_id == 1:
+            if winner is None and has_next_round:
                 still_active.append(entry)
                 continue
             outcome = replace(winner) if winner else pipeline._abstain_outcome(

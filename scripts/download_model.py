@@ -14,7 +14,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-id", default="Qwen/Qwen3.5-9B")
     parser.add_argument("--revision", default="main", help="Branch, tag or exact commit SHA")
-    parser.add_argument("--output-dir", type=Path, default=Path(".models/Qwen3.5-9B"))
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("models/Qwen3.5-9B"),
+        help="Thư mục đích dưới models/ (ví dụ: models/Qwen3.5-9B hoặc models/Qwen2.5-3B-Instruct)",
+    )
     args = parser.parse_args()
 
     # Dependency download là optional; import tại đây giúp thông báo lỗi rõ.

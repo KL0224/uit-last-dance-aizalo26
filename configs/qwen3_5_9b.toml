@@ -1,6 +1,6 @@
 # Đường dẫn tương đối được tính từ file TOML này, không từ thư mục chạy lệnh.
 [model]
-model_path = "../.models/Qwen3.5-9B"
+model_path = "../models/Qwen3.5-9B"
 dtype = "bfloat16"
 max_model_len = 32768
 # Cấu hình tối ưu cho Single GPU A100 40GB chạy song song 2 model vLLM:
@@ -16,7 +16,7 @@ language_model_only = true
 
 # Đây là tùy chọn template Qwen; bỏ/đổi khi dùng họ model khác.
 [model.chat_template_kwargs]
-enable_thinking = false
+enable_thinking = true
 
 [generation]
 max_new_tokens = 8192
@@ -28,3 +28,13 @@ top_k = -1
 repetition_penalty = 1.05
 presence_penalty = 0.0
 stop = []
+
+[voting]
+enabled = true
+rounds = 2
+initial_candidates = 4
+threshold = 0.5
+temperature = 0.7
+top_p = 0.8
+top_k = 20
+thinking_mode = "two_round"

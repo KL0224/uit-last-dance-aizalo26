@@ -12,7 +12,7 @@ from datamate.planner import (
 )
 
 
-def run_sample_inference(config_path: str | Path = "configs/qwen3_5_9b.toml") -> None:
+def run_sample_inference(config_path: str | Path = "configs/qwen3_5_9b_ft_v1_2.toml") -> None:
     config, options = load_config(config_path)
     model = VLLMModel(config, options)
     model.load()

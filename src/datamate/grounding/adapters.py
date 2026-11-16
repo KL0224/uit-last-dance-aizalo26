@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
+import json
 import logging
 from typing import Any, Sequence
 
@@ -454,6 +456,67 @@ class GroundingToPlannerAdapter:
                 )
 
         return "\n".join(lines)
+
+    @staticmethod
+    def format_grounded_hint_for_v1_2(grounded: GroundedQuestion) -> str:
+        """Render a compact JSON hint aligned with the planner.v1.2 half-open schema."""
+        hint: dict[str, Any] = {
+            "operation": grounded.intent.operation.value,
+            "answer_type": grounded.answer_type_hint.value,
+        }
+        if grounded.intent.target_metrics:
+            hint["metrics"] = list(grounded.intent.target_metrics)
+        if grounded.intent.top_k is not None:
+            hint["top_k"] = grounded.intent.top_k
+            hint["sort_order"] = grounded.intent.sort_order.lower()
+        if grounded.resolved_time_ranges:
+            ranges = []
+            for tr in grounded.resolved_time_ranges:
+                end_excl = (
+                    (date.fromisoformat(tr.end_date) + timedelta(days=1)).isoformat()
+                    if tr.inclusive
+                    else tr.end_date
+                )
+                entry: dict[str, Any] = {
+                    "expr": tr.raw_expression,
+                    "role": tr.date_role.value,
+                    "start_inclusive": tr.start_date,
+                    "end_exclusive": end_excl,
+                }
+                if tr.comparison_start_date and tr.comparison_end_date:
+                    comp_end_excl = (
+                        (date.fromisoformat(tr.comparison_end_date) + timedelta(days=1)).isoformat()
+                        if tr.inclusive
+                        else tr.comparison_end_date
+                    )
+                    entry["compare_start_inclusive"] = tr.comparison_start_date
+                    entry["compare_end_exclusive"] = comp_end_excl
+                ranges.append(entry)
+            hint["time_ranges"] = ranges
+        if grounded.selected_schema.primary_table:
+            hint["primary_table"] = grounded.selected_schema.primary_table
+            warnings = []
+            for jp in grounded.selected_schema.join_paths:
+                if jp.fanout_warning or jp.null_key_warning:
+                    pairs = [f"{jp.left_table}.{l}={jp.right_table}.{r}" for l, r in jp.key_pairs]
+                    flags = []
+                    if jp.fanout_warning:
+                        flags.append("fanout_1_n")
+                    if jp.null_key_warning:
+                        flags.append("null_key_left_join")
+                    warnings.append({"join": pairs, "flags": flags})
+            if warnings:
+                hint["join_warnings"] = warnings
+        if grounded.matched_values:
+            hint["matched_values"] = [
+                {
+                    "text": mv.raw_text,
+                    "column": f"{mv.table_name}.{mv.column_name}",
+                    "value": mv.matched_db_value,
+                }
+                for mv in grounded.matched_values
+            ]
+        return json.dumps(hint, ensure_ascii=False, separators=(",", ":"))
 
     to_planner_prompt_markdown = format_grounded_hint_for_planner
 

@@ -88,9 +88,21 @@ class ModelConfig:
     trust_remote_code: bool = False
     chat_template_kwargs: dict[str, Any] = field(default_factory=dict)
     language_model_only: bool = True
+    prompt_format: Literal["legacy", "v1_2"] = "legacy"
+    lora_path: Path | None = None
+    max_lora_rank: int = 16
+    grounded_hint_mode: Literal["auto", "markdown", "compact_json", "off"] = "auto"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_path", Path(self.model_path).expanduser().resolve())
+        if self.prompt_format not in {"legacy", "v1_2"}:
+            raise ValueError(f"Unsupported prompt_format: {self.prompt_format!r}")
+        if self.grounded_hint_mode not in {"auto", "markdown", "compact_json", "off"}:
+            raise ValueError(f"Unsupported grounded_hint_mode: {self.grounded_hint_mode!r}")
+        if self.lora_path is not None:
+            object.__setattr__(self, "lora_path", Path(self.lora_path).expanduser().resolve())
+        if type(self.max_lora_rank) is not int or self.max_lora_rank < 1:
+            raise ValueError("max_lora_rank must be a positive integer")
         if type(self.language_model_only) is not bool:
             raise ValueError("language_model_only must be bool")
         if self.max_model_len < 1 or self.tensor_parallel_size < 1 or self.max_num_seqs < 1:
@@ -141,7 +153,7 @@ class Text2SQLResult:
     Cung cấp cầu nối giữa mô hình LLM (B0.3) với Tầng thực thi (B0.4) và Cổng kiểm duyệt (B0.5).
     """
 
-    status: Literal["answerable", "unanswerable"]
+    status: Literal["answerable", "unanswerable", "needs_more_context"]
     answer_type: str | None = None
     sql: str | None = None
     tables_used: tuple[str, ...] = ()
@@ -149,12 +161,14 @@ class Text2SQLResult:
     reason: str | None = None
     answer_semantics: dict[str, Any] | None = None
     missing_fields: tuple[str, ...] = ()
+    structured_plan: dict[str, Any] | None = None
+    requested_context: tuple[str, ...] = ()
     thinking: str | None = None
     raw_response: str | None = None
     diagnostics: GenerationDiagnostics | None = None
 
     def __post_init__(self) -> None:
-        if self.status not in {"answerable", "unanswerable"}:
+        if self.status not in {"answerable", "unanswerable", "needs_more_context"}:
             raise ValueError(f"Unsupported status: {self.status}")
         if isinstance(self.tables_used, list):
             object.__setattr__(self, "tables_used", tuple(self.tables_used))
@@ -162,14 +176,16 @@ class Text2SQLResult:
             object.__setattr__(self, "assumptions", tuple(self.assumptions))
         if isinstance(self.missing_fields, list):
             object.__setattr__(self, "missing_fields", tuple(self.missing_fields))
+        if isinstance(self.requested_context, list):
+            object.__setattr__(self, "requested_context", tuple(self.requested_context))
 
     def to_b05_generation_result(self) -> Any:
         """Chuyển đổi sang GenerationResult của B0.5 Basic Output Gate."""
         from datamate.gate.contracts import AnswerSemantics, GenerationResult as B05GenerationResult
 
-        if self.status == "unanswerable":
+        if self.status in {"unanswerable", "needs_more_context"}:
             return B05GenerationResult(
-                answer_type="unanswerable",
+                answer_type="unanswerable" if self.status == "unanswerable" else "abstain",
                 sql="",
                 tables_used=list(self.tables_used),
                 assumptions=list(self.assumptions),
