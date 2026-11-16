@@ -41,14 +41,22 @@ from .protocols import (
     MetricSpec,
     TableSpec,
 )
+from .context_index import GroundingContextIndex
+from .neo_backend import QwenStructuredBackend
+from .neo_engine import NeoGroundingEngine
 from .rules_matcher import VietnameseRuleMatcher
 from .runtime import (
+    CachedGroundingRuntime,
     GROUNDING_BUSINESS_MISMATCH,
     GROUNDING_CONTEXT_INVALID,
     GROUNDING_FAILED,
     GROUNDING_REQUEST_INVALID,
     QuestionGroundingRuntime,
     QuestionGroundingRuntimeError,
+    deserialize_grounded_question,
+    load_grounding_cache,
+    save_grounding_cache,
+    serialize_grounded_question,
 )
 from .schema_grounder import SchemaGrounder
 from .temporal import QuestionTemporalResolver
@@ -91,12 +99,20 @@ __all__ = [
     "ValueGrounder",
     "AnswerabilityPrechecker",
     "QuestionGroundingEngine",
+    "NeoGroundingEngine",
+    "GroundingContextIndex",
+    "QwenStructuredBackend",
+    "CachedGroundingRuntime",
     "GROUNDING_BUSINESS_MISMATCH",
     "GROUNDING_CONTEXT_INVALID",
     "GROUNDING_FAILED",
     "GROUNDING_REQUEST_INVALID",
     "QuestionGroundingRuntime",
     "QuestionGroundingRuntimeError",
+    "serialize_grounded_question",
+    "deserialize_grounded_question",
+    "save_grounding_cache",
+    "load_grounding_cache",
     "B02ContextAdapter",
     "BusinessContextAdapter",
     "GroundingToPlannerAdapter",

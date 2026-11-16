@@ -3,11 +3,9 @@
 model_path = "../models/Qwen2.5-3B-Instruct"
 dtype = "bfloat16"
 max_model_len = 8192
-# Cấu hình tối ưu cho Single GPU A100 40GB chạy song song 2 model vLLM:
-# Model 3B (Grounding): 0.22 (~8.8 GB VRAM)
-# Model 9B (Planner):   0.68 (~27.2 GB VRAM)
-# Tổng VRAM vLLM: 0.90 (36.0 GB / 40.0 GB), chừa 4.0 GB an toàn tránh OOM.
-gpu_memory_utilization = 0.22
+# Cấu hình Pha 1 chạy độc lập trên RTX 5090 32GB (hoặc A100 40GB):
+# 3B chạy trước trong subprocess riêng -> sau khi ghi cache sẽ thoát để giải phóng 100% VRAM cho Pha 2 (9B).
+gpu_memory_utilization = 0.70
 tensor_parallel_size = 1
 max_num_seqs = 8
 trust_remote_code = false

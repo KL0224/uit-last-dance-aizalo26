@@ -29,9 +29,16 @@ class QwenStructuredBackend:
         # Count failures are fatal: never assume a prompt fits from a character heuristic.
         return self.model.count_chat_tokens(self.messages(system, user))
 
-    def chat(self, system, user, schema):
+    def _run_chat(self, system, user, *, json_schema):
         self.last_generation = {}
-        result = self.model.chat(self.messages(system, user), options=replace(self.options, json_schema=schema))
+        result = self.model.chat(self.messages(system, user), options=replace(self.options, json_schema=json_schema))
         self.last_generation = dict(input_tokens=result.input_tokens, output_tokens=result.output_tokens,
             finish_reason=result.finish_reason, max_new_tokens=self.options.max_new_tokens)
         return result.text
+
+    def chat(self, system, user, schema):
+        return self._run_chat(system, user, json_schema=schema)
+
+    def chat_unstructured(self, system, user):
+        """Run unconstrained chat on the same loaded 3B model (e.g. Semantic Discovery)."""
+        return self._run_chat(system, user, json_schema=None)

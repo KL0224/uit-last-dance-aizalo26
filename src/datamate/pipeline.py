@@ -12,7 +12,7 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 from datamate.context.runtime import (
     BusinessContextRuntimeLoader,
@@ -95,6 +95,14 @@ class DataMatePipeline:
             return GroundingToPlannerAdapter.format_grounded_hint_for_v1_2(grounded)
         return GroundingToPlannerAdapter.format_grounded_hint_for_planner(grounded)
 
+    def _resolve_grounding_ms(self, question_id: str, fallback_ms: float) -> float:
+        cached_fn = getattr(self.grounding_runtime, "get_cached_elapsed_ms", None)
+        if callable(cached_fn):
+            cached_ms = cached_fn(question_id)
+            if cached_ms is not None:
+                return float(cached_ms)
+        return fallback_ms
+
     @staticmethod
     def prepare_bundle(
         business_dir: str | Path,
@@ -153,8 +161,9 @@ class DataMatePipeline:
             return None
 
         intent = grounded.intent
-        return {
+        summary: dict[str, Any] = {
             "status": "ok",
+            "grounding_source": getattr(grounded, "grounding_source", "rules"),
             "operation": (
                 intent.operation.value
                 if (intent and hasattr(intent.operation, "value"))
@@ -220,6 +229,27 @@ class DataMatePipeline:
             "elapsed_ms": elapsed_ms,
             "error": error,
         }
+        if isinstance(grounded.planner_input, Mapping):
+            req = grounded.planner_input.get("request") or {}
+            version = req.get("contract_version")
+            if version:
+                summary["contract_version"] = version
+            if version == "3.0":
+                tplan = grounded.planner_input.get("temporal_plan") or {}
+                assess = grounded.planner_input.get("assessment") or {}
+                summary.update(
+                    temporal_intent=grounded.planner_input.get("temporal_intent"),
+                    temporal_completeness=tplan.get("completeness_status"),
+                    resolved_windows=list(tplan.get("resolved_windows") or ()),
+                    metric_mentions=list(grounded.planner_input.get("metric_mentions") or ()),
+                    entity_mentions=list(grounded.planner_input.get("entity_mentions") or ()),
+                    condition_mentions=list(grounded.planner_input.get("condition_mentions") or ()),
+                    validation_status=assess.get("validation_status"),
+                    unresolved=list(assess.get("unresolved") or ()),
+                    warnings=list(assess.get("warnings") or ()),
+                    rejected_claims_count=len(assess.get("rejected_claims") or ()),
+                )
+        return summary
 
     @staticmethod
     def _record_grounding_trace(
@@ -232,9 +262,10 @@ class DataMatePipeline:
             return
         try:
             trace_path = Path(output_dir) / "grounding_trace.jsonl"
-            trace_entry = {
+            trace_entry: dict[str, Any] = {
                 "question_id": grounded.question_id,
                 "business_id": grounded.business_id,
+                "grounding_source": getattr(grounded, "grounding_source", "rules"),
                 "coverage_status": grounded.coverage_status.value,
                 "is_directly_unanswerable": grounded.is_directly_unanswerable,
                 "operation": grounded.intent.operation.value,
@@ -255,6 +286,23 @@ class DataMatePipeline:
                 "decision": outcome.decision if outcome else None,
                 "reason_code": outcome.reason_code if outcome else None,
             }
+            if isinstance(grounded.planner_input, Mapping):
+                version = (grounded.planner_input.get("request") or {}).get("contract_version")
+                if version:
+                    trace_entry["contract_version"] = version
+                if version == "3.0":
+                    tplan = grounded.planner_input.get("temporal_plan") or {}
+                    assess = grounded.planner_input.get("assessment") or {}
+                    trace_entry.update(
+                        temporal_intent=grounded.planner_input.get("temporal_intent"),
+                        temporal_completeness=tplan.get("completeness_status"),
+                        validation_status=assess.get("validation_status"),
+                        resolved_windows=list(tplan.get("resolved_windows") or ()),
+                        unresolved_count=len(assess.get("unresolved") or ()),
+                        metric_mentions=list(grounded.planner_input.get("metric_mentions") or ()),
+                        entity_mentions=list(grounded.planner_input.get("entity_mentions") or ()),
+                        condition_mentions=list(grounded.planner_input.get("condition_mentions") or ()),
+                    )
             with trace_path.open("a", encoding="utf-8") as f:
                 f.write(json.dumps(trace_entry, ensure_ascii=False) + "\n")
         except Exception as exc:
@@ -343,7 +391,9 @@ class DataMatePipeline:
             except Exception as g_exc:
                 grounding_error = str(g_exc)
                 logger.warning("Grounding failed for %s: %s; falling back to ungrounded planner", q_meta.id, g_exc)
-            grounding_ms = round((time.perf_counter() - t_g0) * 1000.0, 2)
+            grounding_ms = self._resolve_grounding_ms(
+                q_meta.id, round((time.perf_counter() - t_g0) * 1000.0, 2)
+            )
 
         if writer is not None:
             g_summary = self._build_grounding_summary(grounded, grounding_ms, error=grounding_error)
@@ -489,6 +539,7 @@ class DataMatePipeline:
         *,
         batch_size: int = 1,
         verbose: bool = False,
+        on_outcomes_flushed: Callable[[Sequence[GateOutcome]], None] | None = None,
     ) -> list[GateOutcome]:
         """Chạy danh sách câu hỏi và ghi kết quả ra submission.jsonl + logs/*.json + detailed_logs.jsonl.
 
@@ -597,6 +648,8 @@ class DataMatePipeline:
                 with detailed_log_path.open("a", encoding="utf-8") as df:
                     df.write(json.dumps(detailed_entry, ensure_ascii=False) + "\n")
                 outcomes.append(outcome)
+                if on_outcomes_flushed is not None:
+                    on_outcomes_flushed([outcome])
 
             finalize_submission()
             return outcomes
@@ -670,7 +723,9 @@ class DataMatePipeline:
                         except Exception as g_err:
                             g_err_msg = str(g_err)
                             logger.warning("Grounding failed for %s: %s", q_meta.id, g_err)
-                        g_ms = round((time.perf_counter() - t_g0) * 1000.0, 2)
+                        g_ms = self._resolve_grounding_ms(
+                            q_meta.id, round((time.perf_counter() - t_g0) * 1000.0, 2)
+                        )
 
                     g_summary = self._build_grounding_summary(grounded_res, g_ms, error=g_err_msg)
                     writer.record_grounding(q_meta.id, g_summary)
@@ -884,6 +939,7 @@ class DataMatePipeline:
                             entry["outcome"] = outcome_1
 
             # 4. Ghi nhận kết quả và logs cho từng câu theo đúng thứ tự
+            chunk_outcomes: list[GateOutcome] = []
             for entry in chunk_prepared:
                 q_meta = entry["q_meta"]
                 outcome = entry["outcome"]
@@ -945,6 +1001,9 @@ class DataMatePipeline:
                 with detailed_log_path.open("a", encoding="utf-8") as df:
                     df.write(json.dumps(detailed_entry, ensure_ascii=False) + "\n")
                 outcomes.append(outcome)
+                chunk_outcomes.append(outcome)
+            if on_outcomes_flushed is not None and chunk_outcomes:
+                on_outcomes_flushed(chunk_outcomes)
 
         finalize_submission()
         return outcomes

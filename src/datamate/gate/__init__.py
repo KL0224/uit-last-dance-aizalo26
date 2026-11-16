@@ -20,6 +20,12 @@ from .contracts import (
 from .gate import evaluate_gate
 from .writer import SubmissionWriter
 from .finalizer import SubmissionFinalizer
+from .sharding import (
+    merge_shard_artifacts,
+    partition_questions_by_business,
+    seed_abstain_submission,
+    upsert_submission_records,
+)
 
 __all__ = [
     "AnswerType",
@@ -40,4 +46,8 @@ __all__ = [
     "evaluate_gate",
     "SubmissionWriter",
     "SubmissionFinalizer",
+    "merge_shard_artifacts",
+    "partition_questions_by_business",
+    "seed_abstain_submission",
+    "upsert_submission_records",
 ]

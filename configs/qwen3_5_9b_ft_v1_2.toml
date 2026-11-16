@@ -8,10 +8,12 @@ max_lora_rank = 16
 prompt_format = "v1_2"
 grounded_hint_mode = "compact_json"
 dtype = "bfloat16"
-max_model_len = 32768
-gpu_memory_utilization = 0.68
+# Tối ưu cho Pha 2 (chỉ chạy 9B + LoRA v1.2 + Voting k=4) trên RTX 5090 32GB:
+# 9B bfloat16 (~18 GB weights) + KV cache 24576 tokens + LoRA rank 16 vừa an toàn trong 0.85 * 32GB (~27.2 GB).
+max_model_len = 24576
+gpu_memory_utilization = 0.85
 tensor_parallel_size = 1
-max_num_seqs = 16
+max_num_seqs = 8
 trust_remote_code = false
 language_model_only = true
 
