@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, timedelta
 import json
 import logging
@@ -461,8 +462,48 @@ class GroundingToPlannerAdapter:
         return "\n".join(lines)
 
     @staticmethod
-    def format_grounded_hint_for_v1_2(grounded: GroundedQuestion) -> str:
-        """Render a compact JSON hint aligned with the planner.v1.2 half-open schema."""
+    def format_grounded_hint_for_v1_2(grounded: GroundedQuestion) -> str | None:
+        """Render a clean compact JSON hint aligned with planner.v1.2 without negative 3B diagnostics."""
+        if grounded.planner_input is not None:
+            payload = grounded.planner_input
+            version = (payload.get("request") or {}).get("contract_version")
+            if version == "3.0":
+                tplan = payload.get("temporal_plan") or {}
+                hint_v3: dict[str, Any] = {
+                    "contract_version": "3.0",
+                }
+                temporal_intent = payload.get("temporal_intent")
+                if temporal_intent and temporal_intent != "unknown":
+                    hint_v3["temporal_intent"] = temporal_intent
+                has_signal = False
+                for key in ("metric_mentions", "entity_mentions", "condition_mentions"):
+                    items = payload.get(key)
+                    if items:
+                        hint_v3[key] = list(items)
+                        has_signal = True
+                windows = [
+                    {k: v for k, v in w.items() if k != "calendar_sha256"}
+                    for w in (tplan.get("resolved_windows") or ())
+                    if isinstance(w, Mapping)
+                ]
+                if windows:
+                    hint_v3["resolved_windows"] = windows
+                    has_signal = True
+                if grounded.matched_values:
+                    hint_v3["matched_values"] = [
+                        {
+                            "text": mv.raw_text,
+                            "column": f"{mv.table_name}.{mv.column_name}",
+                            "value": mv.matched_db_value,
+                        }
+                        for mv in grounded.matched_values
+                    ]
+                    has_signal = True
+                if not has_signal:
+                    return None
+                return json.dumps(hint_v3, ensure_ascii=False, separators=(",", ":"))
+            return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
         hint: dict[str, Any] = {
             "operation": grounded.intent.operation.value,
             "answer_type": grounded.answer_type_hint.value,

@@ -4,7 +4,8 @@ import json
 import time
 from .mention_contracts import MentionProposal
 from .mention_verifier import parse_mentions, verify_mentions
-from .contracts import GroundedQuestion, QuestionIntent, OperationKind, AnswerTypeHint, CoverageStatus, SelectedSchema
+from .contracts import GroundedQuestion, QuestionIntent, OperationKind, AnswerTypeHint, CoverageStatus, MatchedValue, SelectedSchema
+from .value_grounder import ValueGrounder
 
 from .mention_context import fit_mention_context
 from .neo_prompt import SYSTEM, PROMPT_VERSION
@@ -31,11 +32,12 @@ def planner_hint(payload):
 
 
 class NeoGroundingEngine:
-    def __init__(self, chat_fn, indexes, *, token_count_fn=None, max_input_tokens=5632, debug_model_output=False, compact_proposals=True, structured_chat_fn=None):
+    def __init__(self, chat_fn, indexes, *, token_count_fn=None, max_input_tokens=5632, debug_model_output=False, compact_proposals=True, structured_chat_fn=None, unstructured_chat_fn=None):
         self.chat_fn = chat_fn
         # Retain the constructor argument for callers; v3 has no schema aliases.
         self.compact_proposals = compact_proposals
         self.structured_chat_fn = structured_chat_fn
+        self.unstructured_chat_fn = unstructured_chat_fn or chat_fn
         self.indexes = indexes
         self.token_count_fn = token_count_fn or (lambda s,u: len((s+u).encode()))
         self.max_input_tokens = max_input_tokens
@@ -43,12 +45,22 @@ class NeoGroundingEngine:
         self.last_diagnostics = {}
 
     @classmethod
+    def from_backend(cls, backend, indexes, *, debug_model_output=False):
+        return cls(
+            backend.chat,
+            indexes,
+            token_count_fn=backend.count_tokens,
+            max_input_tokens=min(5632, backend.input_budget),
+            debug_model_output=debug_model_output,
+            structured_chat_fn=backend.chat,
+            unstructured_chat_fn=getattr(backend, "chat_unstructured", backend.chat),
+        )
+
+    @classmethod
     def from_qwen(cls, config_path, indexes, *, model_path_override=None, debug_model_output=False):
         from .neo_backend import QwenStructuredBackend
         backend = QwenStructuredBackend(config_path, model_path_override=model_path_override)
-        return cls(backend.chat, indexes, token_count_fn=backend.count_tokens,
-                   max_input_tokens=min(5632, backend.input_budget), debug_model_output=debug_model_output,
-                   structured_chat_fn=backend.chat)
+        return cls.from_backend(backend, indexes, debug_model_output=debug_model_output)
 
     def ground(self, request, context):
         started = time.perf_counter()
@@ -106,12 +118,35 @@ class NeoGroundingEngine:
             payload['assessment']['warnings'].append(dict(code='CONTEXT_PRUNED', refs=[],
                 message='Optional business time notes were omitted for budget; temporal policies and the question were retained.'))
         self._finish_stage('complete')
+        entity_texts = tuple(m['text'] for m in payload['entity_mentions'])
+        cond_texts = tuple(m['text'] for m in payload['condition_mentions'])
+        intent = QuestionIntent(
+            operation=OperationKind.UNKNOWN,
+            target_metrics=tuple(m['text'] for m in payload['metric_mentions']),
+            entities=entity_texts,
+            answer_type_hint=AnswerTypeHint.UNKNOWN,
+        )
+        matched_list: list[MatchedValue] = []
+        seen_matches: set[tuple[str, str, str]] = set()
+        vg_matches, _ = ValueGrounder().ground(
+            request.question, intent, SelectedSchema(primary_table=None), context
+        )
+        for mv in vg_matches:
+            key = (mv.table_name, mv.column_name, str(mv.matched_db_value))
+            if key not in seen_matches:
+                seen_matches.add(key)
+                matched_list.append(mv)
+        for mv in index.match_text_values([*entity_texts, *cond_texts], request.question, limit=6):
+            key = (mv.table_name, mv.column_name, str(mv.matched_db_value))
+            if key not in seen_matches and len(matched_list) < 6:
+                seen_matches.add(key)
+                matched_list.append(mv)
+
         self.last_diagnostics.update(status=payload['assessment']['validation_status'], fingerprint=index.fingerprint,
             rejected_claims=len(payload['assessment']['rejected_claims']),
-            blocked_refs=0)
+            blocked_refs=0,
+            matched_values=len(matched_list))
         return GroundedQuestion(question_id=request.question_id, business_id=request.business_id, question=request.question,
-            as_of_date=request.as_of_date, intent=QuestionIntent(operation=OperationKind.UNKNOWN,
-                target_metrics=tuple(m['text'] for m in payload['metric_mentions']),
-                entities=tuple(m['text'] for m in payload['entity_mentions']), answer_type_hint=AnswerTypeHint.UNKNOWN),
-            resolved_time_ranges=(), selected_schema=SelectedSchema(primary_table=None), matched_values=(), answer_type_hint=AnswerTypeHint.UNKNOWN,
+            as_of_date=request.as_of_date, intent=intent,
+            resolved_time_ranges=(), selected_schema=SelectedSchema(primary_table=None), matched_values=tuple(matched_list), answer_type_hint=AnswerTypeHint.UNKNOWN,
             evidence_requirements=(), coverage_status=CoverageStatus.UNKNOWN, grounding_source='llm_verified', planner_input=payload)

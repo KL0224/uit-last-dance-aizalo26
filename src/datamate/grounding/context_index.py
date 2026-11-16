@@ -2,9 +2,18 @@
 from __future__ import annotations
 import hashlib
 import json
+import re
 import unicodedata
 from pathlib import Path
 from .calendar_resolver import CalendarResolver
+from .contracts import MatchedValue
+
+_SKIP_VALUE_TABLES = frozenset({'calendar', 'unit_conversions'})
+_SKIP_VALUE_COL_EXACT = frozenset({
+    'sku', 'ma_kh', 'so_kh', 'so_hd', 'ma_don', 'ma_don_hang', 'ma_chung_tu', 'ma_phieu_thu',
+    'phone', 'email', 'cccd', 'addr', 'hinh_anh', 'mo_ta_san_pham', 'ghi_chu', 'ghi_chu_kh',
+    'mau_ghi_chu', 'ma_barcode', 'ma_so_thue',
+})
 
 
 def normalized(text):
@@ -44,6 +53,7 @@ class GroundingContextIndex:
         manifest = self.bundle / 'source_manifest.json'
         identity = str(self.database.stat().st_size) + ':' + str(self.database.stat().st_mtime_ns)
         self.fingerprint = hashlib.sha256(self.fingerprint.encode() + identity.encode() + (manifest.read_bytes() if manifest.exists() else b'')).hexdigest()
+        self._text_catalog: list[tuple[str, str, str, str]] | None = None
         self._verify_schema()
 
     def _verify_schema(self):
@@ -89,3 +99,117 @@ class GroundingContextIndex:
                          first_observed_day=rows[0][1], last_observed_day=rows[-1][1])
                     for (y,m,leap),rows in months.items()])
         return payload
+
+    def text_value_catalog(self) -> list[tuple[str, str, str, str]]:
+        """Lazily load bounded distinct text values from read-only DuckDB once per business."""
+        if self._text_catalog is not None:
+            return self._text_catalog
+        import duckdb
+
+        entries: list[tuple[str, str, str, str]] = []
+        with duckdb.connect(str(self.database), read_only=True) as conn:
+            for tbl_name, table in self.tables.items():
+                if tbl_name in _SKIP_VALUE_TABLES:
+                    continue
+                q_tbl = tbl_name.replace('"', '""')
+                for col in table.get('columns', ()):
+                    c_name = str(col.get('name', ''))
+                    c_low = c_name.lower()
+                    c_type = str(col.get('data_type', col.get('dtype', ''))).upper()
+                    if (
+                        not c_name
+                        or c_low.startswith('__dm_')
+                        or c_low.startswith(('ma_', 'id_'))
+                        or c_low.endswith('_id')
+                        or c_low in _SKIP_VALUE_COL_EXACT
+                    ):
+                        continue
+                    if c_type and not c_type.startswith(('VARCHAR', 'TEXT', 'STRING')):
+                        continue
+                    q_col = c_name.replace('"', '""')
+                    try:
+                        rows = conn.execute(
+                            f'SELECT DISTINCT "{q_col}" FROM "{q_tbl}" WHERE "{q_col}" IS NOT NULL LIMIT 500'
+                        ).fetchall()
+                    except Exception:
+                        continue
+                    for (raw_val,) in rows:
+                        if not isinstance(raw_val, str):
+                            continue
+                        clean = ' '.join(raw_val.split())
+                        if len(clean) < 2 or len(clean) > 120 or clean.isdigit():
+                            continue
+                        folded = ' '.join(normalized(clean).split())
+                        if folded:
+                            entries.append((tbl_name, c_name, clean, folded))
+        self._text_catalog = entries
+        return entries
+
+    def match_text_values(
+        self,
+        phrases: list[str],
+        question: str,
+        *,
+        limit: int = 6,
+    ) -> tuple[MatchedValue, ...]:
+        """Match entity/condition phrases and multi-word question spans against DB text values."""
+        catalog = self.text_value_catalog()
+        if not catalog:
+            return ()
+        q_folded = ' '.join(normalized(question).split())
+        matches: list[MatchedValue] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        def _add(raw_text: str, tbl: str, col: str, val: str, match_type: str, conf: float) -> None:
+            key = (tbl, col, val)
+            if key in seen or len(matches) >= limit:
+                return
+            seen.add(key)
+            matches.append(
+                MatchedValue(
+                    raw_text=raw_text,
+                    table_name=tbl,
+                    column_name=col,
+                    matched_db_value=val,
+                    match_type=match_type,
+                    confidence=conf,
+                )
+            )
+
+        clean_phrases = [p.strip() for p in phrases if isinstance(p, str) and len(p.strip()) >= 2]
+        # 1. Exact folded equality against extracted entity/condition mentions
+        for phrase in sorted(clean_phrases, key=len, reverse=True):
+            p_folded = ' '.join(normalized(phrase).split())
+            if len(p_folded) < 2:
+                continue
+            for tbl, col, raw_val, v_folded in catalog:
+                if v_folded == p_folded:
+                    _add(phrase, tbl, col, raw_val, 'exact_db_folded', 0.98)
+
+        # 2. Direct multi-word phrase scan on folded question (catches dishes/items missed by 3B or unaccented)
+        multi_word_entries = sorted(
+            (e for e in catalog if len(e[3]) >= 5 and len(e[3].split()) >= 2),
+            key=lambda e: len(e[3]),
+            reverse=True,
+        )
+        for tbl, col, raw_val, v_folded in multi_word_entries:
+            if len(matches) >= limit:
+                break
+            if v_folded in q_folded and re.search(rf'(?<!\w){re.escape(v_folded)}(?!\w)', q_folded):
+                _add(raw_val, tbl, col, raw_val, 'question_db_folded', 0.94)
+
+        # 3. Bounded word-boundary substring match on extracted phrases
+        for phrase in sorted(clean_phrases, key=len, reverse=True):
+            if len(matches) >= limit:
+                break
+            p_folded = ' '.join(normalized(phrase).split())
+            if len(p_folded) < 5:
+                continue
+            pattern = re.compile(rf'(?<!\w){re.escape(p_folded)}(?!\w)')
+            for tbl, col, raw_val, v_folded in catalog:
+                if pattern.search(v_folded):
+                    _add(phrase, tbl, col, raw_val, 'substring_db_folded', 0.85)
+                    if len(matches) >= limit:
+                        break
+
+        return tuple(matches)

@@ -58,5 +58,19 @@ EXAMPLES = [
              temporal_intent='single_period', time=[dict(id='t1', raw_expression='Tháng 3/2024',
                  kind='month', calendar='gregorian', year=2024, month=3, period_extent='full_period',
                  comparison='none', role='primary', applies_to=['m1', 'm2'])], unresolved=[])),
+    dict(question='trung binh moi don tuan truoc mang ve bao nhiu dthu',
+         as_of_date='2025-04-08', proposal=dict(
+             metric_mentions=[dict(id='m1', text='dthu')],
+             entity_mentions=[], condition_mentions=[dict(id='c1', text='trung binh moi don')],
+             temporal_intent='single_period', time=[dict(id='t1', raw_expression='tuan truoc',
+                 kind='week', calendar='gregorian', relative='previous', period_extent='full_period',
+                 comparison='none', role='primary', applies_to=['m1'])], unresolved=[])),
+    dict(question='Hôm qua bán được bao nhiêu đơn?',
+         as_of_date='2025-02-28', proposal=dict(
+             metric_mentions=[dict(id='m1', text='bao nhiêu đơn')],
+             entity_mentions=[], condition_mentions=[],
+             temporal_intent='single_period', time=[dict(id='t1', raw_expression='Hôm qua',
+                 kind='range', calendar='gregorian', start='2025-02-27', end='2025-02-28',
+                 period_extent='full_period', comparison='none', role='primary', applies_to=['m1'])], unresolved=[])),
 ]
 SYSTEM += '\nVÍ DỤ ĐỘC LẬP\n' + json.dumps(EXAMPLES, ensure_ascii=False, separators=(',', ':'))

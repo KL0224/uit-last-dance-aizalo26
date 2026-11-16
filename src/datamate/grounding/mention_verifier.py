@@ -5,8 +5,21 @@ from collections import Counter, defaultdict
 import json
 import unicodedata
 
+from .context_index import normalized as _fold_vi
 from .mention_contracts import MentionProposal
 from .proposal_recovery import rejected_claim
+
+
+def _find_span_index(haystack_nfc: str, haystack_folded: str, needle: str) -> int:
+    """Locate span in question, falling back to case/accent-folded matching."""
+    norm_nfc = ' '.join(unicodedata.normalize('NFC', needle).split())
+    if not norm_nfc:
+        return -1
+    pos = haystack_nfc.find(norm_nfc)
+    if pos >= 0:
+        return pos
+    folded = ' '.join(_fold_vi(norm_nfc).split())
+    return haystack_folded.find(folded) if folded else -1
 
 
 def parse_mentions(raw):
@@ -53,6 +66,7 @@ def verify_mentions(proposal, request, index, *, rejected_claims=()):
     unresolved = [dict(code='MODEL_UNRESOLVED', raw_text=text, affects=[]) for text in proposal.unresolved]
     normalize = lambda text: ' '.join(unicodedata.normalize('NFC', text).split())
     question = normalize(request.question)
+    question_folded = ' '.join(_fold_vi(question).split())
     all_items = [x for group in ('metric_mentions', 'entity_mentions', 'condition_mentions', 'time')
                  for x in getattr(proposal, group)]
     counts = Counter(x.id for x in all_items)
@@ -67,32 +81,33 @@ def verify_mentions(proposal, request, index, *, rejected_claims=()):
         for item in getattr(proposal, group):
             if counts[item.id] != 1:
                 reject(group, item, 'duplicate ID')
-            elif normalize(item.text) not in question:
+            elif _find_span_index(question, question_folded, item.text) < 0:
                 reject(group, item, 'mention must be a verbatim question span')
             else:
                 kept.append(item.model_dump())
         # Question order is preserved even if the model emits items out of order.
-        mentions[group] = sorted(kept, key=lambda m: question.index(normalize(m['text'])))
+        mentions[group] = sorted(kept, key=lambda m: _find_span_index(question, question_folded, m['text']))
     refs = {m['id'] for items in mentions.values() for m in items}
     times, windows = [], []
     for spec in proposal.time:
         try:
             if counts[spec.id] != 1:
                 raise ValueError('duplicate ID')
-            if normalize(spec.raw_expression) not in question:
+            if _find_span_index(question, question_folded, spec.raw_expression) < 0:
                 raise ValueError('raw_expression must be a verbatim question span')
-            if not set(spec.applies_to) <= refs:
-                raise ValueError('unknown or rejected mention scope')
-            ranges = index.calendar.resolve(spec.calculation_spec(), request.as_of_date)
+            # Do not drop valid time windows just because an unquoted/shorthand mention in applies_to was rejected.
+            valid_applies = [ref for ref in spec.applies_to if ref in refs]
+            resolved_spec = spec if valid_applies == spec.applies_to else spec.model_copy(update={'applies_to': valid_applies})
+            ranges = index.calendar.resolve(resolved_spec.calculation_spec(), request.as_of_date)
         except (ValueError, TypeError) as exc:
             reject('time', spec, str(exc), 'TEMPORAL_UNRESOLVED')
             continue
-        times.append(spec.model_dump(mode='json', exclude_none=True))
+        times.append(resolved_spec.model_dump(mode='json', exclude_none=True))
         for n, bounds in enumerate(ranges):
             label = bounds.pop('label', 'primary')
-            windows.append(dict(id=f'{spec.id}_{n}', source_time_id=spec.id,
-                raw_expression=spec.raw_expression, applies_to=spec.applies_to,
-                role=spec.role if label == 'primary' else label,
+            windows.append(dict(id=f'{resolved_spec.id}_{n}', source_time_id=resolved_spec.id,
+                raw_expression=resolved_spec.raw_expression, applies_to=resolved_spec.applies_to,
+                role=resolved_spec.role if label == 'primary' else label,
                 calculation_status='calculated', calendar_sha256=index.calendar.fingerprint, **bounds))
 
     def issue(code, text, affects=()):

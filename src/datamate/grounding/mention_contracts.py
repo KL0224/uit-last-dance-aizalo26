@@ -1,9 +1,10 @@
 """Grounding v3: verbatim mentions and source-independent temporal expressions."""
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from .calendar_resolver import TemporalExpression
+from .context_index import normalized as _fold_vi
 
 
 class Mention(BaseModel):
@@ -19,6 +20,27 @@ class MentionTime(TemporalExpression):
     comparison: Literal['none', 'previous_equal_days', 'previous_year', 'previous_month_matched', 'unknown']
     role: Literal['primary', 'comparison', 'series']
     applies_to: list[str] = Field(max_length=32)
+
+    @model_validator(mode='before')
+    @classmethod
+    def infer_relative_week_fields(cls, data: Any) -> Any:
+        """Recover missing relative/period_extent on clear week expressions emitted by 3B."""
+        if not isinstance(data, dict) or data.get('kind') != 'week':
+            return data
+        if any(data.get(k) is not None for k in ('start', 'end', 'year', 'month', 'day')):
+            return data
+        updated = dict(data)
+        raw = ' '.join(_fold_vi(str(updated.get('raw_expression') or '')).split())
+        if updated.get('relative') is None:
+            if any(tok in raw for tok in ('tuan truoc', 'tuan trc', 'tuan roi', 'tuan qua', 'previous week', 'last week')):
+                updated['relative'] = 'previous'
+            elif any(tok in raw for tok in ('tuan nay', 'this week')):
+                updated['relative'] = 'this'
+        if updated.get('relative') == 'this' and updated.get('period_extent') in (None, 'full_period', 'unknown'):
+            updated['period_extent'] = 'to_as_of'
+        elif updated.get('relative') == 'previous' and updated.get('period_extent') in (None, 'unknown'):
+            updated['period_extent'] = 'full_period'
+        return updated
 
     @model_validator(mode='after')
     def coherent_expression(self):
