@@ -557,6 +557,10 @@ def format_context_for_prompt(
             )
             sections.append(f"- [{rid}] {label}{rtext}{expr_str}")
 
+    if data.get("grounding_calendar"):
+        sections.append("\n### CALENDAR EVIDENCE (Vietnamese lunar mapping; observed coverage only):\n"
+                        + json.dumps(data["grounding_calendar"], ensure_ascii=False, separators=(",", ":")))
+
     # 4. Answerability Constraints
     constraints = data.get("answerability_constraints")
     if constraints:

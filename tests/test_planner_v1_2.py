@@ -224,6 +224,8 @@ def test_v1_2_config_and_default_runner_defaults(tmp_path: Path, monkeypatch) ->
 
     g_cfg, _, _ = load_pipeline_config("configs/qwen2_5_3b_grounding.toml")
     assert g_cfg.model_path == Path("models/Qwen2.5-3B-Instruct").resolve()
+    neo_g_cfg, _, _ = load_pipeline_config("configs/qwen2_5_3b_neo_grounding.toml")
+    assert neo_g_cfg.model_path == Path("models/Qwen2.5-3B-Instruct").resolve()
 
     ft_path = Path("configs/qwen3_5_9b_ft_v1_2.toml")
     assert ft_path.is_file()

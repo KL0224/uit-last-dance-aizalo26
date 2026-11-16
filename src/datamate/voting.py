@@ -216,6 +216,7 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
         still_active = []
         has_next_round = round_id < config.rounds
         for entry in active:
+            vote_started = time.perf_counter()
             winner, summary = vote(entry["voting_candidates"], config.threshold)
             next_action = (
                 "answer"
@@ -226,6 +227,7 @@ def run_voting(pipeline, entries: list[dict], writer=None) -> None:
                 round_id=round_id,
                 thinking_enabled=options.enable_thinking,
                 next_action=next_action,
+                elapsed_ms=(time.perf_counter() - vote_started) * 1000,
             )
             entry["voting_rounds"].append(summary)
             if winner is None and has_next_round:

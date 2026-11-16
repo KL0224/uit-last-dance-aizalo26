@@ -456,4 +456,6 @@ def test_voting_one_round_always_off_mode(tmp_path: Path) -> None:
     assert len(outcomes[0].voting["rounds"]) == 1
     assert outcomes[0].voting["rounds"][0]["total_candidates"] == 4
     assert outcomes[0].voting["rounds"][0]["next_action"] == "abstain"
+    assert isinstance(outcomes[0].voting["rounds"][0]["elapsed_ms"], float)
+    assert outcomes[0].voting["rounds"][0]["elapsed_ms"] >= 0
     assert len(outcomes[0].voting["candidates"]) == 4

@@ -43,8 +43,11 @@ class GenerationOptions:
     seed: int | None = None
     thinking_token_budget: int | None = None
     enable_thinking: bool | None = None
+    json_schema: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:
+        if self.json_schema is not None and not isinstance(self.json_schema, dict):
+            raise ValueError("json_schema must be a JSON schema object or None")
         if self.enable_thinking is not None and type(self.enable_thinking) is not bool:
             raise ValueError("enable_thinking must be bool or None")
         if self.enable_thinking is False and self.thinking_token_budget is not None:
