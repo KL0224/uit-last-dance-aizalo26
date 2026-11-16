@@ -326,13 +326,36 @@ def prepare_business(
         ctx_dict = context.to_dict()
         unit_convs = ctx_dict.get("semantic_catalog", {}).get("unit_conversions", [])
         if unit_convs:
+            bidirectional_units = []
+            seen_pairs = set()
+            for u in unit_convs:
+                item = str(u.get("item_name", "")).strip()
+                f_u = str(u.get("from_unit", "")).strip()
+                t_u = str(u.get("to_unit", "")).strip()
+                try:
+                    factor = float(u.get("factor", 1.0))
+                except (ValueError, TypeError):
+                    factor = 1.0
+                if not (item and f_u and t_u and factor > 0):
+                    continue
+                pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+                if pair_fwd not in seen_pairs:
+                    seen_pairs.add(pair_fwd)
+                    bidirectional_units.append((item, f_u, t_u, factor))
+                
+                # Chiều nghịch đảo: 1 to_unit = (1.0 / factor) from_unit
+                pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+                if pair_rev not in seen_pairs:
+                    seen_pairs.add(pair_rev)
+                    bidirectional_units.append((item, t_u, f_u, round(1.0 / factor, 12)))
+
             with duckdb.connect(str(work / "data.duckdb")) as con:
                 con.execute("CREATE TABLE IF NOT EXISTS main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))")
                 con.execute("DELETE FROM main.unit_conversions")
-                for u in unit_convs:
+                for item, f_u, t_u, factor in bidirectional_units:
                     con.execute(
                         "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
-                        [str(u["item_name"]), str(u["from_unit"]), str(u["to_unit"]), float(u["factor"])]
+                        [item, f_u, t_u, factor]
                     )
             existing_tables = list(ctx_dict.get("schema_catalog", {}).get("tables", []))
             existing_table_names = {t["name"] for t in existing_tables}
@@ -345,9 +368,9 @@ def prepare_business(
                         {"name": "to_unit", "data_type": "VARCHAR", "nullable": False},
                         {"name": "factor", "data_type": "DECIMAL(38,12)", "nullable": False},
                     ],
-                    "row_count": len(unit_convs),
-                    "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
-                    "provenance": "B02 semantic unit conversions",
+                    "row_count": len(bidirectional_units),
+                    "grain": "Quy đổi đơn vị tính hai chiều (1 from_unit = factor to_unit)",
+                    "provenance": "B02 semantic unit conversions (bidirectional)",
                 })
                 ctx_dict.setdefault("schema_catalog", {})["tables"] = existing_tables
         _json(work / "business_context.json", ctx_dict)
@@ -494,8 +517,7 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                     if is_product(h, d)
                 ]
                 order_lines = (
-                    export_convention
-                    and len(orders) == 1
+                    len(orders) == 1
                     and bool(products)
                     and "quantity" in roles
                 )
@@ -604,9 +626,11 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 roles[i] in {"money", "quantity"} and values[i] is not None and str(values[i]).strip()
                                 for i in range(len(values))
                             ):
-                                # Missing identity alone does not prove a subtotal.
+                                # Missing identity alone does not prove a subtotal; retained for review.
+                                # But terminate the preceding order group so this row is not forward-filled.
                                 issue(source, number, columns[0], "ambiguous_subtotal",
                                       "missing identity with numeric value; retained for review")
+                                group_order, order_fields = None, {}
 
                             if is_non_data:
                                 report["excluded_non_data_rows"] += 1

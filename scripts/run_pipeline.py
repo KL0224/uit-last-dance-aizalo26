@@ -456,13 +456,30 @@ def run_pipeline_cli(
                                         con = duckdb.connect(str(duck_file))
                                         con.execute("CREATE TABLE IF NOT EXISTS unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DOUBLE)")
                                         con.execute("DELETE FROM unit_conversions")
+                                        seen_pairs = set()
+                                        bidirectional_rows = []
                                         for u in sem_cat.unit_conversions:
-                                            con.execute(
-                                                "INSERT INTO unit_conversions VALUES (?, ?, ?, ?)",
-                                                [str(u.get("item_name")), str(u.get("from_unit")), str(u.get("to_unit")), float(u.get("factor", 1.0))]
-                                            )
+                                            item = str(u.get("item_name", "")).strip()
+                                            f_u = str(u.get("from_unit", "")).strip()
+                                            t_u = str(u.get("to_unit", "")).strip()
+                                            try:
+                                                factor = float(u.get("factor", 1.0))
+                                            except (ValueError, TypeError):
+                                                factor = 1.0
+                                            if not (item and f_u and t_u and factor > 0):
+                                                continue
+                                            pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+                                            if pair_fwd not in seen_pairs:
+                                                seen_pairs.add(pair_fwd)
+                                                bidirectional_rows.append([item, f_u, t_u, factor])
+                                            pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+                                            if pair_rev not in seen_pairs:
+                                                seen_pairs.add(pair_rev)
+                                                bidirectional_rows.append([item, t_u, f_u, round(1.0 / factor, 12)])
+                                        for r in bidirectional_rows:
+                                            con.execute("INSERT INTO unit_conversions VALUES (?, ?, ?, ?)", r)
                                         con.close()
-                                        print(f"  => Doanh nghiệp {b_id}: Đã nạp {len(sem_cat.unit_conversions)} quy tắc quy đổi đơn vị vào DuckDB.")
+                                        print(f"  => Doanh nghiệp {b_id}: Đã nạp {len(bidirectional_rows)} quy tắc quy đổi đơn vị 2 chiều vào DuckDB.")
                                 except Exception as u_exc:
                                     print(f"  ! Cảnh báo khi nạp unit_conversions vào DuckDB cho {b_id}: {u_exc}")
 

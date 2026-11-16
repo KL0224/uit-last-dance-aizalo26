@@ -430,13 +430,31 @@ def main():
 
             # Ghi nhận unit_conversions vào DuckDB
             if verified_units:
+                seen_pairs = set()
+                bidi_units = []
+                for u in verified_units:
+                    item = str(u.get('item_name', '')).strip()
+                    f_u = str(u.get('from_unit', '')).strip()
+                    t_u = str(u.get('to_unit', '')).strip()
+                    try:
+                        factor = float(u.get('factor', 1.0))
+                    except (ValueError, TypeError):
+                        factor = 1.0
+                    if not (item and f_u and t_u and factor > 0):
+                        continue
+                    pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+                    if pair_fwd not in seen_pairs:
+                        seen_pairs.add(pair_fwd)
+                        bidi_units.append([item, f_u, t_u, factor])
+                    pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+                    if pair_rev not in seen_pairs:
+                        seen_pairs.add(pair_rev)
+                        bidi_units.append([item, t_u, f_u, round(1.0 / factor, 12)])
+
                 con.execute("CREATE TABLE IF NOT EXISTS main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))")
                 con.execute("DELETE FROM main.unit_conversions")
-                for u in verified_units:
-                    con.execute(
-                        "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
-                        [str(u['item_name']), str(u['from_unit']), str(u['to_unit']), float(u['factor'])]
-                    )
+                for r in bidi_units:
+                    con.execute("INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)", r)
 
             # Cập nhật semantic_catalog
             ctx_data.setdefault('semantic_catalog', {})['unit_conversions'] = verified_units

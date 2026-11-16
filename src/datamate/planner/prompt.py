@@ -275,6 +275,82 @@ def _select_rules(
     ]
 
 
+def _fold_ascii(text: Any) -> str:
+    s = unicodedata.normalize("NFKD", str(text or ""))
+    return "".join(c for c in s if not unicodedata.combining(c)).lower()
+
+
+def _prune_tables_for_question(
+    tables: list[dict], joins: list[dict], question: str | None, max_tables: int = 7
+) -> list[dict]:
+    """Prune unreferenced tables for complex multi-table schemas to fit context and increase Table Precision."""
+    if len(tables) <= 6 or not question:
+        return tables
+
+    q_norm = _fold_ascii(question)
+    q_words = set(re.findall(r"[a-z0-9]+", q_norm))
+    essential_names = {"calendar", "unit_conversions"}
+
+    scores: dict[str, float] = {}
+    for tbl in tables:
+        tname = tbl.get("name", "")
+        if any(ess in tname for ess in essential_names):
+            scores[tname] = 1000.0
+            continue
+
+        score = 0.0
+        t_words = set(re.findall(r"[a-z0-9]+", _fold_ascii(tname)))
+        overlap_name = q_words & t_words
+        score += len(overlap_name) * 5.0
+
+        for col in tbl.get("columns", []):
+            cname = col.get("name", "")
+            c_words = set(re.findall(r"[a-z0-9]+", _fold_ascii(cname)))
+            if q_words & c_words:
+                score += 2.0
+            prov = str(col.get("provenance", ""))
+            if prov and (q_words & set(re.findall(r"[a-z0-9]+", _fold_ascii(prov)))):
+                score += 2.0
+
+        # Domain concepts
+        if any(w in q_norm for w in ["doanh thu", "tien", "thanh toan", "gia tri", "gia", "tong", "nhieu"]) and any(
+            str(c.get("data_type", "")).startswith("DECIMAL") or "tien" in c.get("name", "") or "gia" in c.get("name", "")
+            for c in tbl.get("columns", [])
+        ):
+            score += 3.0
+        if any(w in q_norm for w in ["so luong", "ban duoc", "bao nhieu", "sl", "hang"]) and any(
+            "sl" in c.get("name", "") or "so_luong" in c.get("name", "")
+            for c in tbl.get("columns", [])
+        ):
+            score += 3.0
+
+        scores[tname] = score
+
+    sorted_tables = sorted(tables, key=lambda t: scores.get(t.get("name", ""), 0.0), reverse=True)
+    selected_names = set()
+    for t in sorted_tables:
+        tname = t.get("name", "")
+        if scores.get(tname, 0.0) > 0 or tname in essential_names:
+            selected_names.add(tname)
+            if len(selected_names) >= max_tables:
+                break
+
+    if len(selected_names) < 2:
+        return tables
+
+    for edge in joins:
+        lt = edge.get("left_table")
+        rt = edge.get("right_table")
+        if lt in selected_names and rt not in selected_names and len(selected_names) < max_tables:
+            if scores.get(rt, 0.0) > 0:
+                selected_names.add(rt)
+        elif rt in selected_names and lt not in selected_names and len(selected_names) < max_tables:
+            if scores.get(lt, 0.0) > 0:
+                selected_names.add(lt)
+
+    return [t for t in tables if t.get("name") in selected_names]
+
+
 def format_context_for_prompt(
     context: Any,
     industry: str | None = None,
@@ -295,7 +371,10 @@ def format_context_for_prompt(
 
     # 1. Schema Tables
     schema_catalog = data.get("schema_catalog", {})
-    tables = schema_catalog.get("tables", [])
+    raw_tables = schema_catalog.get("tables", [])
+    raw_joins = schema_catalog.get("join_graph") or schema_catalog.get("join_edges") or []
+    tables = _prune_tables_for_question(raw_tables, raw_joins, question)
+    selected_table_names = {t.get("name") for t in tables} if tables != raw_tables else set()
     key_candidates = schema_catalog.get("key_candidates", []) or []
     cat_samples = data.get("categorical_samples", {})
     all_mapping = (data.get("business_metadata") or {}).get("schema_mapping", {})
@@ -370,7 +449,11 @@ def format_context_for_prompt(
 
     # 2. Join Relationships (B0.1 contract name is join_graph; join_edges is legacy)
     join_edges = schema_catalog.get("join_graph") or schema_catalog.get("join_edges") or []
-    join_edges = [e for e in join_edges if e.get("status") != "invalid"]
+    join_edges = [
+        e for e in join_edges
+        if e.get("status") != "invalid"
+        and (not selected_table_names or (e.get("left_table") in selected_table_names and e.get("right_table") in selected_table_names))
+    ]
     if join_edges:
         sections.append("\n### QUAN HỆ JOIN (RELATIONSHIPS):")
         for edge in join_edges:
