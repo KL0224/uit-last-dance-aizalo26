@@ -7,7 +7,7 @@ import json
 import logging
 from pathlib import Path
 import time
-from typing import Any
+from typing import Any, Mapping, Sequence
 
 from datamate.grounding.adapters import B02ContextAdapter
 from datamate.grounding.protocols import BusinessContextProtocol
@@ -26,6 +26,52 @@ logger = logging.getLogger(__name__)
 
 def _quote_identifier(identifier: str) -> str:
     return '"' + str(identifier).replace('"', '""') + '"'
+
+
+def sync_unit_conversions_to_bundle(
+    database_path: Path,
+    ctx_dict: dict[str, Any],
+    unit_conversions: Sequence[Mapping[str, Any]],
+) -> None:
+    """Materialize unit_conversions into DuckDB and ensure schema_catalog lists it."""
+    if not unit_conversions:
+        return
+    import duckdb
+
+    with duckdb.connect(str(database_path)) as con:
+        con.execute(
+            "CREATE TABLE IF NOT EXISTS main.unit_conversions "
+            "(item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))"
+        )
+        con.execute("DELETE FROM main.unit_conversions")
+        for u in unit_conversions:
+            con.execute(
+                "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
+                [
+                    str(u.get("item_name")),
+                    str(u.get("from_unit")),
+                    str(u.get("to_unit")),
+                    float(u.get("factor", 1.0)),
+                ],
+            )
+    schema_cat = ctx_dict.setdefault("schema_catalog", {})
+    tables = list(schema_cat.get("tables") or [])
+    if all(t.get("name") != "unit_conversions" for t in tables):
+        tables.append(
+            {
+                "name": "unit_conversions",
+                "columns": [
+                    {"name": "item_name", "data_type": "VARCHAR", "nullable": False},
+                    {"name": "from_unit", "data_type": "VARCHAR", "nullable": False},
+                    {"name": "to_unit", "data_type": "VARCHAR", "nullable": False},
+                    {"name": "factor", "data_type": "DECIMAL(38,12)", "nullable": False},
+                ],
+                "row_count": len(unit_conversions),
+                "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
+                "provenance": "B02 semantic unit conversions",
+            }
+        )
+    schema_cat["tables"] = tables
 
 
 def enrich_context_from_duckdb(payload: dict[str, Any], database_path: Path) -> None:
@@ -332,4 +378,5 @@ __all__ = [
     "BusinessContextRuntimeLoader",
     "BusinessRuntimeContext",
     "enrich_context_from_duckdb",
+    "sync_unit_conversions_to_bundle",
 ]

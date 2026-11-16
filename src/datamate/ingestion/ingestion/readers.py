@@ -64,14 +64,24 @@ def _family(path: Path, sheet: str | None, region: int) -> str:
     stem = re.sub(r"_(?:\d+)$", "", path.stem)
     if path.parent.as_posix() != ".":
         stem = path.parent.as_posix() + "_" + stem
-    folded_sheet = fold(sheet).replace(" ", "") if sheet else ""
+    folded_sheet = fold(sheet) if sheet else ""
     month_sheet = bool(
         sheet
         and re.search(r"(?:19|20)\d{2}", sheet)
         and (
-            re.search(r"(?:thang|t\d)", folded_sheet, re.IGNORECASE)
-            or re.search(r"(?:^|\D)\d{1,2}\s*[./_-]\s*(?:19|20)\d{2}", sheet)
-            or re.search(r"(?:19|20)\d{2}\s*[./_-]\s*\d{1,2}(?:\D|$)", sheet)
+            re.search(
+                r"(?:^| )(?:thang\s*(?:0?[1-9]|1[0-2])|t(?:0?[1-9]|1[0-2]))(?: |$)",
+                folded_sheet,
+                re.IGNORECASE,
+            )
+            or re.search(
+                r"(?:^|[^A-Za-z0-9])(?:0?[1-9]|1[0-2])\s*[./_-]\s*(?:19|20)\d{2}",
+                sheet,
+            )
+            or re.search(
+                r"(?:19|20)\d{2}\s*[./_-]\s*(?:0?[1-9]|1[0-2])(?:$|[^A-Za-z0-9])",
+                sheet,
+            )
         )
     )
     label = (
