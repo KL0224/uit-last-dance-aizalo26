@@ -1,0 +1,21 @@
+# Qwen 2.5 3B: verbatim mentions + detailed temporal extraction (contract v3).
+[model]
+model_path = "../models/Qwen2.5-3B-Instruct"
+dtype = "bfloat16"
+max_model_len = 8192
+# Cấu hình Pha 1 chạy độc lập trên RTX 5090 32GB (hoặc A100 40GB):
+# 3B chạy trước trong subprocess riêng -> sau khi ghi cache sẽ thoát để giải phóng 100% VRAM cho Pha 2 (9B).
+gpu_memory_utilization = 0.70
+tensor_parallel_size = 1
+max_num_seqs = 8
+trust_remote_code = false
+
+[generation]
+# Smoke run showed incomplete JSON at 768; keep 5632 input + 2048 output < 8192.
+max_new_tokens = 2048
+temperature = 0.0
+top_p = 1.0
+top_k = -1
+repetition_penalty = 1.0
+presence_penalty = 0.0
+stop = []

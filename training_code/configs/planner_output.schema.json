@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "predicate": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["column", "operator", "value"],
+          "properties": {
+            "column": {"type": "string", "minLength": 1},
+            "operator": {
+              "enum": [
+                "=", "!=", "<>", ">", ">=", "<", "<=",
+                "in", "not_in", "like", "not_like", "ilike", "not_ilike",
+                "is_null", "is_not_null", "between"
+              ]
+            },
+            "value": {}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["operator", "conditions"],
+          "properties": {
+            "operator": {"enum": ["and", "or"]},
+            "conditions": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/predicate"}
+            }
+          }
+        }
+      ]
+    },
+    "period": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["column", "start_inclusive", "end_exclusive"],
+      "properties": {
+        "column": {"type": "string", "minLength": 1},
+        "start_inclusive": {"type": "string", "format": "date"},
+        "end_exclusive": {"type": "string", "format": "date"},
+        "label": {"type": "string", "minLength": 1}
+      }
+    },
+    "order_by_item": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["expression", "direction"],
+          "properties": {
+            "expression": {"type": "string", "minLength": 1},
+            "direction": {"enum": ["asc", "desc"]}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["column", "direction"],
+          "properties": {
+            "column": {"type": "string", "minLength": 1},
+            "direction": {"enum": ["asc", "desc"]}
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "structured_plan", "sql", "answer_type", "reason"],
+      "properties": {
+        "status": {"const": "answerable"},
+        "answer_type": {
+          "enum": ["number", "percent", "date", "boolean", "string", "list", "table"]
+        },
+        "reason": {"type": "null"},
+        "sql": {"type": "string", "minLength": 1},
+        "structured_plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "metric", "grain", "source_tables", "joins", "filters",
+            "time_range", "group_by", "order_by", "limit", "output_shape", "rule_refs"
+          ],
+          "properties": {
+            "metric": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["name", "aggregation", "column", "formula"],
+              "properties": {
+                "name": {"type": "string", "minLength": 1},
+                "aggregation": {
+                  "enum": ["count", "count_distinct", "sum", "avg", "min", "max", "lookup", "custom", null]
+                },
+                "column": {"type": ["string", "null"]},
+                "formula": {"type": ["string", "null"]}
+              }
+            },
+            "grain": {"type": "string", "minLength": 1},
+            "source_tables": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "joins": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["left_table", "right_table", "join_type", "key_pairs"],
+                "properties": {
+                  "left_table": {"type": "string", "minLength": 1},
+                  "right_table": {"type": "string", "minLength": 1},
+                  "join_type": {"enum": ["inner", "left", "right", "full", "cross"]},
+                  "key_pairs": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["left_column", "right_column"],
+                      "properties": {
+                        "left_column": {"type": "string", "minLength": 1},
+                        "right_column": {"type": "string", "minLength": 1}
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "filters": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/predicate"}
+            },
+            "having": {
+              "type": ["array", "null"],
+              "items": {"$ref": "#/$defs/predicate"}
+            },
+            "time_range": {
+              "oneOf": [
+                {"type": "null"},
+                {"$ref": "#/$defs/period"},
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["periods"],
+                  "properties": {
+                    "periods": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {"$ref": "#/$defs/period"}
+                    }
+                  }
+                }
+              ]
+            },
+            "group_by": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            },
+            "order_by": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/order_by_item"}
+            },
+            "limit": {"type": ["integer", "null"], "minimum": 1},
+            "output_shape": {"enum": ["scalar", "list", "table"]},
+            "rule_refs": {
+              "type": "array",
+              "items": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "structured_plan", "sql", "answer_type", "reason", "requested_context"],
+      "properties": {
+        "status": {"const": "needs_more_context"},
+        "structured_plan": {"type": "null"},
+        "sql": {"type": "null"},
+        "answer_type": {"type": "null"},
+        "reason": {"type": "string", "minLength": 1},
+        "requested_context": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "structured_plan", "sql", "answer_type", "reason", "missing_fields"],
+      "properties": {
+        "status": {"const": "unanswerable"},
+        "structured_plan": {"type": "null"},
+        "sql": {"type": "null"},
+        "answer_type": {"type": "null"},
+        "reason": {"type": "string", "minLength": 1},
+        "missing_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  ]
+}

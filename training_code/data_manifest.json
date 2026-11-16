@@ -1,33 +1,103 @@
 {
-  "manifest_version": "1.0",
+  "manifest_version": "1.2",
   "team_name": "uit_last_dance",
+  "image_tag": "zaic2026_datamate_uit_last_dance:final",
   "base_models": [
     {
       "model_name": "Qwen/Qwen3.5-9B",
       "public_url": "https://huggingface.co/Qwen/Qwen3.5-9B",
-      "fixed_revision": "main",
-      "release_date": "2024-10-20",
+      "fixed_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "release_date": "2026-03-02",
       "license": "Apache-2.0",
-      "parameter_count": "9.0B",
-      "purpose": "Primary Text-to-SQL Planner and Reflection Generator"
+      "parameter_count": "8.99B (incl. 40.11M LoRA trainable parameters; 0.4459%)",
+      "weight_modifications": "BF16 frozen text backbone (Qwen3_5ForCausalLM) + PEFT LoRA adapter v1.2 (r=16, alpha=32)",
+      "local_paths": {
+        "base_snapshot": "/code/models/Qwen3.5-9B",
+        "lora_adapter": "/code/models/adapters/qwen3_5_9b_v1_2"
+      },
+      "purpose": "Phase 2 Primary Text-to-SQL Planner (planner.v1.2, enable_thinking=false, voting k=4)"
     },
     {
       "model_name": "Qwen/Qwen2.5-3B-Instruct",
       "public_url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct",
       "fixed_revision": "main",
       "release_date": "2024-09-19",
-      "license": "Apache-2.0",
-      "parameter_count": "3.0B",
-      "purpose": "Grounding semantic intent classifier and business rule matcher fallback"
+      "license": "Qwen Research License Agreement (qwen-research)",
+      "parameter_count": "3.09B",
+      "weight_modifications": "Unmodified open-source base weights",
+      "local_paths": {
+        "base_snapshot": "/code/models/Qwen2.5-3B-Instruct"
+      },
+      "purpose": "Phase 1 Neo Grounding semantic entity/temporal/intent extractor (subprocess isolated before Phase 2)"
     }
   ],
+  "total_inference_parameters": "~12.08B (<= 15B BTC Rule 2 limit)",
+  "fine_tuning": {
+    "method": "BF16 Supervised Fine-Tuning (SFT) with PEFT LoRA",
+    "framework": "transformers==5.23.0 + trl==1.7.1 + peft==0.21.3",
+    "hardware": "NVIDIA A100-SXM4-80GB",
+    "epochs": 1.0,
+    "optimizer_steps": 306,
+    "train_loss": 0.03432648000763912,
+    "mean_token_accuracy": 0.9957744653026263,
+    "wall_seconds": 12840.38,
+    "total_input_tokens": 25130728,
+    "lora_config": {
+      "r": 16,
+      "lora_alpha": 32,
+      "lora_dropout": 0.05,
+      "bias": "none",
+      "target_modules": [
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "in_proj_qkv",
+        "in_proj_z",
+        "out_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+      ]
+    },
+    "artifacts_sha256": {
+      "training_code/src/train_datamate.py": "17b7b86d36356e384866347743de284c9f6aa3bbc8e1161a9bda4f81aea7285c",
+      "training_code/src/modal_finetune.py": "2cf5dab54f90744d145ac91ca4391c14e2bc5e18299a4dd642978a222f8706df",
+      "training_code/src/merge_lora.py": "5f0a29b402733b542f000d32a7b5ff814df1e706ed6a2a0dff06fe8bf403fde9",
+      "training_code/configs/qwen3_5_9b_ft_v1_2.toml": "d252cb623312c50bdfefaa57c341eb561767821e22ebb3b0d9c1b0905ece3d03",
+      "training_code/logs/metrics.json": "4352502f016ffdbddeedaf9786f44fcc8e4777105819c27b5ccebe8d93fc6267",
+      "models/adapters/qwen3_5_9b_v1_2/adapter_model.safetensors": "7daa40cf202860f0fcd00d380fdba678c5e31eff65c83d89f5be614156a2ebcd",
+      "models/adapters/qwen3_5_9b_v1_2/adapter_config.json": "6cda6068de7579d82083edeca109961fbbe158c60e6fcd7c173a083f4f9bbbad"
+    }
+  },
   "datasets": [
     {
-      "name": "Zalo AI Challenge 2026 - DataMate Train Set",
+      "name": "Zalo AI Challenge 2026 - DataMate Official Train Split",
       "source": "Zalo AI Challenge Organizers",
       "split": "train",
-      "local_path": "/data/train",
-      "notes": "Used exclusively for offline development, schema validation, and evaluation calibration."
+      "local_path": "data/train",
+      "notes": "Exclusively used for offline development, business-disjoint split validation (24 train / 3 val / 3 holdout businesses), and execution verification. No public_test or private_test data was used in training (Rule 6)."
+    },
+    {
+      "name": "DataMate Planner v1.2 Verified SFT Dataset (train_v1_2.jsonl)",
+      "source": "Synthetic L2-schema & L3-DuckDB verified traces generated strictly from the 24 train businesses",
+      "split": "train_sft_2448",
+      "row_count": 2448,
+      "docker_path": "/code/training_code/data/train_v1_2.jsonl",
+      "repo_path": "data/finetuning/train_v1_2.jsonl",
+      "files_sha256": {
+        "train_v1_2.jsonl": "4a5a45275357790c517c120ab7c6406b9f673111cd9529a620a38a91c378c6fe",
+        "manifest.json": "612da7875fe0b9e40d6fa78c3490966f76b35871fae6688176967526f0562365",
+        "planner_output.schema.json": "03baa42519748a726784dd2926a265289945325ec13af9dd81654c94f144914f",
+        "splits/train_ids.json": "aff27d18dddf60c61aceff3875b4fe12eada33486f18e80b1c5b4d4bdd0b431c",
+        "splits/val_ids.json": "918e9a9eb48e6b4f198ff84977a227ea25bda0ad3818fe4ea212350d29e1bae8",
+        "splits/holdout_ids.json": "6fe04c1f88f40989a9c3dbd23a36f59608ce29aed764271ff204b80aad7adfdd"
+      },
+      "disjoint_split_counts": {
+        "train": 2448,
+        "val": 276,
+        "holdout": 276
+      }
     }
   ]
 }

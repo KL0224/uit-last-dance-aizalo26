@@ -1,0 +1,73 @@
+{
+  "contract_version": "planner.v1.2",
+  "builder_version": "planner.v1.2-input.1",
+  "system_prompt_version": "planner.v1.2-sys.1",
+  "system_prompt_sha256": "5048a2c2d3ed5f102d163a7dd92f6a6a505436658a06cd0786a9bcaf9470a759",
+  "raw_snapshot_sha256": "0576a4945ffcd70c74b192761bd832c622c78d7f0289e8cc4eab24ddd89e8500",
+  "repo_commit": "e1ecee5780c8bc0dcd17cc7842f7faf7d7a200b4",
+  "rows": 2448,
+  "train_v1_2_sha256": "4a5a45275357790c517c120ab7c6406b9f673111cd9529a620a38a91c378c6fe",
+  "verified_traces_sha256": "74989b03a5d5b74b530f6e39ce797cefc6da138f2840a29aa8265fb0bfed0300",
+  "ledger_sha256": "cbf245802f35cecec0f1529940f108ba285e8a4d7ea66c121af80488959ce95a",
+  "ledger_rows": 2448,
+  "ledger_by_status": {
+    "verified_l3": 2448
+  },
+  "attempted": 2448,
+  "by_business": {
+    "biz_101": 40,
+    "biz_102": 119,
+    "biz_103": 119,
+    "biz_104": 119,
+    "biz_105": 119,
+    "biz_106": 119,
+    "biz_108": 119,
+    "biz_109": 118,
+    "biz_110": 40,
+    "biz_112": 118,
+    "biz_113": 40,
+    "biz_115": 118,
+    "biz_116": 118,
+    "biz_117": 118,
+    "biz_118": 118,
+    "biz_119": 118,
+    "biz_120": 118,
+    "biz_121": 118,
+    "biz_123": 118,
+    "biz_124": 118,
+    "biz_125": 40,
+    "biz_126": 40,
+    "biz_127": 118,
+    "biz_128": 118
+  },
+  "by_answer_type": {
+    "number": 1548,
+    "percent": 460,
+    "list": 162,
+    "date": 107,
+    "string": 79,
+    "unanswerable": 58,
+    "boolean": 19,
+    "table": 15
+  },
+  "by_source": {
+    "gemini-4-argon-high": 1555,
+    "claude-opus-5-5": 879,
+    "claude-fable-5-2": 14
+  },
+  "by_review_mode": {
+    "model_review": 2448
+  },
+  "prompt_chars": {
+    "p50": 25225,
+    "p95": 41790,
+    "max": 42069
+  },
+  "completion_chars": {
+    "p50": 1148,
+    "p95": 2057,
+    "max": 3032
+  },
+  "token_stats": "not measured: the Qwen3.5-9B tokenizer was not available on the generation machine",
+  "refused": {}
+}

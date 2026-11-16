@@ -1,0 +1,96 @@
+{
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "gpu_selected": "A100-80GB",
+  "gpu_name": "NVIDIA A100-SXM4-80GB",
+  "gpu_total_vram_gib": 79.27,
+  "hourly_rate_usd": 2.5,
+  "dataset_stats": {
+    "rows": 2448,
+    "total_input_tokens": 25130728,
+    "p50": 9403,
+    "p95": 16644,
+    "max": 17029
+  },
+  "results": [
+    {
+      "name": "b1_gc_baseline",
+      "micro_batch": 1,
+      "gradient_checkpointing": true,
+      "group_by_length": false,
+      "gpu_name": "NVIDIA A100-SXM4-80GB",
+      "gpu_total_vram_gib": 79.27,
+      "status": "ok",
+      "smoke_peak_allocated_gib": 29.0,
+      "smoke_peak_reserved_gib": 30.914,
+      "smoke_wall_seconds": 202.9,
+      "bench_peak_allocated_gib": 29.011,
+      "bench_peak_reserved_gib": 31.529,
+      "bench_wall_seconds": 301.38,
+      "bench_wall_tokens_per_second": 1630.92,
+      "steady_input_tokens_per_second": 2036.93,
+      "estimated_epoch_hours_wall": 4.28,
+      "estimated_epoch_hours_steady": 3.427,
+      "estimated_epoch_cost_usd": 10.7
+    },
+    {
+      "name": "b2_gc_gbl",
+      "micro_batch": 2,
+      "gradient_checkpointing": true,
+      "group_by_length": true,
+      "gpu_name": "NVIDIA A100-SXM4-80GB",
+      "gpu_total_vram_gib": 79.27,
+      "status": "ERROR",
+      "error": "SFTConfig.__init__() got an unexpected keyword argument 'group_by_length'"
+    },
+    {
+      "name": "b4_gc_gbl",
+      "micro_batch": 4,
+      "gradient_checkpointing": true,
+      "group_by_length": true,
+      "gpu_name": "NVIDIA A100-SXM4-80GB",
+      "gpu_total_vram_gib": 79.27,
+      "status": "ERROR",
+      "error": "SFTConfig.__init__() got an unexpected keyword argument 'group_by_length'"
+    },
+    {
+      "name": "b1_nogc",
+      "micro_batch": 1,
+      "gradient_checkpointing": false,
+      "group_by_length": false,
+      "gpu_name": "NVIDIA A100-SXM4-80GB",
+      "gpu_total_vram_gib": 79.27,
+      "status": "OOM",
+      "error": "CUDA out of memory. Tried to allocate 268.00 MiB. GPU 0 has a total capacity of 79.27 GiB of which 260.19 MiB is free. Process 1 has 79.01 GiB memory in use. Of the allocated memory 73.12 GiB is allocated by PyTorch, and 302.79 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation."
+    },
+    {
+      "name": "b2_nogc_gbl",
+      "micro_batch": 2,
+      "gradient_checkpointing": false,
+      "group_by_length": true,
+      "gpu_name": "NVIDIA A100-SXM4-80GB",
+      "gpu_total_vram_gib": 79.27,
+      "status": "ERROR",
+      "error": "SFTConfig.__init__() got an unexpected keyword argument 'group_by_length'"
+    }
+  ],
+  "recommended": {
+    "name": "b1_gc_baseline",
+    "micro_batch": 1,
+    "gradient_checkpointing": true,
+    "group_by_length": false,
+    "gpu_name": "NVIDIA A100-SXM4-80GB",
+    "gpu_total_vram_gib": 79.27,
+    "status": "ok",
+    "smoke_peak_allocated_gib": 29.0,
+    "smoke_peak_reserved_gib": 30.914,
+    "smoke_wall_seconds": 202.9,
+    "bench_peak_allocated_gib": 29.011,
+    "bench_peak_reserved_gib": 31.529,
+    "bench_wall_seconds": 301.38,
+    "bench_wall_tokens_per_second": 1630.92,
+    "steady_input_tokens_per_second": 2036.93,
+    "estimated_epoch_hours_wall": 4.28,
+    "estimated_epoch_hours_steady": 3.427,
+    "estimated_epoch_cost_usd": 10.7
+  }
+}

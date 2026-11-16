@@ -1,0 +1,41 @@
+# Cấu hình cho Qwen3.5-9B đã fine-tune LoRA (planner.v1.2, non-thinking).
+# Base model và adapter mặc định cho phép chuyển đổi qua lại hoặc dùng --no-lora nếu đã merge weights.
+
+[model]
+model_path = "../models/Qwen3.5-9B"
+lora_path = "../models/adapters/qwen3_5_9b_v1_2"
+max_lora_rank = 16
+prompt_format = "v1_2"
+grounded_hint_mode = "compact_json"
+dtype = "bfloat16"
+# Tối ưu cho Pha 2 (chỉ chạy 9B + LoRA v1.2 + Voting k=4) trên RTX 5090 32GB:
+# 9B bfloat16 (~18 GB weights) + KV cache 24576 tokens + LoRA rank 16 vừa an toàn trong 0.85 * 32GB (~27.2 GB).
+max_model_len = 24576
+gpu_memory_utilization = 0.85
+tensor_parallel_size = 1
+max_num_seqs = 8
+trust_remote_code = false
+language_model_only = true
+
+[model.chat_template_kwargs]
+enable_thinking = false
+
+[generation]
+max_new_tokens = 2048
+temperature = 0.5
+top_p = 0.8
+top_k = 20
+repetition_penalty = 1.05
+presence_penalty = 0.0
+seed = 42
+stop = []
+
+[voting]
+enabled = true
+rounds = 1
+initial_candidates = 4
+threshold = 0.5
+temperature = 0.5
+top_p = 0.8
+top_k = 20
+thinking_mode = "always_off"

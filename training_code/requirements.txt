@@ -1,9 +1,18 @@
-# Training and validation dependencies
-torch>=2.4.0
-transformers>=4.45.0
-accelerate>=0.34.0
-peft>=0.13.0
-datasets>=2.21.0
-tqdm>=4.66.0
-duckdb>=1.1.0
+# Fine-tuning / SFT dependencies for Qwen/Qwen3.5-9B BF16 LoRA (Planner v1.2)
+# Exact environment freeze from the A100-80GB training run is archived in:
+#   training_code/logs/datamate-train-requirements.lock
+# Base GPU container: nvidia/cuda:12.8.1-devel-ubuntu24.04 (Python 3.12)
+
+torch>=2.6,<2.10
+transformers>=5.19,<6
+trl[peft]==1.7.1
+peft>=0.21.3
+accelerate>=1.15.0
+datasets>=3.0
+jsonschema>=4.23
+huggingface-hub>=0.34
+duckdb>=1.0.0
 sqlglot>=25.0.0
+
+# CUDA hybrid linear-attention kernels used during Gated DeltaNet LoRA training:
+#   pip install --no-build-isolation 'flash-linear-attention>=0.4.2' git+https://github.com/Dao-AILab/causal-conv1d@cd81f0413cad2fc1e6f17e785ac39f59aae690cd

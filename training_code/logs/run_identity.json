@@ -1,0 +1,18 @@
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "dataset_sha256": "4a5a45275357790c517c120ab7c6406b9f673111cd9529a620a38a91c378c6fe",
+  "schema_sha256": "03baa42519748a726784dd2926a265289945325ec13af9dd81654c94f144914f",
+  "max_length": 20000,
+  "mode": "train",
+  "micro_batch": 2,
+  "accumulation": 4,
+  "gradient_checkpointing": true,
+  "group_by_length": true,
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "lr": 0.0001,
+  "epochs": 1.0,
+  "seed": 3407,
+  "script_sha256": "17b7b86d36356e384866347743de284c9f6aa3bbc8e1161a9bda4f81aea7285c"
+}
