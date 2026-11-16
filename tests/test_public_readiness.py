@@ -220,10 +220,13 @@ def test_semantic_discovery_deserializes_complete_business_rules() -> None:
     ]
 
 
-def test_gpu_deployments_install_the_checked_in_lockfile() -> None:
+def test_gpu_deployments_install_checked_in_requirements() -> None:
     modal_script = (ROOT / "scripts" / "modal_run_pipeline.py").read_text(encoding="utf-8")
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
 
+    # Modal runs on isolated cloud containers pinned via requirements-lock.txt
     assert 'pip_install_from_requirements(str(PROJECT_ROOT / "requirements-lock.txt"))' in modal_script
-    assert "COPY requirements.txt requirements-lock.txt ./" in dockerfile
-    assert "-r requirements-lock.txt" in dockerfile
+    # Offline BTC Docker submission uses the pinned vLLM base image + runtime-only requirements-docker.txt (no cu13 overwrite)
+    assert "ARG BASE_IMAGE=vllm/vllm-openai:v0.17.1" in dockerfile
+    assert "COPY pyproject.toml requirements.txt requirements-docker.txt ./" in dockerfile
+    assert "-r requirements-docker.txt" in dockerfile

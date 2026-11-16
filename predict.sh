@@ -30,6 +30,14 @@ LORA_PATH=""
 NO_LORA=0
 PROMPT_FORMAT=""
 GROUNDED_HINT_MODE=""
+GROUNDING_ENGINE="neo"
+GROUNDING_CONFIG="${CODE_ROOT}/configs/qwen2_5_3b_neo_grounding.toml"
+GROUNDING_MODEL_PATH=""
+GROUNDING_CACHE=""
+PHASE=""
+TWO_PHASE_FLAG="--two-phase"
+NUM_GPUS=""
+GPU_IDS=""
 VOTING_FLAG=""
 VOTING_ROUNDS=""
 VOTING_CANDIDATES=""
@@ -72,6 +80,42 @@ while [[ $# -gt 0 ]]; do
       ;;
     --grounded_hint_mode|--grounded-hint-mode)
       GROUNDED_HINT_MODE="$2"
+      shift 2
+      ;;
+    --grounding_engine|--grounding-engine)
+      GROUNDING_ENGINE="$2"
+      shift 2
+      ;;
+    --grounding_config|--grounding-config)
+      GROUNDING_CONFIG="$2"
+      shift 2
+      ;;
+    --grounding_model_path|--grounding-model-path)
+      GROUNDING_MODEL_PATH="$2"
+      shift 2
+      ;;
+    --grounding_cache|--grounding-cache)
+      GROUNDING_CACHE="$2"
+      shift 2
+      ;;
+    --phase)
+      PHASE="$2"
+      shift 2
+      ;;
+    --two-phase)
+      TWO_PHASE_FLAG="--two-phase"
+      shift
+      ;;
+    --no-two-phase)
+      TWO_PHASE_FLAG="--no-two-phase"
+      shift
+      ;;
+    --num_gpus|--num-gpus)
+      NUM_GPUS="$2"
+      shift 2
+      ;;
+    --gpu_ids|--gpu-ids)
+      GPU_IDS="$2"
       shift 2
       ;;
     --batch_size|--batch-size|-b)
@@ -127,8 +171,11 @@ echo "Input Directory (/data)       : ${INPUT_DIR}"
 echo "Output Directory (/result)    : ${OUTPUT_DIR}"
 echo "Code Root Directory           : ${CODE_ROOT}"
 echo "Config File                   : ${CONFIG_FILE}"
+echo "Grounding Config (3B)         : ${GROUNDING_CONFIG}"
+echo "Grounding Engine              : ${GROUNDING_ENGINE}"
 echo "Model Path                    : ${MODEL_PATH}"
 echo "Batch Size                    : ${BATCH_SIZE}"
+echo "Num GPUs / GPU IDs            : ${NUM_GPUS:-auto} / ${GPU_IDS:-auto}"
 echo "=========================================================="
 
 # Create required output and sandbox directories
@@ -186,6 +233,30 @@ if [ -n "${PROMPT_FORMAT}" ]; then
 fi
 if [ -n "${GROUNDED_HINT_MODE}" ]; then
   EXTRA_ARGS+=(--grounded-hint-mode "${GROUNDED_HINT_MODE}")
+fi
+if [ -n "${GROUNDING_ENGINE}" ]; then
+  EXTRA_ARGS+=(--grounding-engine "${GROUNDING_ENGINE}")
+fi
+if [ -n "${GROUNDING_CONFIG}" ]; then
+  EXTRA_ARGS+=(--grounding-config "${GROUNDING_CONFIG}")
+fi
+if [ -n "${GROUNDING_MODEL_PATH}" ]; then
+  EXTRA_ARGS+=(--grounding-model-path "${GROUNDING_MODEL_PATH}")
+fi
+if [ -n "${GROUNDING_CACHE}" ]; then
+  EXTRA_ARGS+=(--grounding-cache "${GROUNDING_CACHE}")
+fi
+if [ -n "${PHASE}" ]; then
+  EXTRA_ARGS+=(--phase "${PHASE}")
+fi
+if [ -n "${TWO_PHASE_FLAG}" ]; then
+  EXTRA_ARGS+=("${TWO_PHASE_FLAG}")
+fi
+if [ -n "${NUM_GPUS}" ]; then
+  EXTRA_ARGS+=(--num-gpus "${NUM_GPUS}")
+fi
+if [ -n "${GPU_IDS}" ]; then
+  EXTRA_ARGS+=(--gpu-ids "${GPU_IDS}")
 fi
 if [ -n "${VOTING_FLAG}" ]; then
   EXTRA_ARGS+=("${VOTING_FLAG}")

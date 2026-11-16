@@ -37,8 +37,8 @@ benchmark_outputs
 synthetic_data
 data/test
 
-# Logs & Outputs
-logs/
+# Logs & Outputs (anchored to root so training_code/logs/ stays tracked in Git)
+/logs/
 *.log
 submissions/
 
@@ -55,11 +55,15 @@ agent_code
 *.duckdb
 *.duckdb.wal
 
-# Large datasets
+# Large datasets & packaged archives
 data/raw
 *.zip
 *.tar.gz
+*.tar.gz.md5
 data/*
 !data/golden/
+training_code/data/*.jsonl
+training_code/data/*.json
+training_code/data/splits/
 khoi_docs/
 

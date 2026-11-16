@@ -225,38 +225,47 @@ uv pip install -r requirements-lock.txt \
 > Tuân thủ 100% tài liệu **Docker Submission Guide - Zalo AI Challenge 2026 (DataMate)**.
 
 ### 8.1. Phương Pháp Tiếp Cận (Approach)
-Giải pháp **DataMate** của đội **UIT Last Dance** là một luồng Agentic AI tích hợp đa tầng, hoạt động hoàn toàn offline:
-1. **Data Ingestion & Normalization (`src/datamate/ingestion/`)**: Đọc các tệp bảng biểu đa định dạng (CSV, XLSX, SQLite) của từng doanh nghiệp trong `/data/data/<business_id>`, chuẩn hóa kiểu dữ liệu, giải quyết xung đột mã hóa và tự động phát hiện liên kết khóa nối (Join Graph).
-2. **Business Context & Rule Compiler (`src/datamate/context/`)**: Phân tích luật kinh doanh từ `README.md` của từng shop và `rulebook.md`, trích xuất các điều kiện nghiệp vụ cốt lõi (doanh thu thực, điều kiện loại trừ đơn hủy, hoàn trả, quà tặng 0đ).
-3. **Question Grounding (`src/datamate/grounding/`)**: Phân tích câu hỏi tiếng Việt, nhận diện ý định (Intent C1), thời gian (Temporal C2), liên kết cột/bảng (Schema C3), nhận diện giá trị (Value C4) và phân loại tính khả thi (Answerability C5).
-4. **Agent Planner Text-to-SQL (`src/datamate/planner/`)**: Sử dụng LLM cục bộ (vLLM offline) sinh truy vấn DuckDB SQL có cấu trúc, tích hợp ngữ cảnh grounding và cơ chế sinh suy nghĩ (`thinking`).
-5. **Safe Sandbox Execution (`src/datamate/execution/`)**: Thực thi truy vấn trong môi trường DuckDB tối ưu bộ nhớ, tự động gỡ lỗi cú pháp qua AST parser, bổ sung schema hints khi retry và bẫy lỗi tràn bộ nhớ/spill disk vào `/tmp/duckdb_spill`.
-6. **Risk-Policy Gate (`src/datamate/gate/`)**: Thẩm định kết quả theo chính sách rủi ro chặt chẽ. Áp dụng chiến lược **Aggressive Abstain** (không chắc chắn thì bỏ qua để nhận 0 điểm, tránh bị trừ -1 điểm theo luật BTC). Ghi kết quả lập tức vào `/result/submission.jsonl` và log chi tiết vào `/result/logs/`.
+Giải pháp **DataMate** của đội **UIT Last Dance** là một luồng Agentic AI 2 pha tích hợp đa tầng, hoạt động hoàn toàn offline trên tối đa 2x GPU song song theo từng `business_id`:
+1. **Data Ingestion & Normalization (`src/datamate/ingestion/`)**: Đọc các tệp bảng biểu đa định dạng (CSV, XLSX, SQLite) của từng doanh nghiệp trong `/data`, chuẩn hóa kiểu dữ liệu, giải quyết xung đột mã hóa và tự động phát hiện liên kết khóa nối (Join Graph). Bảng tạm xử lý đặt tại `/tmp/bundles`.
+2. **Business Context & Rule Compiler (`src/datamate/context/`)**: Phân tích luật kinh doanh từ `README.md` của từng doanh nghiệp và `rulebook.md`, trích xuất các điều kiện nghiệp vụ cốt lõi.
+3. **Phase 1 — Neo Semantic Grounding (`Qwen/Qwen2.5-3B-Instruct`, `src/datamate/grounding/`)**: Chạy độc lập trong subprocess đầu tiên để trích xuất verbatim mentions, ý định (Intent C1), mốc thời gian (Temporal C2), schema/value hints (C3–C4) và kiểm tra answerability (C5) ra tệp JSONL cache, sau đó thoát để giải phóng 100% VRAM.
+4. **Phase 2 — Text-to-SQL Planner (`Qwen/Qwen3.5-9B` + LoRA `v1.2`, `src/datamate/planner/`, Voting k=4)**: Nạp base model `Qwen/Qwen3.5-9B` BF16 kết hợp PEFT LoRA adapter `v1.2` (`enable_thinking=false`, `planner.v1.2` JSON contract), sinh nhiều ứng viên `Plan + DuckDB SQL` kèm self-consistency voting và retry sửa lỗi SQL tự động.
+5. **Safe Sandbox Execution (`src/datamate/execution/`)**: Thực thi truy vấn trong DuckDB sandbox an toàn, spill tạm ra `/tmp/duckdb_spill` và kiểm tra tính hợp lệ AST.
+6. **Risk-Policy Gate & Crash-Safe Sharding (`src/datamate/gate/`)**: Khởi tạo sẵn toàn bộ danh sách câu hỏi với placeholder `abstain`, cập nhật atomic từng batch khi từng GPU hoàn thành (giữ file lock và shard tạm trong `/tmp` để `/result/` luôn sạch sẽ, chỉ chứa artifact hợp lệ).
 
 ### 8.2. Khai Báo Mô Hình (Model Declarations)
-* **Mô hình chính (Primary Planner LLM):**
-  - **Tên:** `Qwen/Qwen3.5-9B`
+* **Mô hình chính (Phase 2 — Primary Text-to-SQL Planner + LoRA `v1.2`):**
+  - **Tên:** `Qwen/Qwen3.5-9B` + PEFT LoRA Adapter `v1.2` (`/code/models/adapters/qwen3_5_9b_v1_2`)
   - **Nguồn công khai:** [https://huggingface.co/Qwen/Qwen3.5-9B](https://huggingface.co/Qwen/Qwen3.5-9B)
-  - **Revision:** `main` (cố định)
-  - **Ngày phát hành gốc:** Tháng 10/2024 (trước mốc quy định 26/10/2026)
-  - **Giấy phép:** Apache 2.0 (cho phép sử dụng thương mại và nghiên cứu)
-  - **Số lượng tham số:** 9.0B tham số (thỏa mãn tổng số tham số suy luận $\le$ 15B)
-* **Mô hình phụ trợ Grounding Fallback (Tùy chọn):**
+  - **Revision đã pin:** `c202236235762e1c871ad0ccb60c8ee5ba337b9a`
+  - **Ngày phát hành base model:** `2026-03-02` (trước mốc quy định 26/10/2026)
+  - **Giấy phép:** `Apache-2.0`
+  - **Số lượng tham số:** `~8.99B` (`8,993,911,296` total incl. `40,108,032` LoRA trainable params, `0.4459%`, `r=16, lora_alpha=32`)
+* **Mô hình Phase 1 (Semantic Grounding Extractor):**
   - **Tên:** `Qwen/Qwen2.5-3B-Instruct`
   - **Nguồn công khai:** [https://huggingface.co/Qwen/Qwen2.5-3B-Instruct](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct)
-  - **Ngày phát hành gốc:** 19/09/2024 (trước 26/10/2026)
-  - **Giấy phép:** Apache 2.0
-  - **Số lượng tham số:** 3.0B tham số
-* **Tổng tham số toàn bộ hệ thống suy luận:** 9.0B + 3.0B = 12.0B $\le$ 15B (Hợp lệ Rule 2).
+  - **Ngày phát hành gốc:** `2024-09-19` (trước 26/10/2026)
+  - **Giấy phép:** `Qwen Research License Agreement` (`qwen-research`)
+  - **Số lượng tham số:** `3.09B` (trọng số gốc không chỉnh sửa)
+* **Tổng tham số toàn bộ hệ thống suy luận:** `~8.99B + 3.09B = ~12.08B <= 15B` (Tuân thủ Rule 2).
 
 ### 8.3. Dữ Liệu & Huấn Luyện (Data & Training Declaration)
-* **Dữ liệu sử dụng:** Bộ dữ liệu `train` chính thức do BTC Zalo AI Challenge 2026 cung cấp. Không sử dụng dữ liệu public test hay private test để huấn luyện (Tuân thủ Rule 6).
-* **Khai báo huấn luyện (Training Declaration):** Giải pháp vận hành theo kiến trúc zero-shot / few-shot text-to-SQL và suy luận agentic cục bộ dựa trên trọng số gốc nguồn mở đã công bố. Không thực hiện fine-tuning can thiệp trực tiếp lên bộ trọng số gốc trên dữ liệu bài thi.
-* **Mã nguồn huấn luyện:** Toàn bộ cấu trúc thư mục `/code/training_code/`, cấu hình, kịch bản kiểm chứng và tệp kê khai `data_manifest.json` được đóng gói đầy đủ trong Docker image theo Mục 4 & Mục 8 của hướng dẫn BTC.
+* **Dữ liệu sử dụng:** `2,448` mẫu SFT `train_v1_2.jsonl` (`planner.v1.2`, `25,130,728` input tokens), được tổng hợp và kiểm định 100% **Level-2 Schema + Level-3 DuckDB Execution (`verified_l3 = 2,448 / 2,448`)** chỉ trên **24 doanh nghiệp của tập `train` chính thức** (phân tách disjoint hoàn toàn theo `business_id` với 276 câu `val` và 276 câu `holdout`). Tuyệt đối không sử dụng dữ liệu `public_test` hay `private_test` (Tuân thủ Rule 6).
+* **Khai báo huấn luyện (Training Declaration):** Thực hiện **BF16 Supervised Fine-Tuning (SFT) với PEFT LoRA** (`r=16, alpha=32, lr=1e-4, 1 epoch, 306 optimizer steps`) trên NVIDIA A100-SXM4-80GB (`train_loss=0.0343`, `mean_token_accuracy=0.9958`). Trọng số adapter đã huấn luyện nằm tại `models/adapters/qwen3_5_9b_v1_2/` (`/code/models/adapters/qwen3_5_9b_v1_2/` trong Docker).
+* **Mã nguồn huấn luyện:** Toàn bộ mã nguồn (`src/train_datamate.py`, `src/modal_finetune.py`, `src/merge_lora.py`), `configs/`, `data_generation/`, `logs/` (metrics & lockfile), `data/` (`train_v1_2.jsonl`, `manifest.json`, `planner_output.schema.json`, `splits/`), `train.sh` và `data_manifest.json` (kèm SHA-256 kiểm chứng) được đóng gói đầy đủ tại `/code/training_code/` theo Mục 4 & Mục 8 hướng dẫn BTC.
 
 ### 8.4. Hướng Dẫn Chạy & Kiểm Thử Docker Image
 * **Tên Image chuẩn hóa:** `zaic2026_datamate_uit_last_dance:final`
-* **Lệnh chạy chấm điểm của BTC (Scoring Command):**
+* **Tải trước snapshot offline (nếu chưa có trong `models/`):**
+  ```bash
+  python3 scripts/download_model.py --model Qwen/Qwen3.5-9B --revision c202236235762e1c871ad0ccb60c8ee5ba337b9a --output-dir models/Qwen3.5-9B
+  python3 scripts/download_model.py --model Qwen/Qwen2.5-3B-Instruct --output-dir models/Qwen2.5-3B-Instruct
+  ```
+* **Build & đóng gói bằng script chuẩn hóa:**
+  ```bash
+  bash scripts/build_and_package_docker.sh
+  ```
+* **Lệnh chạy chấm điểm của BTC (Scoring Command - Mục 10):**
   ```bash
   docker run --rm --gpus '"device=0,1"' --network none --shm-size=16g \
     --entrypoint bash \

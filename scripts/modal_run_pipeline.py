@@ -91,7 +91,7 @@ def run_pipeline_on_modal_gpu(
     split: str,
     run_name: str,
     limit: int = 0,
-    batch_size: int = 16,
+    batch_size: int = 8,
     business_ids: list[str] | None = None,
     question_ids: list[str] | None = None,
     config: str = "configs/qwen3_5_9b_ft_v1_2.toml",
@@ -110,6 +110,8 @@ def run_pipeline_on_modal_gpu(
     voting_top_k: int | None = None,
     voting_thinking_mode: str | None = None,
     enable_thinking: bool | None = None,
+    grounding_engine: str = "neo",
+    two_phase: bool = True,
     enable_grounding: bool = True,
     enable_grounding_llm: bool = True,
     include_bundles: bool = False,
@@ -118,7 +120,10 @@ def run_pipeline_on_modal_gpu(
 ) -> bytes:
     """Hàm thực thi trên GPU của Modal: tải model (nếu chưa có), chạy pipeline và nén kết quả trả về."""
     import os
+    import resource
+    import subprocess
     import sys
+    import time
     os.environ["VLLM_USE_FLASHINFER_SAMPLER"] = "0"
     from huggingface_hub import snapshot_download
 
@@ -129,14 +134,51 @@ def run_pipeline_on_modal_gpu(
 
     from scripts.run_pipeline import run_pipeline_cli
 
-    def _ensure_model(m_id: str) -> Path:
+    def _read_cpu_quota() -> dict[str, Any]:
+        info: dict[str, Any] = {"os_cpu_count": os.cpu_count()}
+        try:
+            quota = Path("/sys/fs/cgroup/cpu.max").read_text(encoding="utf-8").strip().split()
+            if len(quota) == 2 and quota[0] != "max":
+                info["cgroup_cpu_cores"] = round(int(quota[0]) / int(quota[1]), 2)
+        except OSError:
+            pass
+        try:
+            for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+                if line.startswith("MemTotal:"):
+                    info["ram_total_gib"] = round(int(line.split()[1]) / (1024 * 1024), 2)
+                elif line.startswith("MemAvailable:"):
+                    info["ram_available_gib"] = round(int(line.split()[1]) / (1024 * 1024), 2)
+        except OSError:
+            pass
+        try:
+            smi = subprocess.run(
+                [
+                    "nvidia-smi",
+                    "--query-gpu=name,memory.total,memory.used,utilization.gpu",
+                    "--format=csv,noheader,nounits",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if smi.returncode == 0:
+                info["nvidia_smi"] = smi.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            pass
+        return info
+
+    def _ensure_model(m_id: str, revision: str | None = None) -> Path:
         safe_dir = m_id.replace("/", "--")
         m_dir = VOL_ROOT / "models" / safe_dir
         marker = m_dir / ".download_complete"
         if not (marker.is_file() and (m_dir / "config.json").is_file()):
-            print(f"[Modal GPU] Đang tải model {m_id} vào Volume {m_dir} (chỉ tải lần đầu)...", flush=True)
+            print(f"[Modal GPU] Đang tải model {m_id} (rev={revision or 'default'}) vào Volume {m_dir} (chỉ tải lần đầu)...", flush=True)
             m_dir.mkdir(parents=True, exist_ok=True)
-            snapshot_download(repo_id=m_id, local_dir=str(m_dir))
+            dl_kwargs: dict[str, Any] = {"repo_id": m_id, "local_dir": str(m_dir)}
+            if revision:
+                dl_kwargs["revision"] = revision
+            snapshot_download(**dl_kwargs)
             marker.write_text("complete", encoding="utf-8")
             (m_dir / ".model-download.json").write_text(json.dumps({"status": "complete"}), encoding="utf-8")
             volume.commit()
@@ -144,9 +186,14 @@ def run_pipeline_on_modal_gpu(
             print(f"[Modal GPU] Đã tìm thấy model cache tại {m_dir}", flush=True)
         return m_dir
 
+    total_wall_start = time.perf_counter()
     # 1. Đảm bảo cả hai mô hình (9B Planner và 3B Grounding) đã có trong Volume
-    planner_model_dir = _ensure_model(model_id)
-    grounding_model_dir = _ensure_model(grounding_model_id) if (enable_grounding and enable_grounding_llm) else None
+    dl_start = time.perf_counter()
+    planner_rev = "c202236235762e1c871ad0ccb60c8ee5ba337b9a" if model_id == "Qwen/Qwen3.5-9B" else None
+    planner_model_dir = _ensure_model(model_id, revision=planner_rev)
+    needs_grounding_llm = enable_grounding and (enable_grounding_llm or grounding_engine == "neo")
+    grounding_model_dir = _ensure_model(grounding_model_id) if needs_grounding_llm else None
+    dl_elapsed = round(time.perf_counter() - dl_start, 2)
 
     # 2. Sử dụng trực tiếp dữ liệu tại /workspace/data/<split> đã được mount sẵn trong Image
     remote_split_dir = Path("/workspace/data") / split
@@ -159,14 +206,22 @@ def run_pipeline_on_modal_gpu(
     remote_out_dir = VOL_ROOT / "runs" / run_name
     remote_out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 3. Chạy trọn vẹn DataMatePipeline với cấu hình 2 model vLLM trên 1 GPU A100 (40GB)
+    # 3. Chạy trọn vẹn DataMatePipeline (mặc định tách 2 pha 3B -> 9B giải phóng 100% VRAM)
     resolved_config = Path(config) if Path(config).is_absolute() else (Path("/workspace") / config)
     resolved_lora = (
         (Path(lora_path) if Path(lora_path).is_absolute() else (Path("/workspace") / lora_path))
         if lora_path
         else None
     )
-    run_pipeline_cli(
+    default_g_cfg = (
+        Path("/workspace/configs/qwen2_5_3b_neo_grounding.toml")
+        if grounding_engine == "neo"
+        else Path("/workspace/configs/qwen2_5_3b_grounding.toml")
+    )
+    ru_self_before = resource.getrusage(resource.RUSAGE_SELF)
+    ru_child_before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    pipe_start = time.perf_counter()
+    pipeline_summary = run_pipeline_cli(
         split_dir=remote_split_dir,
         bundles_dir=bundles_dir,
         output_dir=remote_out_dir,
@@ -176,8 +231,10 @@ def run_pipeline_on_modal_gpu(
         no_lora=no_lora,
         prompt_format=prompt_format or None,
         grounded_hint_mode=grounded_hint_mode,
-        grounding_config_path=Path("/workspace/configs/qwen2_5_3b_grounding.toml") if enable_grounding_llm else None,
+        grounding_engine=grounding_engine,
+        grounding_config_path=default_g_cfg if (enable_grounding_llm or grounding_engine == "neo") else None,
         grounding_model_path=grounding_model_dir,
+        two_phase=two_phase,
         voting=voting,
         voting_rounds=voting_rounds,
         voting_candidates=voting_candidates,
@@ -196,6 +253,46 @@ def run_pipeline_on_modal_gpu(
         timeout_sec=timeout_sec,
         max_rows=max_rows,
     )
+    pipe_elapsed = round(time.perf_counter() - pipe_start, 2)
+    ru_self_after = resource.getrusage(resource.RUSAGE_SELF)
+    ru_child_after = resource.getrusage(resource.RUSAGE_CHILDREN)
+
+    cpu_user_sec = round(
+        (ru_self_after.ru_utime - ru_self_before.ru_utime)
+        + (ru_child_after.ru_utime - ru_child_before.ru_utime),
+        2,
+    )
+    cpu_sys_sec = round(
+        (ru_self_after.ru_stime - ru_self_before.ru_stime)
+        + (ru_child_after.ru_stime - ru_child_before.ru_stime),
+        2,
+    )
+    cpu_total_sec = round(cpu_user_sec + cpu_sys_sec, 2)
+    sys_info = _read_cpu_quota()
+    avail_cores = float(sys_info.get("cgroup_cpu_cores") or sys_info.get("os_cpu_count") or 1)
+    avg_cores_used = round(cpu_total_sec / pipe_elapsed, 3) if pipe_elapsed > 0 else 0.0
+    cpu_pct_of_allocated = round((avg_cores_used / avail_cores) * 100.0, 2) if avail_cores > 0 else 0.0
+
+    telemetry = {
+        "modal_gpu_config": SELECTED_GPU,
+        "system": sys_info,
+        "model_download_seconds": dl_elapsed,
+        "pipeline_wall_seconds": pipe_elapsed,
+        "total_remote_wall_seconds": round(time.perf_counter() - total_wall_start, 2),
+        "cpu_user_seconds": cpu_user_sec,
+        "cpu_sys_seconds": cpu_sys_sec,
+        "cpu_total_seconds": cpu_total_sec,
+        "avg_cpu_cores_used": avg_cores_used,
+        "cpu_utilization_percent_of_allocated": cpu_pct_of_allocated,
+        "self_peak_rss_mib": round(ru_self_after.ru_maxrss / 1024, 2),
+        "children_peak_rss_mib": round(ru_child_after.ru_maxrss / 1024, 2),
+        "pipeline_summary": pipeline_summary,
+    }
+    (remote_out_dir / "modal_telemetry.json").write_text(
+        json.dumps(telemetry, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    print(f"[Modal Telemetry] {json.dumps(telemetry, ensure_ascii=False)}", flush=True)
     volume.commit()
 
     # 4. Đóng gói toàn bộ thư mục kết quả & log để gửi thẳng về máy local
@@ -222,7 +319,7 @@ def run_pipeline_on_modal_gpu(
 def main(
     split: str = "train",
     limit: int = 0,
-    batch_size: int = 16,
+    batch_size: int = 8,
     business_id: str = "",
     question_id: str = "",
     config: str = "configs/qwen3_5_9b_ft_v1_2.toml",
@@ -241,6 +338,8 @@ def main(
     voting_top_k: int | None = None,
     voting_thinking_mode: str | None = None,
     enable_thinking: bool | None = None,
+    grounding_engine: str = "neo",
+    two_phase: bool = True,
     enable_grounding: bool = True,
     enable_grounding_llm: bool = True,
     include_bundles: bool = False,
@@ -265,6 +364,7 @@ def main(
     print(
         f"[Local] Đang khởi chạy Modal GPU ({SELECTED_GPU}) cho split='{split}' "
         f"(limit={limit or 'ALL'}, batch_size={batch_size}, business_id={biz_list or 'ALL'}, "
+        f"grounding_engine={grounding_engine}, two_phase={two_phase}, "
         f"grounding={enable_grounding}, grounding_llm={enable_grounding_llm})...",
         flush=True,
     )
@@ -292,6 +392,8 @@ def main(
         voting_top_k=voting_top_k,
         voting_thinking_mode=voting_thinking_mode,
         enable_thinking=enable_thinking,
+        grounding_engine=grounding_engine,
+        two_phase=two_phase,
         enable_grounding=enable_grounding,
         enable_grounding_llm=enable_grounding_llm,
         include_bundles=include_bundles,

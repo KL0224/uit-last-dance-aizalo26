@@ -1,12 +1,13 @@
 # ==============================================================================
 # Dockerfile: DataMate Official Submission - Zalo AI Challenge 2026
 # Team: UIT Last Dance (zaic2026_datamate_uit_last_dance:final)
-# Target Environment: Dual NVIDIA RTX 5090 (Blackwell cc 12.0), CUDA >= 12.8
+# Target Environment: Dual NVIDIA RTX 5090 (Blackwell cc 12.0), Host CUDA 12.8
 # Reference: Sections 4, 8 & 9 of ZAC 2026 Docker Submission Guide
 # ==============================================================================
-FROM vllm/vllm-openai:v0.10.1.1
+ARG BASE_IMAGE=vllm/vllm-openai:v0.17.1
+FROM ${BASE_IMAGE}
 
-# Reset ENTRYPOINT [] so that a plain docker run starts predict.sh, not vLLM server
+# Reset ENTRYPOINT [] so both `docker run ... --entrypoint bash ... /code/predict.sh` and CMD work cleanly
 ENTRYPOINT []
 
 # Offline inference & multi-GPU performance configurations
@@ -21,33 +22,37 @@ ENV HF_HUB_OFFLINE=1 \
 
 WORKDIR /code
 
-# Install system dependencies if required
+# System dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     dos2unix curl pigz \
     && rm -rf /var/lib/apt/lists/*
 
-# Install pinned inference dependencies
-COPY requirements.txt requirements-lock.txt ./
-RUN pip install --no-cache-dir -r requirements-lock.txt
+# Install only pure runtime app/SQL/data packages; keep base image torch/vllm/transformers/cuda intact
+COPY pyproject.toml requirements.txt requirements-docker.txt ./
+RUN pip install --no-cache-dir -r requirements-docker.txt && \
+    python3 -c "import duckdb, sqlglot, pydantic, numpy, pandas, openpyxl, pyarrow, jsonschema, huggingface_hub, openai, vllm, torch, transformers; print('Verified runtime deps | vllm=', vllm.__version__, '| transformers=', transformers.__version__)"
 
-# Official BTC workaround for RTX 5090 Blackwell dual-GPU hang fix
-RUN pip install --no-cache-dir --no-deps nvidia-nccl-cu12==2.27.7
-
-# Ensure sandbox directories exist with proper write permissions for read-only runs
-RUN mkdir -p /tmp/duckdb_spill /tmp/bundles /result/logs && \
+# Ensure sandbox directories exist with proper write permissions for read-only /data runs
+RUN mkdir -p /tmp/duckdb_spill /tmp/bundles /result && \
     chmod -R 777 /tmp/duckdb_spill /tmp/bundles /result
 
-# Separate COPY steps to optimize Docker layer caching
+# Copy offline model snapshots & LoRA v1.2 adapter weights
 COPY models/ /code/models/
+
+# Copy training code, configs, SFT logs/metrics, and verified SFT dataset (Section 4 & 8)
 COPY training_code/ /code/training_code/
+COPY data/finetuning/ /code/training_code/data/
+
+# Copy codebase & runtime entrypoints
 COPY predict.sh README.md /code/
 COPY configs/ /code/configs/
 COPY scripts/ /code/scripts/
 COPY src/ /code/src/
 
-# Convert CRLF to LF and set executable permissions
+# Convert CRLF to LF and ensure non-root/host-readable permissions across artifacts
 RUN dos2unix /code/predict.sh /code/training_code/train.sh && \
-    chmod +x /code/predict.sh /code/training_code/train.sh
+    chmod +x /code/predict.sh /code/training_code/train.sh /code/scripts/run_pipeline.py && \
+    chmod -R a+rX /code/models /code/training_code /code/src /code/configs /code/scripts
 
 ENV PYTHONPATH="/code/src:/code"
 

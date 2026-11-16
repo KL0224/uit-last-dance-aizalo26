@@ -4,10 +4,38 @@
 .ruff_cache
 .pytest_cache
 **/__pycache__
-data
-khoi_docs
-logs
-submissions
-tasks
+**/.DS_Store
+
+# Heavy competition splits & raw/eval artifacts (keep /data/finetuning for /code/training_code/data)
+/artifacts
+/data/train
+/data/public_test
+/data/private_test
+/data/raw
+/data/golden
+/data/gt
+/data/examples
+/data/cache
+/data/processed
+/data/finetuning/.cache
+
+# Workspace-only docs, logs, scratch & archives (anchored to root so training_code/logs stays intact)
+/docs
+/khoi_docs
+/logs
+/submissions
+/tasks
+/temp
+/tests
 *.duckdb
 *.parquet
+*.tar.gz
+*.tar.gz.md5
+*.zip
+
+# Never package secrets or local env files
+.env
+*.env
+.env.*
+*.pem
+*.key

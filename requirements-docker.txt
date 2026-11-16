@@ -1,0 +1,10 @@
+# Runtime application dependencies for the DataMate Docker submission image.
+# Intentionally excludes torch, vllm, transformers, nvidia-nccl-cu13, and SFT-only
+# training libraries (trl, peft, datasets) so the base vLLM CUDA/PyTorch/transformers
+# environment remains self-consistent and compatible with host driver CUDA 12.8+.
+duckdb>=1.0.0
+sqlglot>=25.0.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+pyarrow>=15.0.0
+jsonschema>=4.23
