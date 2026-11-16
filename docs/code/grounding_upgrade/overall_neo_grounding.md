@@ -1,5 +1,11 @@
 # Neo grounding: Qwen2.5 + code verification
 
+Luồng mặc định hiện dùng **contract 3.0 — mentions + temporal extraction**,
+prompt `neo-mentions-time-v1`. Xem thiết kế và output hiện tại tại
+[mention_time_grounding_v3.md](mention_time_grounding_v3.md).
+Các phần bên dưới lưu lại thiết kế semantic proposal v2 và lịch sử thay đổi;
+chúng không còn mô tả output của các lần gọi Qwen mới.
+
 ## Mục đích và luồng chạy
 
 Luồng `llm_verified` dùng Qwen2.5-3B-Instruct trên mọi request hợp lệ có đủ prompt budget. Model trả proposal JSON; code kiểm schema, tham chiếu, phép tính, predicate, scope, unit references và phân giải thời gian. Proposal không có trust status do model tự xác nhận.

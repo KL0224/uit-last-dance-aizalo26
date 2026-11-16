@@ -11,6 +11,7 @@ from typing import Any
 class OperationKind(str, Enum):
     """Primary analytical operation requested by the Vietnamese question."""
 
+    UNKNOWN = "unknown"
     SUM = "sum"
     COUNT = "count"
     COUNT_DISTINCT = "count_distinct"
@@ -29,6 +30,7 @@ class OperationKind(str, Enum):
 class AnswerTypeHint(str, Enum):
     """Expected answer type hints matching the competition's output types."""
 
+    UNKNOWN = "unknown"
     NUMBER = "number"
     PERCENT = "percent"
     STRING = "string"

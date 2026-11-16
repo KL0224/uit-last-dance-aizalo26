@@ -1,4 +1,4 @@
-# Local Qwen 2.5 3B semantic extractor for one-call verified grounding.
+# Qwen 2.5 3B: verbatim mentions + detailed temporal extraction (contract v3).
 [model]
 model_path = "../.models/Qwen2.5-3B-Instruct"
 dtype = "bfloat16"

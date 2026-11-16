@@ -1,18 +1,26 @@
-"""One Qwen proposal per question, deterministic verification, legacy pipeline bridge."""
+"""One mention/time extraction per question, deterministic dates, planner bridge."""
 from __future__ import annotations
 import json
 import time
-from .neo_contracts import Proposal
-from .neo_verifier import verify_proposal
+from .mention_contracts import MentionProposal
+from .mention_verifier import parse_mentions, verify_mentions
 from .contracts import GroundedQuestion, QuestionIntent, OperationKind, AnswerTypeHint, CoverageStatus, SelectedSchema
 
-from .compact_proposal import ReferenceMap
-from .context_budget import fit_context
-from .proposal_recovery import parse_partial_proposal
+from .mention_context import fit_mention_context
 from .neo_prompt import SYSTEM, PROMPT_VERSION
 
 
 def planner_hint(payload):
+    if payload.get('request', {}).get('contract_version') == '3.0':
+        return ('GROUNDING CONTRACT v3.0 — question mentions and temporal evidence, not an execution plan. '
+                'Mentions are verbatim requirements; preserve all metrics, entities and conditions in question order. '
+                'Choose operation, answer type, sources, columns, formulas, grain, filters, JOINs and units from the original question and business context. '
+                'Bind each resolved_windows entry to the appropriate event date column; applies_to references mention IDs, and [] means the whole question. '
+                'Preserve calculated [start_inclusive,end_exclusive) bounds, snapshot cutoffs and recurrence ranges in generation AND repair. '
+                'Calculated dates validate arithmetic, not interpretation of the question; cross-check the raw expression. '
+                'Rejected claims are diagnostics, not active constraints. Reconstruct unresolved requirements from the question and policies; do not silently omit them. '
+                'Extraction validation does not prove answerability or data coverage.\n'
+                + json.dumps(payload, ensure_ascii=False, separators=(',', ':')))
     return ('GROUNDING CONTRACT v2.0. Preserve verified date bounds [start,end), filters, grain and denominators in generation AND repair. '
             'Reference-valid measures and uncertain JOINs still require semantic review against policies. '
             'Unresolved constraints remain requirements: do not silently omit them or invent lunar conversions. '
@@ -25,6 +33,7 @@ def planner_hint(payload):
 class NeoGroundingEngine:
     def __init__(self, chat_fn, indexes, *, token_count_fn=None, max_input_tokens=5632, debug_model_output=False, compact_proposals=True, structured_chat_fn=None):
         self.chat_fn = chat_fn
+        # Retain the constructor argument for callers; v3 has no schema aliases.
         self.compact_proposals = compact_proposals
         self.structured_chat_fn = structured_chat_fn
         self.indexes = indexes
@@ -32,8 +41,6 @@ class NeoGroundingEngine:
         self.max_input_tokens = max_input_tokens
         self.debug_model_output = debug_model_output
         self.last_diagnostics = {}
-        from .value_verifier import ValueVerificationProvider
-        self.value_verifiers = {key: ValueVerificationProvider(index) for key,index in indexes.items()}
 
     @classmethod
     def from_qwen(cls, config_path, indexes, *, model_path_override=None, debug_model_output=False):
@@ -68,20 +75,15 @@ class NeoGroundingEngine:
         index = self.indexes[request.business_id]
         if context.business_id != request.business_id:
             raise ValueError('business mismatch')
-        evidence = index.prompt_context(request.question)
-        refs = ReferenceMap(index)
-        if self.compact_proposals:
-            evidence = refs.context(evidence)
         system = SYSTEM
-        evidence, user, tokens, budget_info = fit_context(evidence, request.question, request.as_of_date,
+        evidence, user, tokens, budget_info = fit_mention_context(index, request.question, request.as_of_date,
             system, self.token_count_fn, self.max_input_tokens)
         self.last_diagnostics.update(input_tokens=tokens, input_budget=self.max_input_tokens,
-            context_budget=budget_info, schema_tables_sent=[t['name'] for t in evidence['tables']])
-        schema = refs.decoding_schema(evidence, index) if self.compact_proposals else Proposal.model_json_schema()
+            context_budget=budget_info, schema_tables_sent=[], contract_version='3.0')
+        schema = MentionProposal.model_json_schema()
         self.last_diagnostics.update(prompt_version=PROMPT_VERSION, constrained_decoding=self.structured_chat_fn is not None)
         if self.debug_model_output:
             self.last_diagnostics['prompt'] = dict(system=system, user=user)
-            self.last_diagnostics['reference_map'] = dict(tables=refs.tables, columns=refs.columns)
             self.last_diagnostics['decoding_schema'] = schema
         self.last_diagnostics['calls'] = 1
         self._finish_stage('inference')
@@ -97,17 +99,19 @@ class NeoGroundingEngine:
         self._finish_stage('proposal_parse')
         if len(raw) > 50000:
             raise ValueError('proposal exceeds size limit')
-        proposal, rejected = parse_partial_proposal(raw, refs if self.compact_proposals else None)
+        proposal, rejected = parse_mentions(raw)
         self._finish_stage('verification')
-        payload = verify_proposal(proposal, request, index, self.value_verifiers[request.business_id], rejected_claims=rejected)
+        payload = verify_mentions(proposal, request, index, rejected_claims=rejected)
         if budget_info['trimmed']:
             payload['assessment']['warnings'].append(dict(code='CONTEXT_PRUNED', refs=[],
-                message='Optional context was omitted for budget; protected sources/columns were retained.'))
+                message='Optional business time notes were omitted for budget; temporal policies and the question were retained.'))
         self._finish_stage('complete')
-        self.last_diagnostics.update(status='partial', fingerprint=index.fingerprint,
+        self.last_diagnostics.update(status=payload['assessment']['validation_status'], fingerprint=index.fingerprint,
             rejected_claims=len(payload['assessment']['rejected_claims']),
-            blocked_refs=len(payload['assessment']['blocked_refs']))
+            blocked_refs=0)
         return GroundedQuestion(question_id=request.question_id, business_id=request.business_id, question=request.question,
-            as_of_date=request.as_of_date, intent=QuestionIntent(operation=OperationKind(proposal.operation), answer_type_hint=AnswerTypeHint(proposal.answer_type)),
-            resolved_time_ranges=(), selected_schema=SelectedSchema(primary_table=None), matched_values=(), answer_type_hint=AnswerTypeHint(proposal.answer_type),
+            as_of_date=request.as_of_date, intent=QuestionIntent(operation=OperationKind.UNKNOWN,
+                target_metrics=tuple(m['text'] for m in payload['metric_mentions']),
+                entities=tuple(m['text'] for m in payload['entity_mentions']), answer_type_hint=AnswerTypeHint.UNKNOWN),
+            resolved_time_ranges=(), selected_schema=SelectedSchema(primary_table=None), matched_values=(), answer_type_hint=AnswerTypeHint.UNKNOWN,
             evidence_requirements=(), coverage_status=CoverageStatus.UNKNOWN, grounding_source='llm_verified', planner_input=payload)

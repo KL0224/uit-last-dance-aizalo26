@@ -17,7 +17,7 @@ class LunarEndpoint(BaseModel):
     day: int = Field(ge=1, le=30)
     leap: Literal['regular', 'leap', 'unspecified'] = 'unspecified'
 
-class TemporalSpec(BaseModel):
+class TemporalExpression(BaseModel):
     model_config = ConfigDict(extra='forbid')
     raw_expression: str
     calendar: Literal['gregorian', 'vietnamese_lunar'] = 'gregorian'
@@ -37,8 +37,12 @@ class TemporalSpec(BaseModel):
     lunar_end_inclusive: LunarEndpoint | None = None
     comparison: Literal['previous_equal_days', 'previous_year', 'previous_month_matched', 'unknown'] | None = None
     comparison_days: int | None = Field(default=None, ge=1, le=3660)
-    column: str
     applies_to: list[str] = Field(default_factory=list)
+
+
+class TemporalSpec(TemporalExpression):
+    """Legacy v2 expression bound to a physical source column."""
+    column: str
     date_role: str = 'order_date'
 
 
@@ -94,7 +98,7 @@ class CalendarResolver:
             raise CalendarResolutionError('incomplete_calendar_period')
         return start, end
 
-    def resolve(self, spec: TemporalSpec, as_of: str):
+    def resolve(self, spec: TemporalExpression, as_of: str):
         anchor = date.fromisoformat(as_of)
         if spec.comparison == 'unknown':
             raise CalendarResolutionError('comparison_relation_unresolved')
