@@ -487,15 +487,15 @@ def run_pipeline_cli(
                             sem_cat = extractor.extract_semantic_catalog(business_id=b_id, schema=schema, rules=rules)
                             ctx_data["semantic_catalog"] = sem_cat.to_dict()
                             
-                            # Nếu trích xuất được bảng quy đổi đơn vị (unit_conversions), ghi nhận vào DuckDB và schema_catalog
+                            # Nếu trích xuất được bảng quy đổi đơn vị (unit_conversions), ghi nhận 2 chiều vào DuckDB và schema_catalog
                             if getattr(sem_cat, "unit_conversions", None):
                                 try:
                                     duck_file = Path(b_path) / "data.duckdb"
                                     if duck_file.is_file():
-                                        sync_unit_conversions_to_bundle(
+                                        n_rows = sync_unit_conversions_to_bundle(
                                             duck_file, ctx_data, ctx_data["semantic_catalog"].get("unit_conversions", [])
                                         )
-                                        print(f"  => Doanh nghiệp {b_id}: Đã nạp {len(sem_cat.unit_conversions)} quy tắc quy đổi đơn vị vào DuckDB.")
+                                        print(f"  => Doanh nghiệp {b_id}: Đã nạp {n_rows} quy tắc quy đổi đơn vị 2 chiều vào DuckDB.")
                                 except Exception as u_exc:
                                     print(f"  ! Cảnh báo khi nạp unit_conversions vào DuckDB cho {b_id}: {u_exc}")
 

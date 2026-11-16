@@ -32,11 +32,35 @@ def sync_unit_conversions_to_bundle(
     database_path: Path,
     ctx_dict: dict[str, Any],
     unit_conversions: Sequence[Mapping[str, Any]],
-) -> None:
-    """Materialize unit_conversions into DuckDB and ensure schema_catalog lists it."""
+) -> int:
+    """Materialize bidirectional unit_conversions into DuckDB and sync schema_catalog."""
     if not unit_conversions:
-        return
+        return 0
     import duckdb
+
+    seen_pairs: set[tuple[str, str, str]] = set()
+    bidirectional_rows: list[tuple[str, str, str, float]] = []
+    for u in unit_conversions:
+        item = str(u.get("item_name", "")).strip()
+        f_u = str(u.get("from_unit", "")).strip()
+        t_u = str(u.get("to_unit", "")).strip()
+        try:
+            factor = float(u.get("factor", 1.0))
+        except (ValueError, TypeError):
+            continue
+        if not (item and f_u and t_u and factor > 0):
+            continue
+        pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+        if pair_fwd not in seen_pairs:
+            seen_pairs.add(pair_fwd)
+            bidirectional_rows.append((item, f_u, t_u, factor))
+        pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+        if pair_rev not in seen_pairs:
+            seen_pairs.add(pair_rev)
+            bidirectional_rows.append((item, t_u, f_u, round(1.0 / factor, 12)))
+
+    if not bidirectional_rows:
+        return 0
 
     with duckdb.connect(str(database_path)) as con:
         con.execute(
@@ -44,15 +68,10 @@ def sync_unit_conversions_to_bundle(
             "(item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))"
         )
         con.execute("DELETE FROM main.unit_conversions")
-        for u in unit_conversions:
+        for row in bidirectional_rows:
             con.execute(
                 "INSERT INTO main.unit_conversions VALUES (?, ?, ?, ?)",
-                [
-                    str(u.get("item_name")),
-                    str(u.get("from_unit")),
-                    str(u.get("to_unit")),
-                    float(u.get("factor", 1.0)),
-                ],
+                list(row),
             )
     schema_cat = ctx_dict.setdefault("schema_catalog", {})
     tables = list(schema_cat.get("tables") or [])
@@ -66,12 +85,13 @@ def sync_unit_conversions_to_bundle(
                     {"name": "to_unit", "data_type": "VARCHAR", "nullable": False},
                     {"name": "factor", "data_type": "DECIMAL(38,12)", "nullable": False},
                 ],
-                "row_count": len(unit_conversions),
-                "grain": "Quy đổi đơn vị tính (1 from_unit = factor to_unit)",
-                "provenance": "B02 semantic unit conversions",
+                "row_count": len(bidirectional_rows),
+                "grain": "Quy đổi đơn vị tính hai chiều (1 from_unit = factor to_unit)",
+                "provenance": "B02 semantic unit conversions (bidirectional)",
             }
         )
     schema_cat["tables"] = tables
+    return len(bidirectional_rows)
 
 
 def enrich_context_from_duckdb(payload: dict[str, Any], database_path: Path) -> None:

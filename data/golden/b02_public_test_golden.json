@@ -1,0 +1,2857 @@
+{
+  "dev_001": {
+    "business_id": "dev_001",
+    "industry": "Bán lẻ / Tạp hóa",
+    "as_of_date_cutoff": "2026-07-08",
+    "unit_conversions": [
+      {
+        "item_name": "Coca Cola 330ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Coca Cola 330ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Pepsi 330ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Pepsi 330ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sting dâu 330ml",
+        "from_unit": "lốc",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sting dâu 330ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Red Bull 250ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Red Bull 250ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Trà xanh 0 độ 455ml",
+        "from_unit": "lốc",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Trà xanh 0 độ 455ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối Aquafina 500ml",
+        "from_unit": "lốc",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối Aquafina 500ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối Lavie 1.5L",
+        "from_unit": "lốc",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối Lavie 1.5L",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Tiger 330ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Tiger 330ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Special 330ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Special 330ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Heineken 330ml",
+        "from_unit": "lốc",
+        "to_unit": "lon",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Heineken 330ml",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa tươi Vinamilk 180ml",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 4.0,
+        "equation": "1 lốc = 4 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa tươi Vinamilk 180ml",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 48.0,
+        "equation": "1 thùng = 48 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa TH true MILK 180ml",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 4.0,
+        "equation": "1 lốc = 4 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa TH true MILK 180ml",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 48.0,
+        "equation": "1 thùng = 48 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa đặc Ông Thọ 380g",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 48.0,
+        "equation": "1 thùng = 48 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa chua Vinamilk có đường",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 4.0,
+        "equation": "1 lốc = 4 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa chua Vinamilk có đường",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 48.0,
+        "equation": "1 thùng = 48 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Yakult 65ml",
+        "from_unit": "lốc",
+        "to_unit": "chai",
+        "factor": 5.0,
+        "equation": "1 lốc = 5 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Yakult 65ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 50.0,
+        "equation": "1 thùng = 50 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Mì Hảo Hảo tôm chua cay",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Mì Omachi sườn hầm",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Mì 3 Miền tôm hùm",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Phở Vifon bò",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Gạo ST25",
+        "from_unit": "bao",
+        "to_unit": "kg",
+        "factor": 5.0,
+        "equation": "1 bao = 5 kg",
+        "source": "verified"
+      },
+      {
+        "item_name": "Gạo thơm Jasmine",
+        "from_unit": "bao",
+        "to_unit": "kg",
+        "factor": 5.0,
+        "equation": "1 bao = 5 kg",
+        "source": "verified"
+      },
+      {
+        "item_name": "Đường Biên Hòa 1kg",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Muối I-ốt 500g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bột ngọt Ajinomoto 400g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Hạt nêm Knorr 400g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước mắm Nam Ngư 750ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước tương Maggi 700ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Dầu ăn Tường An 1L",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Dầu ăn Simply 2L",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tương ớt Chinsu 250g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Trứng gà so",
+        "from_unit": "vỉ",
+        "to_unit": "quả",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 quả",
+        "source": "verified"
+      },
+      {
+        "item_name": "Xúc xích Vissan 5 cây",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Cá hộp 3 Cô Gái 155g",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 10.0,
+        "equation": "1 lốc = 10 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Đậu phộng rang muối 200g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Snack Oishi tôm cay 40g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 50.0,
+        "equation": "1 thùng = 50 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Snack Lay's vị tự nhiên 56g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 32.0,
+        "equation": "1 thùng = 32 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bánh Oreo 133g",
+        "from_unit": "lốc",
+        "to_unit": "gói",
+        "factor": 12.0,
+        "equation": "1 lốc = 12 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bánh Chocopie 12 cái",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 8.0,
+        "equation": "1 thùng = 8 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bánh quy Cosy 200g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Kẹo Alpenliebe 100g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 40.0,
+        "equation": "1 thùng = 40 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Kẹo cao su Doublemint",
+        "from_unit": "lốc",
+        "to_unit": "vỉ",
+        "factor": 20.0,
+        "equation": "1 lốc = 20 vỉ",
+        "source": "verified"
+      },
+      {
+        "item_name": "Hạt hướng dương 200g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bột giặt OMO 3kg",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước giặt Ariel 3.2L",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước rửa chén Sunlight 750g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước lau sàn Sunlight 1L",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Kem đánh răng P/S 180g",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 36.0,
+        "equation": "1 thùng = 36 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bàn chải Colgate",
+        "from_unit": "lốc",
+        "to_unit": "cái",
+        "factor": 12.0,
+        "equation": "1 lốc = 12 cái",
+        "source": "verified"
+      },
+      {
+        "item_name": "Dầu gội Clear 630g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa tắm Lifebuoy 850g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Xà bông Lifebuoy 90g",
+        "from_unit": "lốc",
+        "to_unit": "cục",
+        "factor": 6.0,
+        "equation": "1 lốc = 6 cục",
+        "source": "verified"
+      },
+      {
+        "item_name": "Xà bông Lifebuoy 90g",
+        "from_unit": "thùng",
+        "to_unit": "cục",
+        "factor": 72.0,
+        "equation": "1 thùng = 72 cục",
+        "source": "verified"
+      },
+      {
+        "item_name": "Giấy vệ sinh Pulppy 10 cuộn",
+        "from_unit": "thùng",
+        "to_unit": "lốc",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 lốc",
+        "source": "verified"
+      },
+      {
+        "item_name": "Khăn giấy Tempo 10 gói",
+        "from_unit": "thùng",
+        "to_unit": "lốc",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 lốc",
+        "source": "verified"
+      },
+      {
+        "item_name": "Băng vệ sinh Diana 8 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 48.0,
+        "equation": "1 thùng = 48 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã Bobby M 32 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Thuốc lá Vinataba",
+        "from_unit": "cây",
+        "to_unit": "gói",
+        "factor": 10.0,
+        "equation": "1 cây = 10 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Thuốc lá Jet",
+        "from_unit": "cây",
+        "to_unit": "gói",
+        "factor": 10.0,
+        "equation": "1 cây = 10 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Pin Panasonic AA",
+        "from_unit": "hộp",
+        "to_unit": "vỉ",
+        "factor": 12.0,
+        "equation": "1 hộp = 12 vỉ",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nhang Quảng Trí bó",
+        "from_unit": "thùng",
+        "to_unit": "bó",
+        "factor": 20.0,
+        "equation": "1 thùng = 20 bó",
+        "source": "verified"
+      },
+      {
+        "item_name": "Gạo ST25",
+        "from_unit": "bao 25kg",
+        "to_unit": "kg",
+        "factor": 25.0,
+        "equation": "1 bao 25kg = 25 kg",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Gạo thơm Jasmine",
+        "from_unit": "bao 25kg",
+        "to_unit": "kg",
+        "factor": 25.0,
+        "equation": "1 bao 25kg = 25 kg",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Trứng gà so",
+        "from_unit": "hộp 30",
+        "to_unit": "quả",
+        "factor": 30.0,
+        "equation": "1 hộp 30 = 30 quả",
+        "source": "README.md"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "so_chi_tiet_ban_hang_dedeba38",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "so_chi_tiet_ban_hang_dedeba38",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "so_chi_tiet_ban_hang_dedeba38",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order"
+    }
+  },
+  "dev_002": {
+    "business_id": "dev_002",
+    "industry": "Tiệm bánh & Cà phê",
+    "as_of_date_cutoff": "2026-05-24",
+    "unit_conversions": [
+      {
+        "item_name": "Bánh croissant",
+        "from_unit": "hộp",
+        "to_unit": "cái",
+        "factor": 6.0,
+        "equation": "1 hộp = 6 cái",
+        "source": "danh_sach_quy_doi_28e05c07"
+      },
+      {
+        "item_name": "Bánh tiramisu",
+        "from_unit": "hộp",
+        "to_unit": "cái",
+        "factor": 6.0,
+        "equation": "1 hộp = 6 cái",
+        "source": "danh_sach_quy_doi_28e05c07"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "ban_hang_t10_don_hang_chi_tiet_4cf478a8",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "ban_hang_t10_don_hang_chi_tiet_4cf478a8",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "ban_hang_t10_don_hang_chi_tiet_4cf478a8",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order"
+    }
+  },
+  "dev_003": {
+    "business_id": "dev_003",
+    "industry": "Cà phê & Tiệm bánh",
+    "as_of_date_cutoff": "2026-08-21",
+    "unit_conversions": [
+      {
+        "item_name": "Bánh croissant",
+        "from_unit": "hộp",
+        "to_unit": "cái",
+        "factor": 6.0,
+        "equation": "1 hộp = 6 cái",
+        "source": "ban_hang_tong_hop_ban_hang_don_vi_quy_doi_a3c7108d"
+      },
+      {
+        "item_name": "Bánh tiramisu",
+        "from_unit": "hộp",
+        "to_unit": "cái",
+        "factor": 6.0,
+        "equation": "1 hộp = 6 cái",
+        "source": "ban_hang_tong_hop_ban_hang_don_vi_quy_doi_a3c7108d"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "ban_hang_phieu_thu_433a505d",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "ban_hang_phieu_thu_433a505d",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "ban_hang_phieu_thu_433a505d",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_004": {
+    "business_id": "dev_004",
+    "industry": "Vật liệu xây dựng",
+    "as_of_date_cutoff": "2026-06-10",
+    "unit_conversions": [
+      {
+        "item_name": "Hàng theo bó",
+        "from_unit": "bó",
+        "to_unit": "cây",
+        "factor": 10.0,
+        "equation": "1 bó = 10 cây",
+        "source": "verified"
+      },
+      {
+        "item_name": "Quy đổi đơn vị",
+        "from_unit": "bó",
+        "to_unit": "cây;",
+        "factor": 10.0,
+        "equation": "1 bó = 10 cây;",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Ống PVC Bình Minh D32 cây 4m",
+        "from_unit": "bó",
+        "to_unit": "cây",
+        "factor": 10.0,
+        "equation": "1 bó = 10 cây",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Ống PVC Bình Minh D50 cây 4m",
+        "from_unit": "bó",
+        "to_unit": "cây",
+        "factor": 10.0,
+        "equation": "1 bó = 10 cây",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Ống PVC Bình Minh D90 cây 4m",
+        "from_unit": "bó",
+        "to_unit": "cây",
+        "factor": 10.0,
+        "equation": "1 bó = 10 cây",
+        "source": "README.md"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "negative_quantity_line"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "so_ban_hang_86875366",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "so_ban_hang_86875366",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "so_ban_hang_86875366",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "negative_quantity_line"
+    }
+  },
+  "dev_005": {
+    "business_id": "dev_005",
+    "industry": "Nhà thuốc / Dược phẩm",
+    "as_of_date_cutoff": "2026-05-10",
+    "unit_conversions": [
+      {
+        "item_name": "Panadol Extra hộp 15 vỉ x 12 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 12.0,
+        "equation": "1 vỉ = 12 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Panadol Extra hộp 15 vỉ x 12 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 180.0,
+        "equation": "1 hộp = 180 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Hapacol 250 hộp 24 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 hộp = 24 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Panadol 500mg hộp 10 vỉ x 12 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 12.0,
+        "equation": "1 vỉ = 12 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Panadol 500mg hộp 10 vỉ x 12 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 120.0,
+        "equation": "1 hộp = 120 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Tiffy Dey hộp 25 vỉ x 4 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 4.0,
+        "equation": "1 vỉ = 4 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Tiffy Dey hộp 25 vỉ x 4 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Berberin 100mg Mekophar chai 100 viên",
+        "from_unit": "chai",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 chai = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Oresol 245 DHG hộp 20 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 hộp = 20 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Amoxicillin 500mg Domesco hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Amoxicillin 500mg Domesco hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Salonpas cao dán hộp 24 gói x 10 miếng",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 hộp = 24 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Decolgen Forte hộp 30 vỉ x 4 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 4.0,
+        "equation": "1 vỉ = 4 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Decolgen Forte hộp 30 vỉ x 4 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 120.0,
+        "equation": "1 hộp = 120 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Khẩu trang y tế 4 lớp Khánh An hộp 50 cái",
+        "from_unit": "hộp",
+        "to_unit": "cái",
+        "factor": 50.0,
+        "equation": "1 hộp = 50 cái",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Smecta hộp 30 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Efferalgan 500mg viên sủi hộp 4 vỉ x 4 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 4.0,
+        "equation": "1 vỉ = 4 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Efferalgan 500mg viên sủi hộp 4 vỉ x 4 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 16.0,
+        "equation": "1 hộp = 16 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Phosphalugel hộp 26 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 26.0,
+        "equation": "1 hộp = 26 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Strepsils Cool hộp 2 vỉ x 12 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 12.0,
+        "equation": "1 vỉ = 12 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Strepsils Cool hộp 2 vỉ x 12 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 24.0,
+        "equation": "1 hộp = 24 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Clorpheniramin 4mg DHG hộp 10 vỉ x 20 viên",
+        "from_unit": "hộp",
+        "to_unit": "vỉ",
+        "factor": 10.0,
+        "equation": "1 hộp = 10 vỉ",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Yumangel hộp 20 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 20.0,
+        "equation": "1 hộp = 20 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Cefuroxim 500mg Vidipha hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Cefuroxim 500mg Vidipha hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Băng cá nhân Urgo Transparent hộp 100 miếng",
+        "from_unit": "hộp",
+        "to_unit": "miếng",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 miếng",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Hapacol 150 hộp 24 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 hộp = 24 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Eugica hộp 10 vỉ x 10 viên nang",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Eugica hộp 10 vỉ x 10 viên nang",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "UPSA-C 1g viên sủi tuýp 10 viên",
+        "from_unit": "tuýp",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 tuýp = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Lorastad 10mg Stella hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Lorastad 10mg Stella hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Cetirizin 10mg Domesco hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Cetirizin 10mg Domesco hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Amlodipin 5mg Domesco hộp 3 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Amlodipin 5mg Domesco hộp 3 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Panadol Cảm Cúm hộp 15 vỉ x 12 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 12.0,
+        "equation": "1 vỉ = 12 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Panadol Cảm Cúm hộp 15 vỉ x 12 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 180.0,
+        "equation": "1 hộp = 180 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Alaxan hộp 25 vỉ x 4 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 4.0,
+        "equation": "1 vỉ = 4 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Alaxan hộp 25 vỉ x 4 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Gofen 400 hộp 5 vỉ x 10 viên nang",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Gofen 400 hộp 5 vỉ x 10 viên nang",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 50.0,
+        "equation": "1 hộp = 50 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Acemuc Kids 200mg hộp 30 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Gaviscon hộp 24 gói x 10ml",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 hộp = 24 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Enterogermina 2 tỷ/5ml hộp 20 ống",
+        "from_unit": "hộp",
+        "to_unit": "ống",
+        "factor": 20.0,
+        "equation": "1 hộp = 20 ống",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Omeprazol 20mg DHG hộp 3 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Omeprazol 20mg DHG hộp 3 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Vitamin C 500mg Quapharco hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Vitamin C 500mg Quapharco hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Efticol 0,9% lốc 10 lọ x 10ml",
+        "from_unit": "lốc",
+        "to_unit": "lọ",
+        "factor": 10.0,
+        "equation": "1 lốc = 10 lọ",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Magne-B6 Corbière hộp 5 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Magne-B6 Corbière hộp 5 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 50.0,
+        "equation": "1 hộp = 50 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Loperamid 2mg Domesco hộp 5 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Loperamid 2mg Domesco hộp 5 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 50.0,
+        "equation": "1 hộp = 50 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Metformin Stella 500mg hộp 6 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Metformin Stella 500mg hộp 6 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 60.0,
+        "equation": "1 hộp = 60 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Clarityne 10mg hộp 1 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 hộp = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Zyrtec 10mg hộp 1 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 hộp = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Telfast HD 180mg hộp 3 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Telfast HD 180mg hộp 3 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Hagifen 400mg DHG hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Hagifen 400mg DHG hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Enervon hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Enervon hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Savi Losartan 50mg hộp 3 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Savi Losartan 50mg hộp 3 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Air-X 80mg viên nhai hộp 10 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Air-X 80mg viên nhai hộp 10 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Biosubtyl-II hộp 25 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 25.0,
+        "equation": "1 hộp = 25 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Berocca Performance viên sủi tuýp 10 viên",
+        "from_unit": "tuýp",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 tuýp = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Prednisolon 5mg Boston chai 500 viên",
+        "from_unit": "chai",
+        "to_unit": "viên",
+        "factor": 500.0,
+        "equation": "1 chai = 500 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Bio-acimin Gold men vi sinh hộp 30 gói",
+        "from_unit": "hộp",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 gói",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Boganic Traphaco hộp 5 vỉ x 20 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 20.0,
+        "equation": "1 vỉ = 20 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Boganic Traphaco hộp 5 vỉ x 20 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 100.0,
+        "equation": "1 hộp = 100 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Calcium Corbière Extra 10ml hộp 30 ống",
+        "from_unit": "hộp",
+        "to_unit": "ống",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 ống",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Bisolvon 8mg hộp 3 vỉ x 10 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Bisolvon 8mg hộp 3 vỉ x 10 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Augmentin 625mg hộp 2 vỉ x 7 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 7.0,
+        "equation": "1 vỉ = 7 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Augmentin 625mg hộp 2 vỉ x 7 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 14.0,
+        "equation": "1 hộp = 14 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Enat 400 hộp 3 vỉ x 10 viên nang",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 10.0,
+        "equation": "1 vỉ = 10 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Enat 400 hộp 3 vỉ x 10 viên nang",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 30.0,
+        "equation": "1 hộp = 30 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Kẹo ngậm Bổ phế Nam Hà Candy hộp 10 vỉ x 8 viên",
+        "from_unit": "vỉ",
+        "to_unit": "viên",
+        "factor": 8.0,
+        "equation": "1 vỉ = 8 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      },
+      {
+        "item_name": "Kẹo ngậm Bổ phế Nam Hà Candy hộp 10 vỉ x 8 viên",
+        "from_unit": "hộp",
+        "to_unit": "viên",
+        "factor": 80.0,
+        "equation": "1 hộp = 80 viên",
+        "source": "DanhSachQuyDoi.xlsx"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "ban_hang_thang01_don_hang_chi_tiet_15acff2e",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "don_nhap_hang_chi_tiet_3127f729",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "ban_hang_thang01_don_hang_chi_tiet_15acff2e",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "ban_hang_thang01_don_hang_chi_tiet_15acff2e",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "prescription": "Thuốc kê đơn = sản phẩm ghi kê đơn trong danh mục thuốc",
+      "batch_expiry": "Theo dõi theo lô và hạn sử dụng"
+    }
+  },
+  "dev_006": {
+    "business_id": "dev_006",
+    "industry": "Quán ăn / Máy POS",
+    "as_of_date_cutoff": "2026-08-08",
+    "unit_conversions": [],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "pos_chi_tiet_don_51f4fb5e",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "pos_chi_tiet_nhap_7bd3011a",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "pos_chi_tiet_don_51f4fb5e",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "pos_chi_tiet_don_51f4fb5e",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "prescription": "Thuốc kê đơn = sản phẩm ghi kê đơn trong danh mục thuốc",
+      "batch_expiry": "Theo dõi theo lô và hạn sử dụng",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_007": {
+    "business_id": "dev_007",
+    "industry": "Bán lẻ / Nước giải khát",
+    "as_of_date_cutoff": "2026-09-19",
+    "unit_conversions": [
+      {
+        "item_name": "Bia Tiger lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Special lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Coca-Cola lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Tiger Bạc lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Heineken lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Lager chai",
+        "from_unit": "két",
+        "to_unit": "chai",
+        "factor": 20.0,
+        "equation": "1 két = 20 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "7Up lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "chi_tiet_hoa_don_4540720c",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "chi_tiet_nhap_hang_66d88e76",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "chi_tiet_hoa_don_4540720c",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "chi_tiet_hoa_don_4540720c",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "service_fee": "Đơn ngồi phòng lạnh có dòng Phí phục vụ (không tính là mặt hàng, không đếm/xếp hạng nhưng cộng vào doanh thu)",
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_008": {
+    "business_id": "dev_008",
+    "industry": "Bán lẻ / Nước giải khát",
+    "as_of_date_cutoff": "2026-07-22",
+    "unit_conversions": [
+      {
+        "item_name": "Bia Tiger lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Special lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Coca-Cola lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Tiger Bạc lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước suối",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Heineken lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bia Sài Gòn Lager chai",
+        "from_unit": "két",
+        "to_unit": "chai",
+        "factor": 20.0,
+        "equation": "1 két = 20 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "7Up lon",
+        "from_unit": "thùng",
+        "to_unit": "lon",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 lon",
+        "source": "verified"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "chi_tiet_hoa_don_9487a6b0",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "chi_tiet_nhap_hang_705bdd76",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "chi_tiet_hoa_don_9487a6b0",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "chi_tiet_hoa_don_9487a6b0",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "service_fee": "Đơn ngồi phòng lạnh có dòng Phí phục vụ (không tính là mặt hàng, không đếm/xếp hạng nhưng cộng vào doanh thu)",
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_009": {
+    "business_id": "dev_009",
+    "industry": "Bán lẻ / Hóa đơn tổng",
+    "as_of_date_cutoff": "2026-06-24",
+    "unit_conversions": [],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "danh_sach_hoa_don_09e2524d",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "danh_sach_hoa_don_09e2524d",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "danh_sach_hoa_don_09e2524d",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_010": {
+    "business_id": "dev_010",
+    "industry": "Bán buôn & Bán lẻ / Tạp hóa & Mẹ bé",
+    "as_of_date_cutoff": "2026-09-06",
+    "unit_conversions": [
+      {
+        "item_name": "Tã dán Bobby size M 76 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã quần Huggies Dry size L 68 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã dán Merries size M 64 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Miếng lót sơ sinh Bobby Newborn 1 108 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Bột ăn dặm Ridielac Gold gạo sữa 200g",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Khăn ướt Bobby không mùi 100 tờ",
+        "from_unit": "lốc",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 lốc = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Khăn ướt Bobby không mùi 100 tờ",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa tắm gội Johnson's Baby 500ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa tắm Lactacyd BB 250ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước giặt xả D-nee 3000ml",
+        "from_unit": "thùng",
+        "to_unit": "can",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 can",
+        "source": "verified"
+      },
+      {
+        "item_name": "Váng sữa Monte vani vỉ 4 hộp 55g",
+        "from_unit": "thùng",
+        "to_unit": "vỉ",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 vỉ",
+        "source": "verified"
+      },
+      {
+        "item_name": "Phấn rôm Johnson's Baby 200g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tắm gội toàn thân D-nee Pure 380ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Nước rửa bình sữa D-nee 620ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã quần Moony size L 44 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã dán Huggies Dry Newborn 60 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tã quần Bobby size XL 62 miếng",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Cháo tươi SG Food Baby gà cà rốt 240g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "verified"
+      },
+      {
+        "item_name": "Tăm bông trẻ em Sakura hộp 180 que",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 12.0,
+        "equation": "1 lốc = 12 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Phô mai Con Bò Cười hộp 8 miếng",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 hộp",
+        "source": "verified"
+      },
+      {
+        "item_name": "Sữa pha sẵn GrowPLUS+ đỏ 110ml lốc 4",
+        "from_unit": "thùng",
+        "to_unit": "lốc",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 lốc",
+        "source": "verified"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "chi_tiet_don_c706fab3",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "chi_tiet_don_c706fab3",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "chi_tiet_don_c706fab3",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt"
+    }
+  },
+  "dev_011": {
+    "business_id": "dev_011",
+    "industry": "Cửa hàng điện thoại",
+    "as_of_date_cutoff": "2026-07-31",
+    "unit_conversions": [],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "so_ban_hang_ghi_tat_371f5d56",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "so_ban_hang_ghi_tat_371f5d56",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "so_ban_hang_ghi_tat_371f5d56",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "trade_in": "Sổ thu máy cũ nối với sổ bán hàng theo STT đơn và IMEI; tiền thu máy cũ trừ vào số tiền khách trả"
+    }
+  },
+  "dev_012": {
+    "business_id": "dev_012",
+    "industry": "Tiệm sửa xe",
+    "as_of_date_cutoff": "2026-08-31",
+    "unit_conversions": [],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "so_sua_xe_8cb37feb",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "so_sua_xe_8cb37feb",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "so_sua_xe_8cb37feb",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "commission": "Tiền hoa hồng thợ = Doanh thu phiếu sửa xe * % hoa hồng thợ (bảo hành tiền 0 không tính)",
+      "warranty": "Phiếu bảo hành có Tiền 0, xe quay lại bảo hành việc của một phiếu trước, tiệm không thu tiền"
+    }
+  },
+  "dev_013": {
+    "business_id": "dev_013",
+    "industry": "Cửa hàng Mẹ và bé",
+    "as_of_date_cutoff": "2026-06-30",
+    "unit_conversions": [
+      {
+        "item_name": "Quy đổi",
+        "from_unit": "thùng",
+        "to_unit": "bịch\"",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch\"",
+        "source": "verified"
+      },
+      {
+        "item_name": "ĐVT",
+        "from_unit": "thùng",
+        "to_unit": "bịch\";",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch\";",
+        "source": "README.md"
+      },
+      {
+        "item_name": "Miếng lót sơ sinh Bobby Newborn 1 108 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã dán Bobby size M 76 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Bobby size L 54 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Bobby size XL 62 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Bobby size XXL 44 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã dán Huggies Dry Newborn 60 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Huggies Dry size M 74 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Huggies Dry size L 68 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Huggies Dry size XL 62 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã dán Merries size M 64 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Merries size L 44 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Moony size L 44 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Moony size XL 38 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Pampers size M 60 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Pampers size L 54 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tã quần Pampers size XL 48 miếng",
+        "from_unit": "thùng",
+        "to_unit": "bịch",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 bịch",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Bột ăn dặm Ridielac Gold gạo sữa 200g",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 hộp",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Khăn ướt Bobby không mùi 100 tờ",
+        "from_unit": "lốc",
+        "to_unit": "gói",
+        "factor": 4.0,
+        "equation": "1 lốc = 4 gói",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Khăn ướt Bobby không mùi 100 tờ",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 gói",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Sữa tắm gội Johnson's Baby 500ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Sữa tắm Lactacyd BB 250ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Nước giặt xả D-nee 3000ml",
+        "from_unit": "thùng",
+        "to_unit": "can",
+        "factor": 4.0,
+        "equation": "1 thùng = 4 can",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Váng sữa Monte vani vỉ 4 hộp 55g",
+        "from_unit": "thùng",
+        "to_unit": "vỉ",
+        "factor": 6.0,
+        "equation": "1 thùng = 6 vỉ",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Phấn rôm Johnson's Baby 200g",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 chai",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tắm gội toàn thân D-nee Pure 380ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Nước rửa bình sữa D-nee 620ml",
+        "from_unit": "thùng",
+        "to_unit": "chai",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 chai",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Cháo tươi SG Food Baby gà cà rốt 240g",
+        "from_unit": "thùng",
+        "to_unit": "gói",
+        "factor": 30.0,
+        "equation": "1 thùng = 30 gói",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Tăm bông trẻ em Sakura hộp 180 que",
+        "from_unit": "lốc",
+        "to_unit": "hộp",
+        "factor": 12.0,
+        "equation": "1 lốc = 12 hộp",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Phô mai Con Bò Cười hộp 8 miếng",
+        "from_unit": "thùng",
+        "to_unit": "hộp",
+        "factor": 24.0,
+        "equation": "1 thùng = 24 hộp",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      },
+      {
+        "item_name": "Sữa pha sẵn GrowPLUS+ đỏ 110ml lốc 4",
+        "from_unit": "thùng",
+        "to_unit": "lốc",
+        "factor": 12.0,
+        "equation": "1 thùng = 12 lốc",
+        "source": "QuanLy.xlsx (DanhMuc)"
+      }
+    ],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "ban_hang_3fd601ee",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "ban_hang_3fd601ee",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "ban_hang_3fd601ee",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order"
+    }
+  },
+  "dev_014": {
+    "business_id": "dev_014",
+    "industry": "Cửa hàng điện thoại & Thu máy cũ",
+    "as_of_date_cutoff": "2026-09-30",
+    "unit_conversions": [],
+    "status_rules": {
+      "valid_revenue_statuses": [
+        "completed",
+        "delivering",
+        "Chờ giao",
+        "Đang giao dịch",
+        "Đang xử lý",
+        "Hoàn thành",
+        "Đã thanh toán"
+      ],
+      "cancelled_statuses": [
+        "cancelled",
+        "hủy",
+        "huỷ",
+        "đã hủy",
+        "đã huỷ",
+        "Hủy"
+      ],
+      "returned_statuses": [
+        "returned",
+        "trả hàng",
+        "khách trả",
+        "Trả hàng"
+      ],
+      "return_handling": "exclude_entire_order"
+    },
+    "metric_definitions": {
+      "revenue": {
+        "description": "Tổng doanh thu thuần từ các đơn đặt trong kỳ (theo ngày đặt hàng), bỏ đơn hủy và đơn trả hàng.",
+        "primary_table": "so_ban_hang_c988fb26",
+        "formula": "SUM(thanh_tien) hoặc SUM(so_luong * gia_ban)",
+        "rulebook_ref": "Rulebook §1: Doanh thu một đơn là tổng thành tiền các dòng hàng (đã trừ giảm giá dòng), không trừ giảm giá cả đơn, không cộng VAT/phí ship. Đơn đang giao vẫn tính; bỏ cả đơn trả hàng."
+      },
+      "purchase_total": {
+        "description": "Tổng tiền các phiếu nhập kho trong kỳ theo ngày phiếu, bỏ phiếu hủy.",
+        "primary_table": "",
+        "formula": "SUM(tong_tien_phieu) hoặc SUM(can_tra_ncc) hoặc SUM(thanh_tien)",
+        "rulebook_ref": "Rulebook §5: Tiền nhập hàng trong kỳ là tổng tiền các phiếu nhập theo ngày phiếu, bỏ phiếu hủy."
+      },
+      "gross_profit": {
+        "description": "Lợi nhuận gộp = Doanh thu hợp lệ trừ đi giá vốn của hàng đã bán.",
+        "formula": "DoanhThu - SUM(so_luong * gia_von)",
+        "rulebook_ref": "Rulebook §5: Lãi gộp = doanh thu trừ giá vốn hàng bán (theo giá vốn ghi trên dòng bán)."
+      },
+      "order_count": {
+        "description": "Số đơn hàng hợp lệ trong kỳ (không hủy, không trả hàng).",
+        "primary_table": "so_ban_hang_c988fb26",
+        "formula": "COUNT(DISTINCT order_id)",
+        "rulebook_ref": "Rulebook §1: Chỉ tính đơn không hủy, không trả."
+      },
+      "quantity_sold": {
+        "description": "Tổng số lượng bán quy đổi về đơn vị cơ bản.",
+        "primary_table": "so_ban_hang_c988fb26",
+        "formula": "SUM(so_luong_quy_doi)",
+        "rulebook_ref": "Rulebook §3: Xếp hạng bán chạy theo số lượng quy về đơn vị cơ bản."
+      }
+    },
+    "special_rules": {
+      "return_handling": "exclude_entire_order",
+      "debt": "Tính theo số chưa trả của tổng đơn; tuổi nợ tính từ ngày đặt",
+      "trade_in": "Sổ thu máy cũ nối với sổ bán hàng theo STT đơn và IMEI; tiền thu máy cũ trừ vào số tiền khách trả",
+      "warranty": "Phiếu bảo hành có Tiền 0, xe quay lại bảo hành việc của một phiếu trước, tiệm không thu tiền"
+    }
+  }
+}

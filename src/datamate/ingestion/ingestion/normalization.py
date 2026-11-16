@@ -152,7 +152,7 @@ def is_order_key(header: str, description: str = "") -> bool:
             )
         )
         or "mahoadon" in compact
-        or fold(header) in {"hd", "so hd", "don so", "so don"}
+        or fold(header) in {"hd", "so hd", "don so", "so don", "so ct", "so chung tu", "bill"}
     )
 
 

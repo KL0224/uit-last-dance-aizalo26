@@ -471,8 +471,7 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                     if is_product(h, d)
                 ]
                 order_lines = (
-                    export_convention
-                    and len(orders) == 1
+                    len(orders) == 1
                     and bool(products)
                     and "quantity" in roles
                 )
@@ -545,8 +544,10 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 "tong don hang ",
                                 "tong don ",
                                 "tong doanh thu ",
+                                "tong ",
                                 "cong ngay ",
                                 "cong thang ",
+                                "cong ",
                                 "ghi chu ",
                                 "subtotal ",
                                 "grand total ",
@@ -579,9 +580,11 @@ def _materialize(work, sources, documents, config, manifest, report, calendar=No
                                 roles[i] in {"money", "quantity"} and values[i] is not None and str(values[i]).strip()
                                 for i in range(len(values))
                             ):
-                                # Missing identity alone does not prove a subtotal.
+                                # Missing identity alone does not prove a subtotal; retained for review.
+                                # But terminate the preceding order group so this row is not forward-filled.
                                 issue(source, number, columns[0], "ambiguous_subtotal",
                                       "missing identity with numeric value; retained for review")
+                                group_order, order_fields = None, {}
 
                             if is_non_data:
                                 report["excluded_non_data_rows"] += 1

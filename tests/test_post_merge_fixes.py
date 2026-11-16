@@ -55,10 +55,10 @@ def test_prepare_business_with_unit_conversions_registers_table(tmp_path: Path) 
 
     with duckdb.connect(str(artifacts.bundle_dir / "data.duckdb"), read_only=True) as con:
         rows = con.execute("SELECT item_name, from_unit, to_unit, factor FROM main.unit_conversions").fetchall()
-    assert len(rows) == 1
-    assert rows[0][1] == "hop"
-    assert rows[0][2] == "cai"
-    assert float(rows[0][3]) == 10.0
+    assert len(rows) == 2
+    by_pair = {(r[1], r[2]): float(r[3]) for r in rows}
+    assert by_pair[("hop", "cai")] == 10.0
+    assert by_pair[("cai", "hop")] == 0.1
 
 
 def test_main_py_has_no_debug_thinking_dump() -> None:

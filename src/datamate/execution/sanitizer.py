@@ -212,4 +212,25 @@ def validate_read_only_sql(sql: str) -> str:
         if first_word and first_word.group(0) in NON_QUERY_LEADING_WORDS:
             raise SecurityViolation(f"Only SELECT queries are allowed, got '{first_word.group(0)}'.")
 
-    return cleaned_sql
+    return safe_null_not_in_rewrite(cleaned_sql)
+
+
+def safe_null_not_in_rewrite(sql: str) -> str:
+    """Rewrite col NOT IN ('a', 'b') into (COALESCE(col, '') NOT IN ('a', 'b'))
+
+    In SQL standard and DuckDB, `NULL NOT IN (...)` evaluates to UNKNOWN/NULL, which
+    silently drops all rows where the column is NULL. For status/notes filtering,
+    NULL rows are valid and must be retained.
+    """
+    pattern = re.compile(
+        r"(?i)\b((?:lower\s*\(\s*)?[a-zA-Z0-9_.]+(?:\s*\))?)\s+not\s+in\s*(\(\s*(?:\'[^\']*\'|\"[^\"]*\"|\d+)(?:\s*,\s*(?:\'[^\']*\'|\"[^\"]*\"|\d+))*\s*\))"
+    )
+
+    def repl(m: re.Match) -> str:
+        col_expr = m.group(1).strip()
+        in_expr = m.group(2).strip()
+        if col_expr.upper().startswith("COALESCE"):
+            return m.group(0)
+        return f"(COALESCE({col_expr}, '') NOT IN {in_expr})"
+
+    return pattern.sub(repl, sql)

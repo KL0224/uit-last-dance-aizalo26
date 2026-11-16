@@ -104,16 +104,33 @@ def publish_enrichment(bundle: Path, output: Path, catalogs: list[dict], manifes
             if con.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='main' AND table_name='unit_conversions'").fetchone()[0]:
                 raise ValueError('unit_conversions collides with source table; baseline unchanged')
             if verified:
+                bidirectional_units = []
+                seen_pairs = set()
+                for u in verified:
+                    item = str(u.get("item_name", "")).strip()
+                    f_u = str(u.get("from_unit", "")).strip()
+                    t_u = str(u.get("to_unit", "")).strip()
+                    factor = Decimal(str(u.get("factor", 1.0)))
+                    if not (item and f_u and t_u and factor > 0):
+                        continue
+                    pair_fwd = (item.casefold(), f_u.casefold(), t_u.casefold())
+                    if pair_fwd not in seen_pairs:
+                        seen_pairs.add(pair_fwd)
+                        bidirectional_units.append([item, f_u, t_u, factor])
+                    pair_rev = (item.casefold(), t_u.casefold(), f_u.casefold())
+                    if pair_rev not in seen_pairs:
+                        seen_pairs.add(pair_rev)
+                        bidirectional_units.append([item, t_u, f_u, Decimal(round(1.0 / float(factor), 12))])
+
                 con.execute('CREATE TABLE main.unit_conversions (item_name VARCHAR, from_unit VARCHAR, to_unit VARCHAR, factor DECIMAL(38,12))')
-                con.executemany('INSERT INTO main.unit_conversions VALUES (?,?,?,?)',
-                    [[u['item_name'], u['from_unit'], u['to_unit'], Decimal(u['factor'])] for u in verified])
+                con.executemany('INSERT INTO main.unit_conversions VALUES (?,?,?,?)', bidirectional_units)
                 baseline['schema_catalog']['tables'].append({
                     'name': 'unit_conversions', 'columns': [
                         {'name': n, 'data_type': t, 'nullable': False} for n,t in
                         [('item_name','VARCHAR'),('from_unit','VARCHAR'),('to_unit','VARCHAR'),('factor','DECIMAL(38,12)')]],
-                    'row_count': len(verified), 'provenance': 'B02 verified document equations'})
+                    'row_count': len(bidirectional_units), 'provenance': 'B02 verified document equations (bidirectional)'})
                 baseline.setdefault('data_profiling', {})['unit_conversions'] = {
-                    'row_count': len(verified), 'sample_rows': [{k:u[k] for k in ('item_name','from_unit','to_unit','factor')} for u in verified[:5]], 'origin': 'B02 evidence-checked enrichment'}
+                    'row_count': len(bidirectional_units), 'sample_rows': [{k:u[k] for k in ('item_name','from_unit','to_unit','factor')} for u in verified[:5]], 'origin': 'B02 evidence-checked enrichment'}
             if verified:
                 con.execute('CREATE TABLE IF NOT EXISTS meta.semantic_evidence (item_name VARCHAR, evidence_json VARCHAR)')
                 con.executemany('INSERT INTO meta.semantic_evidence VALUES (?,?)',
